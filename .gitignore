@@ -4,6 +4,7 @@ dist
 coverage
 .turbo
 .DS_Store
+*.tsbuildinfo
 .env
 .env.*
 !.env.example
