@@ -1,100 +1,144 @@
-# Progress
+# 进度记录
 
-Last updated: 2026-03-13
+最后更新：2026-03-13
 
-## Current state
+## 当前状态
 
-This repository is now a working v1 foundation for a cloud-hosted autonomous Polymarket trading agent with a public spectator website and an internal admin console.
+这个仓库已经具备一个 v1 基础版本，目标是支撑“云端自主运行 + 网站围观 + 服务层硬风控”的 Polymarket 交易系统。
 
-The codebase has been bootstrapped as a `pnpm` monorepo with:
+目前代码库已经完成 monorepo 结构搭建，包含：
 
-- `apps/web`: Next.js spectator site for Vercel
-- `services/orchestrator`: scheduling, risk control, agent runtime wiring, admin actions
-- `services/executor`: Polymarket execution, sync jobs, live ops scripts
-- `packages/contracts`: zod contracts for decisions and internal payloads
-- `packages/db`: Drizzle schema, queries, seed data, migrations
-- `vendor`: pinned third-party dependency manifest for external repos
+- `apps/web`
+  - 面向 Vercel 的围观站和管理员页面
+- `services/orchestrator`
+  - 调度、风控、任务编排、管理员动作
+- `services/executor`
+  - Polymarket 执行、同步、live ops
+- `packages/contracts`
+  - 决策结构和内部契约 schema
+- `packages/db`
+  - 数据库 schema、查询、种子、迁移
+- `vendor`
+  - 外部仓库锁定清单
 
-## Implemented
+## 已实现
 
-- Public spectator pages for:
-  - overview
-  - positions
-  - trades
-  - runs
-  - run detail
-  - reports
-  - backtests
-- Admin page with internal controls for:
-  - pause
-  - resume
-  - run-now
-  - cancel-open-orders
-  - flatten
-- Shared database schema for:
-  - agent runs
-  - agent decisions
-  - execution events
-  - positions
-  - portfolio snapshots
-  - risk events
-  - resolution checks
-  - artifacts
-  - system state
-- Queue-driven execution and orchestration service skeletons
-- Hard risk rules:
-  - 30% per-position stop loss
-  - 20% portfolio drawdown halt
-- Env auto-discovery for sibling Polymarket credentials via `.env.aizen`
-- Live ops scripts for:
-  - balance and market sanity checks
-  - capped live trade submission
+### 1. 网站侧
 
-## Verified
+公开页面已经具备：
 
-- `pnpm typecheck` passes
-- `pnpm test` passes
-- `pnpm build` passes
-- Real wallet credentials were discovered from `../pm-PlaceOrder/.env.aizen`
-- Real USDC balance check succeeded
-- A real capped live order notional of `$1` was submitted successfully on 2026-03-13
-- The resulting position was read back successfully from Polymarket account data
+- 总览页
+- 持仓页
+- 成交页
+- runs 列表页
+- run 详情页
+- reports 页
+- backtests 页
 
-## Live trade confirmation
+管理员页面已经具备以下控制项：
 
-The latest capped live test executed successfully:
+- `pause`
+- `resume`
+- `run-now`
+- `cancel-open-orders`
+- `flatten`
 
-- Market slug: `tur-kas-eyu-2026-03-15-kas`
-- Action: `BUY NO`
-- Requested notional: `$1`
-- Order status: `matched`
-- Order id: `0x4ec470917138126104a097a3fdaa506d61860e15c1dad9c2d21bbaf5678f1921`
+### 2. 数据模型
 
-The post-trade account readback showed:
+数据库中已经建立核心表：
 
-- Outcome: `No`
-- Size: `2.040815`
-- Average cost: `0.49`
+- `agent_runs`
+- `agent_decisions`
+- `execution_events`
+- `positions`
+- `portfolio_snapshots`
+- `risk_events`
+- `resolution_checks`
+- `artifacts`
+- `system_state`
 
-## Important fixes made during live testing
+### 3. 后端服务基础
 
-- CLOB authentication now tries `deriveApiKey()` before `createOrDeriveApiKey()`
-- Order book parsing now computes true best bid and best ask instead of trusting array order
-- Market selection now prefers liquid `markets` endpoint results before checking detailed books
-- Live test tooling supports explicit `--slug` targeting for safer manual execution
+已经完成：
 
-## Remaining gaps
+- orchestrator 基础服务
+- executor 基础服务
+- 共享 contracts
+- 风控逻辑基础实现
+- vendor 同步脚本
+- 数据库种子和查询层
 
-- Docker runtime validation has not been completed on this machine because Docker is not installed locally
-- The Claude Code runtime is wired as a service interface, but production prompt workflows and artifact publishing still need deeper integration
-- External vendor repos are pinned in manifest form, but deeper runtime integration with each repo is still partial
-- Vercel deployment and cloud host deployment have not yet been executed against production infrastructure
-- No OpenClaw runtime exists yet; only the abstraction is in place
+### 4. 风控规则
 
-## Next priorities
+当前已落地的硬规则包括：
 
-1. Wire the real Claude Code command and artifact pipeline into orchestrator runs.
-2. Replace mock/sample data paths with live DB-backed scheduler flows end to end.
-3. Deploy Postgres, Redis, orchestrator, and executor on the target cloud host.
-4. Deploy the web app to Vercel using read-only database credentials.
-5. Run a longer dry-run soak before increasing real-money automation scope.
+- 单仓 `30%` 止损
+- 总资金相对高水位 `20%` 回撤停机
+
+### 5. 凭据加载
+
+已经支持从相邻仓库自动发现 `.env.aizen`，用于本地开发环境连接真实 Polymarket 钱包。
+
+### 6. 实盘测试工具
+
+已经具备：
+
+- 余额检查脚本
+- 市场与盘口检查脚本
+- 不超过 `$1` 的 capped live trade 脚本
+
+## 已验证
+
+目前已经验证通过的内容：
+
+- `pnpm typecheck`
+- `pnpm test`
+- `pnpm build`
+- 成功发现真实钱包环境文件 `../pm-PlaceOrder/.env.aizen`
+- 成功读取真实 USDC 余额
+- 成功提交一次不超过 `$1` 的真实下单
+- 成功从 Polymarket 账户状态中读回该笔仓位
+
+## 最近一次真实测试单
+
+最近一次小额实盘测试结果如下：
+
+- 市场：`tur-kas-eyu-2026-03-15-kas`
+- 动作：`BUY NO`
+- 请求金额：`$1`
+- 订单状态：`matched`
+- 订单 ID：`0x4ec470917138126104a097a3fdaa506d61860e15c1dad9c2d21bbaf5678f1921`
+
+回读到的仓位信息：
+
+- Outcome：`No`
+- 持仓数量：`2.040815`
+- 平均成本：`0.49`
+
+## 在真实测试中修掉的问题
+
+这次实盘测试过程中，已经顺手修掉几个关键问题：
+
+- CLOB 认证优先尝试 `deriveApiKey()`，再回退到 `createOrDeriveApiKey()`
+- 订单簿读取不再盲信数组第一档，而是显式计算真实 best bid / best ask
+- 市场筛选优先使用更合适的 `markets` 接口做预筛选
+- live check 支持显式传入 `--slug`，便于安全地指定目标市场
+
+## 还没完成的部分
+
+目前还缺这些关键环节：
+
+- 没有完成 Docker 运行态验证，因为当前机器未安装 Docker
+- Claude Code 的完整生产决策闭环还没彻底接通
+- 外部 vendor 仓库虽然已经锁定，但很多能力还没有真正接入调度链路
+- Vercel 和云主机生产部署还没完成
+- OpenClaw runtime 还没做
+
+## 下一步优先级
+
+1. 打通真实 Claude Code 决策闭环
+2. 把 market pulse / backtesting / resolution tracking 真正接入 orchestrator
+3. 用真实运行数据替换样例展示路径
+4. 部署 Postgres、Redis、orchestrator、executor
+5. 把 web 部署到 Vercel
+6. 在扩大量化范围前，先完成更长时间的 dry-run

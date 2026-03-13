@@ -1,58 +1,72 @@
 # Autonomous Poly Trading
 
-Autonomous Polymarket trading stack with:
+这是一个面向 Polymarket 的云端自主交易系统仓库，目标是做出一套可以真实运行、可公开围观、并且具备硬风控约束的交易 Agent。
 
-- a public spectator website
-- an internal admin console
-- a cloud-hosted orchestrator
-- a queue-driven execution worker
-- a shared Postgres data model
+第一版的定位很明确：
 
-The v1 target is simple:
+- 只跑一个真钱包实例
+- 网站对外公开，只读围观
+- 管理操作只在站内管理员页面可用
+- 先支持 Claude Code
+- 后续再接 OpenClaw
 
-- run one real wallet
-- expose positions, trades, equity, reports, and decision logs on the web
-- keep third-party users read-only
-- keep all trading controls inside the admin surface
-- support Claude Code first, OpenClaw later
+## 项目目标
 
-## Architecture
+这个系统希望同时解决三件事：
 
-This repository is a `pnpm` monorepo:
+- 让 Agent 可以在云端持续运行，而不是只在本地脚本里临时执行
+- 让第三方用户可以在网页上看到真实仓位、交易历史、净值和报告
+- 把风控从提示词里拿出来，变成服务层的硬规则
+
+## 仓库结构
+
+本仓库是一个 `pnpm` monorepo，主要分为以下几部分：
 
 - `apps/web`
-  Public website and admin console built with Next.js. Intended for Vercel deployment.
+  - Next.js 网站
+  - 用于公开围观页和管理员控制台
+  - 目标部署平台是 Vercel
 - `services/orchestrator`
-  Schedules agent runs, enforces risk rules, triggers reviews, backtests, and admin actions.
+  - 负责调度 Agent 运行
+  - 负责风控状态管理
+  - 负责 backtest、resolution、review 等周期任务
 - `services/executor`
-  Owns Polymarket CLOB connectivity, order execution, position sync, and live ops scripts.
+  - 负责对接 Polymarket CLOB
+  - 负责下单、成交同步、仓位同步
+  - 负责 live ops 脚本
 - `packages/contracts`
-  Shared zod schemas for trading decisions, risk events, and internal payload validation.
+  - 共享的 zod schema
+  - 用来约束 `TradeDecisionSet` 等结构化数据
 - `packages/db`
-  Drizzle schema, seed data, and query helpers for the spectator site and backend services.
+  - Drizzle schema
+  - 数据查询
+  - 种子数据与迁移
 - `vendor`
-  Pinned manifest for the external repos this project builds around.
+  - 外部依赖仓库的固定清单
+  - 用于把外部 repo 锁到特定 commit
 
-## Product shape
+## 网站形态
 
-The public site exposes:
+公开围观页当前规划和实现的页面包括：
 
 - `/`
-  Overview, equity, cash, and current system state
+  - 总览页
+  - 展示资金、净值、系统状态等信息
 - `/positions`
-  Live positions
+  - 当前持仓
 - `/trades`
-  Trade history
+  - 历史成交
 - `/runs`
-  Agent run history
+  - Agent 运行列表
 - `/runs/[id]`
-  Per-run reasoning, logs, and decisions
+  - 单次运行详情
+  - 包括 reasoning、日志、决策等
 - `/reports`
-  Pulse, review, and resolution outputs
+  - pulse、review、resolution 结果
 - `/backtests`
-  Daily backtesting results
+  - 每日回测结果
 
-The admin surface exposes:
+管理员页面提供以下操作：
 
 - `pause`
 - `resume`
@@ -60,104 +74,122 @@ The admin surface exposes:
 - `cancel-open-orders`
 - `flatten`
 
-There is no public developer API in v1. The web app uses internal route handlers and database reads only.
+第一版不提供对外开发者 API。网站只读数据库或走站内内部接口，不做公开可集成的 API 产品。
 
-## Risk controls
+## 风控规则
 
-The initial hard risk rules are service-side rules, not prompt suggestions:
+当前已经明确的硬风控包括：
 
-- per-position stop loss: `30%`
-- portfolio drawdown halt: `20%`
-- max total exposure: `50%`
-- max concurrent positions: `10`
-- max single trade size: `5%` of bankroll
+- 单仓止损：`30%`
+- 总体资金回撤停机：`20%`
+- 最大总敞口：`50%`
+- 最大并发持仓数：`10`
+- 单笔最大下单比例：资金的 `5%`
 
-The executor uses `FOK` market orders for v1.
+执行层首版统一使用 `FOK` 市价单。
 
-## External repos used
+这意味着：
 
-This project is designed around the following repositories from `Alchemist-X`:
+- 即使模型想下单，服务层仍然会做风控裁剪
+- 进入 `HALTED` 状态后，不允许继续新开仓
+- 止损和人工 flatten 的优先级高于常规策略动作
+
+## 外部仓库依赖
+
+当前系统围绕以下外部仓库进行集成：
 
 - `polymarket-trading-TUI`
-  Terminal trading logic and CLOB wiring reference
+  - 作为交易终端和 CLOB 接线参考
 - `polymarket-market-pulse`
-  Core market recommendation input
+  - 作为下注建议和仓位建议的核心输入
 - `alert-stop-loss-pm`
-  Stop-loss logic reference
+  - 作为止损逻辑参考
 - `all-polymarket-skill`
-  Backtesting and additional monitor / resolution skills
+  - 提供 backtesting、monitor、resolution tracking 等能力参考
 - `pm-PlaceOrder`
-  Execution benchmarking reference and local credential source during development
+  - 作为下单参考和本地凭据来源
 
-The `vendor` manifest exists so these repos can be pinned and synced locally instead of being pulled ad hoc in production flows.
+`vendor` 目录的作用，是把这些外部依赖锁定在明确版本，而不是在运行时临时拉代码。
 
-## Quick start
+## 快速开始
 
-1. Copy env config:
+1. 复制环境变量模板：
 
 ```bash
 cp .env.example .env
 ```
 
-2. Install dependencies:
+2. 安装依赖：
 
 ```bash
 pnpm install
 ```
 
-3. Sync pinned vendor repos:
+3. 同步外部 vendor 仓库：
 
 ```bash
 pnpm vendor:sync
 ```
 
-4. Start local data services:
+4. 启动本地数据服务：
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-5. Apply migrations and seed:
+5. 执行数据库迁移并写入初始数据：
 
 ```bash
 pnpm db:migrate
 pnpm db:seed
 ```
 
-6. Start the monorepo:
+6. 启动整个 monorepo：
 
 ```bash
 pnpm dev
 ```
 
-Local ports:
+本地默认端口：
 
-- web: `http://localhost:3000`
-- orchestrator: `http://localhost:4001`
-- executor: `http://localhost:4002`
+- web：`http://localhost:3000`
+- orchestrator：`http://localhost:4001`
+- executor：`http://localhost:4002`
 
-## Environment
+## 环境变量说明
 
-See [.env.example](.env.example) for the full local config template.
+完整模板见 [.env.example](.env.example)。
 
-If your Polymarket credentials live in a sibling repository, set:
+如果你的 Polymarket 凭据放在相邻仓库里，可以在 `.env` 中设置：
 
 ```bash
 ENV_FILE=../pm-PlaceOrder/.env.aizen
 ```
 
-The executor and orchestrator also auto-discover a sibling `.env.aizen` during development.
+当前 executor 和 orchestrator 都支持在开发环境自动发现相邻目录中的 `.env.aizen`。
 
-Key runtime groups:
+环境变量大致分为四组：
 
-- shared: database, redis, app url
-- web: admin password and internal orchestrator token
-- executor: private key, funder address, signature type, chain id
-- orchestrator: Claude runtime command, scheduling, risk thresholds
+- shared
+  - 数据库
+  - Redis
+  - App URL
+- web
+  - 管理员密码
+  - orchestrator 内部 token
+- executor
+  - 私钥
+  - funder address
+  - signature type
+  - chain id
+- orchestrator
+  - Claude runtime 命令
+  - 调度周期
+  - 风控参数
 
-## Useful commands
+## 常用命令
 
-Workspace validation:
+工作区校验：
 
 ```bash
 pnpm typecheck
@@ -165,7 +197,7 @@ pnpm test
 pnpm build
 ```
 
-Database:
+数据库相关：
 
 ```bash
 pnpm db:generate
@@ -173,7 +205,7 @@ pnpm db:migrate
 pnpm db:seed
 ```
 
-Live executor checks:
+执行层 live 检查：
 
 ```bash
 pnpm --filter @autopoly/executor ops:check
@@ -181,29 +213,46 @@ pnpm --filter @autopoly/executor ops:check -- --slug <market-slug>
 pnpm --filter @autopoly/executor ops:trade -- --slug <market-slug> --max-usd 1
 ```
 
-## Deployment shape
+## 部署形态
 
-- `apps/web` is intended for Vercel with a read-only Postgres connection.
-- `services/orchestrator` and `services/executor` are intended for a single cloud host via Docker Compose.
-- Postgres should be managed or hosted separately.
-- Redis is only for backend job coordination.
-- Admin actions stay inside the site and call protected orchestrator endpoints.
+推荐部署方式如下：
 
-## Current status
+- `apps/web`
+  - 部署到 Vercel
+  - 使用只读 Postgres 凭据
+- `services/orchestrator`
+  - 部署到单台云主机
+- `services/executor`
+  - 部署到同一台云主机
+- Postgres
+  - 建议使用托管数据库
+- Redis
+  - 仅供后台任务和队列使用
 
-As of 2026-03-13:
+管理员操作保持在站内，通过受保护的内部接口调用 orchestrator，不向公众暴露。
 
-- the monorepo is bootstrapped
-- the public pages and admin pages exist
-- the shared schema and queue-oriented backend services exist
-- live Polymarket credential discovery works
-- a capped real-money test order of `$1` was submitted and matched successfully
+## 当前状态
 
-The latest implementation status is tracked in [progress.md](progress.md).
+截至 `2026-03-13`，当前仓库已经完成这些基础工作：
 
-## Current limitations
+- monorepo 已经搭起来
+- 围观站页面和管理员页面已经存在
+- 共享数据模型已经建立
+- executor / orchestrator 的服务骨架已完成
+- `.env.aizen` 自动发现已经接通
+- 已经成功完成一次不超过 `$1` 的真实下单测试
 
-- Docker runtime validation has not been completed on this machine because Docker is not installed locally
-- production deployment to Vercel and the target cloud host is not done yet
-- Claude Code is wired as an integration surface, but the full production decision loop still needs deeper runtime integration
-- OpenClaw is not implemented yet
+更详细的实现进度见 [progress.md](progress.md)。
+
+## 当前限制
+
+目前仍有以下限制：
+
+- 这台开发机器没有 Docker，所以没有完成本地 Docker 运行态验证
+- Vercel 和云主机的正式部署还没做
+- Claude Code 虽然已经有 runtime 抽象和接入位置，但完整生产决策闭环还需要继续打通
+- OpenClaw 还没有实现
+
+## 后续规划
+
+接下来的高优先级事项见 [todo-loop.md](todo-loop.md)。
