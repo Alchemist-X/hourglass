@@ -1,5 +1,7 @@
 # 进度记录
 
+英文版见 [progress.en.md](progress.en.md)。
+
 最后更新：2026-03-13
 
 ## 当前状态

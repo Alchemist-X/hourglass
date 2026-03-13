@@ -1,5 +1,7 @@
 # OKX 批量创建多 EVM 账户调研
 
+英文版见 [multi-wallet-register.en.md](multi-wallet-register.en.md)。
+
 最后更新：2026-03-13
 
 ## 调研问题

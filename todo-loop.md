@@ -1,5 +1,7 @@
 # TODO Loop
 
+英文版见 [todo-loop.en.md](todo-loop.en.md)。
+
 最后更新：2026-03-13
 
 这份清单只记录接下来真正需要推进的事项，分成两类：

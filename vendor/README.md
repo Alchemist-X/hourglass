@@ -1,5 +1,7 @@
 # Vendor 仓库说明
 
+英文版见 [README.en.md](README.en.md)。
+
 这里用于管理外部第三方仓库的固定版本。
 
 所有需要锁定的外部仓库都定义在 `vendor/manifest.json` 中。

@@ -1,5 +1,7 @@
 # Autonomous Poly Trading
 
+英文版见 [README.en.md](README.en.md)。
+
 这是一个面向 Polymarket 的云端自主交易系统仓库，目标是做出一套可以真实运行、可公开围观、并且具备硬风控约束的交易 Agent。
 
 第一版的定位很明确：
