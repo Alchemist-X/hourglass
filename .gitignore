@@ -13,3 +13,4 @@ runtime-artifacts/*
 !runtime-artifacts/.gitkeep
 E2E Test Driven Development/artifacts/*
 !E2E Test Driven Development/artifacts/.gitkeep
+E2E Test Driven Development/E2E Test Driven Development/
