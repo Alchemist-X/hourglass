@@ -8,40 +8,6 @@ Chinese version: [rough-loop.md](rough-loop.md).
 - 每次任务完成后，Rough Loop 都应立即提交本轮任务触碰到的文件。
 
 ## Queue
-### RL-001 | 补充 Rough Loop bootstrap smoke 说明 / Add Rough Loop bootstrap smoke guidance
-
-#### Title
-补充 Rough Loop bootstrap smoke 说明 / Add Rough Loop bootstrap smoke guidance
-
-#### Status
-todo
-
-#### Priority
-P0
-
-#### Depends On
-- none
-
-#### Allowed Paths
-- rough-loop-guide.md
-- rough-loop-guide.en.md
-
-#### Definition of Done
-- 在 `rough-loop-guide.md` 增加最小闭环启动步骤，覆盖旧 daemon 或 `.rough-loop.lock` 检查、`ROUGH_LOOP_AUTO_PUSH=1` 启动方式，以及首张 smoke 任务建议 / Add the minimal closed-loop bootstrap steps to `rough-loop-guide.md`, covering old daemon or `.rough-loop.lock` checks, the `ROUGH_LOOP_AUTO_PUSH=1` startup flow, and the recommended first smoke task
-- 在 `rough-loop-guide.en.md` 同步更新相同信息 / Sync the same information in `rough-loop-guide.en.md`
-
-#### Verification
-- rg -n "ROUGH_LOOP_AUTO_PUSH|\.rough-loop\.lock|smoke" rough-loop-guide.md rough-loop-guide.en.md
-
-#### Context
-- `260316-handoff.md` 已明确建议先用最小任务卡验证 daemon 自动拾取、归档和单任务提交闭环 / `260316-handoff.md` already recommends validating daemon pickup, artifact generation, and single-task commits with a minimal task card
-
-#### Latest Result
-- 尚未开始 / Not started
-
-#### Attempts
-0
-
 ### RL-002 | 补齐 provider-runtime 结构化输出回归覆盖 / Add provider-runtime structured-output regression coverage
 
 #### Title
@@ -124,4 +90,36 @@ No tasks.
 No tasks.
 
 ## Done
-No tasks.
+### RL-001 | 补充 Rough Loop bootstrap smoke 说明 / Add Rough Loop bootstrap smoke guidance
+
+#### Title
+补充 Rough Loop bootstrap smoke 说明 / Add Rough Loop bootstrap smoke guidance
+
+#### Status
+done
+
+#### Priority
+P0
+
+#### Depends On
+none
+
+#### Allowed Paths
+- rough-loop-guide.md
+- rough-loop-guide.en.md
+
+#### Definition of Done
+- 在 `rough-loop-guide.md` 增加最小闭环启动步骤，覆盖旧 daemon 或 `.rough-loop.lock` 检查、`ROUGH_LOOP_AUTO_PUSH=1` 启动方式，以及首张 smoke 任务建议 / Add the minimal closed-loop bootstrap steps to `rough-loop-guide.md`, covering old daemon or `.rough-loop.lock` checks, the `ROUGH_LOOP_AUTO_PUSH=1` startup flow, and the recommended first smoke task
+- 在 `rough-loop-guide.en.md` 同步更新相同信息 / Sync the same information in `rough-loop-guide.en.md`
+
+#### Verification
+- rg -n "ROUGH_LOOP_AUTO_PUSH|\.rough-loop\.lock|smoke" rough-loop-guide.md rough-loop-guide.en.md
+
+#### Context
+- `260316-handoff.md` 已明确建议先用最小任务卡验证 daemon 自动拾取、归档和单任务提交闭环 / `260316-handoff.md` already recommends validating daemon pickup, artifact generation, and single-task commits with a minimal task card
+
+#### Latest Result
+- 已采纳第 1 次尝试生成的指南更新，并手动清理 provider 留下的 blocked 占位结果 / Accepted the guide updates from attempt 1 and manually cleared the provider's blocked placeholder result
+
+#### Attempts
+1

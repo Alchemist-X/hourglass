@@ -37,6 +37,39 @@ pnpm rough-loop:dev
 
 TTY terminals use colored human-readable sections by default; `--json`, CI, non-TTY shells, or `NO_COLOR=1` fall back to machine-readable or colorless output.
 
+## Minimal Bootstrap Smoke
+
+Start with one minimal `smoke` task card to validate daemon pickup, artifact generation, and the single-task commit / push loop before moving on to larger work.
+
+First confirm there is no old daemon still holding `.rough-loop.lock`:
+
+```bash
+ps -ax -o pid=,command= | rg 'node dist/cli.js daemon|pnpm rough-loop:start'
+test -f .rough-loop.lock && cat .rough-loop.lock
+```
+
+- If you still see a live old daemon, stop it first so two processes do not compete for `.rough-loop.lock`
+- If only `.rough-loop.lock` remains and there is no matching live process, treat it as a leftover lock and remove it before restarting:
+
+```bash
+rm -f .rough-loop.lock
+```
+
+Then start a fresh daemon with the minimal closed loop. If you want every completed task to auto-push to the current branch, start it with `ROUGH_LOOP_AUTO_PUSH=1`:
+
+```bash
+ROUGH_LOOP_RELAX_GUARDRAILS=1 \
+ROUGH_LOOP_REQUIRE_CLEAN_TREE=0 \
+ROUGH_LOOP_AUTO_PUSH=1 \
+pnpm rough-loop:start
+```
+
+Recommended first `smoke` task:
+
+- Pick the smallest possible doc pair change or one tiny test change; do not start with the trading execution path
+- Keep `Allowed Paths` narrowed to one or two files so the commit / push scope is easy to inspect
+- Verify that the daemon moves the task to `running`, writes `runtime-artifacts/rough-loop/runs/...`, and commits only the files touched by that task
+
 ## Task Card Format
 
 Every task must live under the `Queue` section and use this structure:

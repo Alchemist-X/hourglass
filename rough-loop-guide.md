@@ -37,6 +37,39 @@ pnpm rough-loop:dev
 
 TTY 终端默认显示彩色分段输出；`--json`、CI、非 TTY 或 `NO_COLOR=1` 会退回机器可读或无颜色输出。
 
+## 最小闭环启动（Bootstrap Smoke）
+
+推荐先用一张最小 `smoke` 任务卡验证 daemon 自动拾取、产出归档，以及“单任务 commit / push”闭环，再继续更大的任务。
+
+先确认没有旧 daemon 或残留 `.rough-loop.lock`：
+
+```bash
+ps -ax -o pid=,command= | rg 'node dist/cli.js daemon|pnpm rough-loop:start'
+test -f .rough-loop.lock && cat .rough-loop.lock
+```
+
+- 如果还能看到活跃的旧 daemon，先停止旧实例，避免两个进程同时争抢 `.rough-loop.lock`
+- 如果只剩 `.rough-loop.lock` 但查不到对应活进程，把它当作残留锁并删除后再启动：
+
+```bash
+rm -f .rough-loop.lock
+```
+
+然后用最小闭环方式启动新实例；如果你希望每张已完成任务都自动 push 到当前分支，可以直接带上 `ROUGH_LOOP_AUTO_PUSH=1`：
+
+```bash
+ROUGH_LOOP_RELAX_GUARDRAILS=1 \
+ROUGH_LOOP_REQUIRE_CLEAN_TREE=0 \
+ROUGH_LOOP_AUTO_PUSH=1 \
+pnpm rough-loop:start
+```
+
+首张 `smoke` 任务建议：
+
+- 优先选“只改 1 组文档或 1 个小测试”的最小任务，不要一上来改交易执行主链路
+- `Allowed Paths` 尽量收窄到 1 到 2 个文件，方便确认 commit / push 范围正确
+- 验证重点是 daemon 是否自动把任务移到 `running`、是否生成 `runtime-artifacts/rough-loop/runs/...`，以及完成后是否只提交本轮触碰文件
+
 ## 任务卡片格式
 
 每个任务必须放在 `Queue` 区块下，并使用下面的固定结构：
