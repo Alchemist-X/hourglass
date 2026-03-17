@@ -145,7 +145,7 @@ export function loadConfig(): OrchestratorConfig {
     minTradeUsd: readNumber("MIN_TRADE_USD", 10),
     initialBankrollUsd: readNumber("INITIAL_BANKROLL_USD", 10000),
     runtimeProvider: readEnum("AGENT_RUNTIME_PROVIDER", "codex", agentRuntimeProviders),
-    decisionStrategy: readEnum("AGENT_DECISION_STRATEGY", "provider-runtime", agentDecisionStrategies),
+    decisionStrategy: readEnum("AGENT_DECISION_STRATEGY", "pulse-direct", agentDecisionStrategies),
     artifactStorageRoot: path.resolve(readString("ARTIFACT_STORAGE_ROOT", path.join(repoRoot, "runtime-artifacts"))),
     providerTimeoutSeconds: readNumber("PROVIDER_TIMEOUT_SECONDS", 0),
     pulseFetchTimeoutSeconds: readNumber("PULSE_FETCH_TIMEOUT_SECONDS", 60),

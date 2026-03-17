@@ -1,9 +1,7 @@
 import path from "node:path";
-import { mkdir, rename, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { Job, Queue, QueueEvents, type Worker } from "bullmq";
-import Redis from "ioredis";
-import { asc, eq, isNull, sql } from "drizzle-orm";
+import { asc, eq, isNull } from "drizzle-orm";
 import {
   executionEvents,
   getDb,
@@ -33,15 +31,33 @@ import {
   LIVE_TEST_BANKROLL_USD,
   LIVE_TEST_MAX_EVENT_EXPOSURE_PCT,
   LIVE_TEST_MAX_TRADE_PCT,
-  buildLiveTestDirectoryName,
   evaluateLiveTestPreflight,
   type LiveTestPreflightInput,
   type LiveTestPreflightReport
 } from "./live-test-helpers.ts";
 import {
+  probeDbHealth,
+  probeRedisHealth
+} from "./live-preflight-probes.ts";
+import {
   mapOverviewToSummarySnapshot,
   writeRunSummaryArtifacts
 } from "./live-run-summary.ts";
+import {
+  mapBlockedItemToSummaryBlockedItem,
+  mapDecisionToSummaryDecision,
+  mapExecutionEventToSummaryOrder,
+  mapQueuedTradeToSummaryPlan
+} from "./live-run-summary-builders.ts";
+import {
+  buildLiveRunContextRows,
+  createArchiveDir,
+  ensureDirectory,
+  finalizeArchiveDir,
+  formatTimestampToken,
+  maskAddressForDisplay,
+  writeJsonArtifact
+} from "./live-run-common.ts";
 
 interface LiveTestArgs {
   json: boolean;
@@ -82,64 +98,6 @@ function parseArgs(argv = process.argv.slice(2)): LiveTestArgs {
   };
 }
 
-function formatTimestampToken(now = new Date()): string {
-  return now.toISOString().replaceAll(":", "").replace(/\.\d{3}Z$/, "Z");
-}
-
-function maskValue(value: string): string {
-  if (!value) {
-    return "-";
-  }
-  if (value.length <= 10) {
-    return `${value.slice(0, 3)}***`;
-  }
-  return `${value.slice(0, 6)}***${value.slice(-4)}`;
-}
-
-async function ensureDirectory(dirPath: string) {
-  await mkdir(dirPath, { recursive: true });
-}
-
-async function writeJsonArtifact(filePath: string, value: unknown) {
-  await ensureDirectory(path.dirname(filePath));
-  await writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
-}
-
-async function createArchiveDir(root: string, timestamp: string) {
-  const dirPath = path.join(root, buildLiveTestDirectoryName(timestamp, null));
-  await ensureDirectory(dirPath);
-  return dirPath;
-}
-
-async function finalizeArchiveDir(currentDir: string, timestamp: string, runId: string) {
-  const nextDir = path.join(path.dirname(currentDir), buildLiveTestDirectoryName(timestamp, runId));
-  if (nextDir === currentDir) {
-    return currentDir;
-  }
-  await rename(currentDir, nextDir);
-  return nextDir;
-}
-
-function toContextRows(input: {
-  envFilePath: string | null;
-  archiveDir: string;
-  funderAddress: string;
-  runId?: string | null;
-  marketSlug?: string;
-  tokenId?: string;
-  requestedUsd?: number | null;
-}) {
-  return [
-    ["Env File", input.envFilePath ?? "-"],
-    ["Archive Dir", input.archiveDir],
-    ["Wallet", maskValue(input.funderAddress)],
-    ["Run ID", input.runId ?? "-"],
-    ["Market", input.marketSlug ?? "-"],
-    ["Token", input.tokenId ?? "-"],
-    ["Requested USD", input.requestedUsd == null ? "-" : formatUsd(input.requestedUsd)]
-  ];
-}
-
 function buildFailure(input: LiveTestErrorShape, cause?: unknown): LiveTestError {
   return new LiveTestError(input, cause == null ? undefined : { cause });
 }
@@ -148,26 +106,13 @@ async function collectPreflight(input: {
   executorConfig: ReturnType<typeof loadExecutorConfig>;
   orchestratorConfig: ReturnType<typeof loadOrchestratorConfig>;
 }): Promise<LiveTestPreflightReport> {
-  const db = getDb();
   let dbOk = false;
   let redisOk = false;
   let clobOk = false;
   let usdcBalance = 0;
 
-  await db.execute(sql`select 1`);
-  dbOk = true;
-
-  const redis = new Redis(input.executorConfig.redisUrl, {
-    maxRetriesPerRequest: null,
-    lazyConnect: true
-  });
-
-  try {
-    await redis.connect();
-    redisOk = (await redis.ping()) === "PONG";
-  } finally {
-    redis.disconnect();
-  }
+  dbOk = await probeDbHealth();
+  redisOk = await probeRedisHealth(input.executorConfig.redisUrl);
 
   const balance = await getCollateralBalanceAllowance(input.executorConfig);
   if (balance) {
@@ -322,7 +267,7 @@ function buildFailurePayload(input: {
     rawSummary: input.rawSummary ?? null,
     archiveDir: input.archiveDir,
     envFilePath: input.envFilePath,
-    funderAddress: maskValue(input.funderAddress),
+    funderAddress: maskAddressForDisplay(input.funderAddress),
     runId: input.runId,
     context: input.context ?? [],
     marketSlug: input.marketSlug ?? null,
@@ -337,7 +282,7 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
   const printer = createTerminalPrinter();
   const useHumanOutput = !args.json && shouldUseHumanOutput(process.stdout);
   const timestamp = formatTimestampToken();
-  let archiveDir = path.join(path.resolve(process.cwd(), "runtime-artifacts", "live-test"), buildLiveTestDirectoryName(timestamp, null));
+  let archiveDir = path.join(path.resolve(process.cwd(), "runtime-artifacts", "live-test"), `${timestamp}-pending`);
   let preflightPath: string | null = null;
   let recommendationPath: string | null = null;
   let executionSummaryPath: string | null = null;
@@ -350,6 +295,7 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
   let reasoningMd: string | null = null;
   let pulseMarkdownPath: string | null = null;
   let runtimeLogPath: string | null = null;
+  let supplementalArtifactPaths: string[] = [];
   let preflight: LiveTestPreflightReport = {
     ok: false,
     checks: [],
@@ -384,7 +330,7 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
     if (useHumanOutput) {
       printer.section("Live Test", `env ${process.env.ENV_FILE}`);
       printer.table([
-        ["Wallet", maskValue(executorConfig.funderAddress)],
+        ["Wallet", maskAddressForDisplay(executorConfig.funderAddress)],
         ["Artifact Dir", archiveDir],
         ["Bankroll", formatUsd(orchestratorConfig.initialBankrollUsd)],
         ["Max Trade", formatRatioPercent(orchestratorConfig.maxTradePct)],
@@ -406,10 +352,12 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
       throw buildFailure({
         stage: "preflight",
         message: "Live test preflight failed.",
-        context: toContextRows({
+        context: buildLiveRunContextRows({
           envFilePath: preflight.envFilePath,
           archiveDir,
-          funderAddress: executorConfig.funderAddress
+          funderAddress: executorConfig.funderAddress,
+          executionMode: preflight.executionMode,
+          decisionStrategy: orchestratorConfig.decisionStrategy
         }),
         nextSteps: [
           "Fix the failing preflight checks in the dedicated live-test env file.",
@@ -450,10 +398,12 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
       throw buildFailure({
         stage: "recommend",
         message: cycle.skipped ? cycle.reason ?? "Agent cycle skipped." : "Agent cycle did not return a run id.",
-        context: toContextRows({
+        context: buildLiveRunContextRows({
           envFilePath: preflight.envFilePath,
           archiveDir,
-          funderAddress: executorConfig.funderAddress
+          funderAddress: executorConfig.funderAddress,
+          executionMode: preflight.executionMode,
+          decisionStrategy: orchestratorConfig.decisionStrategy
         }),
         nextSteps: ["Check system status and orchestrator runtime configuration before retrying."],
         haltSystem: true
@@ -471,6 +421,9 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
     reasoningMd = runDetail?.reasoning_md ?? null;
     pulseMarkdownPath = runDetail?.artifacts.find((artifact) => artifact.kind === "pulse-report")?.path ?? null;
     runtimeLogPath = runDetail?.artifacts.find((artifact) => artifact.kind === "runtime-log")?.path ?? null;
+    supplementalArtifactPaths = (runDetail?.artifacts ?? [])
+      .filter((artifact) => !["pulse-report", "runtime-log"].includes(artifact.kind))
+      .map((artifact) => artifact.path);
     if (runDetail) {
       const executableKeys = new Set(
         executableTrades.map((trade) => `${trade.decision.market_slug}:${trade.decision.action}:${trade.decision.token_id}`)
@@ -521,10 +474,12 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
           stage: "execute",
           message: "A live trade job failed.",
           rawSummary: getErrorMessage(error),
-          context: toContextRows({
+          context: buildLiveRunContextRows({
             envFilePath: preflight.envFilePath,
             archiveDir,
             funderAddress: executorConfig.funderAddress,
+            executionMode: preflight.executionMode,
+            decisionStrategy: orchestratorConfig.decisionStrategy,
             runId,
             marketSlug: trade.decision.market_slug,
             tokenId: trade.decision.token_id,
@@ -550,10 +505,12 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
         stage: "sync",
         message: "Portfolio sync job failed after trade execution.",
         rawSummary: getErrorMessage(error),
-        context: toContextRows({
+        context: buildLiveRunContextRows({
           envFilePath: preflight.envFilePath,
           archiveDir,
           funderAddress: executorConfig.funderAddress,
+          executionMode: preflight.executionMode,
+          decisionStrategy: orchestratorConfig.decisionStrategy,
           runId
         }),
         nextSteps: [
@@ -578,39 +535,12 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
       stage: "completed",
       promptSummary,
       reasoningMd,
-      decisions: (runDetail?.decisions ?? []).map((decision) => ({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        eventSlug: decision.event_slug,
-        tokenId: decision.token_id,
-        side: decision.side,
-        notionalUsd: decision.notional_usd,
-        thesisMd: decision.thesis_md
-      })),
-      executablePlans: executableTrades.map((trade) => ({
-        action: trade.decision.action,
-        marketSlug: trade.decision.market_slug,
-        eventSlug: trade.decision.event_slug,
-        tokenId: trade.decision.token_id,
-        side: trade.decision.side,
-        notionalUsd: trade.decision.notional_usd,
-        bankrollRatio: orchestratorConfig.initialBankrollUsd > 0
-          ? trade.decision.notional_usd / orchestratorConfig.initialBankrollUsd
-          : 0,
-        thesisMd: trade.decision.thesis_md
-      })),
-      executedOrders: executionSummary.executionEvents.map((event) => ({
-        marketSlug: event.marketSlug,
-        tokenId: event.tokenId,
-        side: event.side,
-        requestedNotionalUsd: event.requestedNotionalUsd,
-        filledNotionalUsd: event.filledNotionalUsd,
-        avgPrice: event.avgPrice,
-        orderId: event.orderId,
-        status: event.status,
-        ok: event.status === "filled"
-      })),
-      blockedItems,
+      decisions: (runDetail?.decisions ?? []).map(mapDecisionToSummaryDecision),
+      executablePlans: executableTrades.map((trade) =>
+        mapQueuedTradeToSummaryPlan(trade, orchestratorConfig.initialBankrollUsd)
+      ),
+      executedOrders: executionSummary.executionEvents.map(mapExecutionEventToSummaryOrder),
+      blockedItems: blockedItems.map(mapBlockedItemToSummaryBlockedItem),
       portfolioBefore: {
         cashUsd: orchestratorConfig.initialBankrollUsd,
         equityUsd: orchestratorConfig.initialBankrollUsd,
@@ -623,7 +553,8 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
         recommendationPath,
         executionSummaryPath,
         pulseMarkdownPath,
-        runtimeLogPath
+        runtimeLogPath,
+        additionalPaths: supplementalArtifactPaths
       }
     });
 
@@ -664,10 +595,12 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
       : buildFailure({
           stage: "unknown",
           message: getErrorMessage(error),
-          context: toContextRows({
+          context: buildLiveRunContextRows({
             envFilePath: preflight.envFilePath,
             archiveDir,
             funderAddress: executorConfig?.funderAddress ?? "",
+            executionMode: preflight.executionMode,
+            decisionStrategy: orchestratorConfig?.decisionStrategy ?? undefined,
             runId
           }),
           nextSteps: [
@@ -711,28 +644,11 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
       stage: failure.shape.stage,
       promptSummary,
       reasoningMd,
-      decisions: (runDetail?.decisions ?? []).map((decision) => ({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        eventSlug: decision.event_slug,
-        tokenId: decision.token_id,
-        side: decision.side,
-        notionalUsd: decision.notional_usd,
-        thesisMd: decision.thesis_md
-      })),
-      executablePlans: executableTrades.map((trade) => ({
-        action: trade.decision.action,
-        marketSlug: trade.decision.market_slug,
-        eventSlug: trade.decision.event_slug,
-        tokenId: trade.decision.token_id,
-        side: trade.decision.side,
-        notionalUsd: trade.decision.notional_usd,
-        bankrollRatio: orchestratorConfig && orchestratorConfig.initialBankrollUsd > 0
-          ? trade.decision.notional_usd / orchestratorConfig.initialBankrollUsd
-          : 0,
-        thesisMd: trade.decision.thesis_md
-      })),
-      blockedItems,
+      decisions: (runDetail?.decisions ?? []).map(mapDecisionToSummaryDecision),
+      executablePlans: executableTrades.map((trade) =>
+        mapQueuedTradeToSummaryPlan(trade, orchestratorConfig?.initialBankrollUsd ?? 0)
+      ),
+      blockedItems: blockedItems.map(mapBlockedItemToSummaryBlockedItem),
       failure: {
         stage: failure.shape.stage,
         message: failure.shape.message,
@@ -745,7 +661,8 @@ export async function runLiveTest(args: LiveTestArgs = parseArgs()): Promise<Liv
         executionSummaryPath,
         errorPath,
         pulseMarkdownPath,
-        runtimeLogPath
+        runtimeLogPath,
+        additionalPaths: supplementalArtifactPaths
       }
     });
 

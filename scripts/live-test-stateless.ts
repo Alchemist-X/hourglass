@@ -1,5 +1,4 @@
 import path from "node:path";
-import { mkdir, rename, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import type { OverviewResponse, PublicPosition, TradeDecision } from "@autopoly/contracts";
@@ -18,17 +17,17 @@ import {
   computeAvgCost,
   executeMarketOrder,
   fetchRemotePositions,
-  getCollateralBalanceAllowance,
   readBook,
   type RemotePosition
 } from "../services/executor/src/lib/polymarket.ts";
 import { loadConfig as loadOrchestratorConfig } from "../services/orchestrator/src/config.ts";
+import {
+  ensureDailyPulseSnapshot,
+  runDailyPulseCore
+} from "../services/orchestrator/src/jobs/daily-pulse-core.ts";
 import { applyTradeGuards } from "../services/orchestrator/src/lib/risk.ts";
 import { createTerminalProgressReporter } from "../services/orchestrator/src/lib/terminal-progress.ts";
-import { generatePulseSnapshot } from "../services/orchestrator/src/pulse/market-pulse.ts";
 import { createAgentRuntime } from "../services/orchestrator/src/runtime/runtime-factory.ts";
-import { resolveProviderSkillSettings } from "../services/orchestrator/src/runtime/skill-settings.ts";
-import { buildLiveTestDirectoryName } from "./live-test-helpers.ts";
 import { loadPulseSnapshotFromArtifacts } from "./live-test-stateless-pulse.ts";
 import {
   STATELESS_MAX_BUY_TOKENS,
@@ -43,6 +42,24 @@ import {
   mapOverviewToSummarySnapshot,
   writeRunSummaryArtifacts
 } from "./live-run-summary.ts";
+import {
+  mapBlockedItemToSummaryBlockedItem,
+  mapDecisionToSummaryDecision,
+  mapExecutedOrderToSummaryOrder,
+  mapStatelessPlanToSummaryPlan
+} from "./live-run-summary-builders.ts";
+import {
+  buildLiveRunContextRows,
+  createArchiveDir,
+  ensureDirectory,
+  finalizeArchiveDir,
+  formatTimestampToken,
+  maskAddressForDisplay,
+  writeJsonArtifact
+} from "./live-run-common.ts";
+import {
+  probeCollateralBalanceUsd
+} from "./live-preflight-probes.ts";
 
 interface Args {
   json: boolean;
@@ -131,199 +148,6 @@ function roundCurrency(value: number): number {
   return Number(value.toFixed(4));
 }
 
-function maskAddress(address: string) {
-  return address ? `${address.slice(0, 6)}***${address.slice(-4)}` : "-";
-}
-
-function formatTimestampToken(now = new Date()) {
-  return now.toISOString().replaceAll(":", "").replace(/\.\d{3}Z$/, "Z");
-}
-
-interface OnchainBalanceProbe {
-  balanceUsd: number | null;
-  errorMessage: string | null;
-}
-
-interface CollateralProbe {
-  balanceUsd: number | null;
-  source: "reported" | "onchain" | "fallback";
-  reportedBalanceUsd: number | null;
-  onchainBalanceUsd: number | null;
-  errorMessage: string | null;
-}
-
-function parseHexToUsd(value: unknown): number | null {
-  if (typeof value !== "string" || !value.startsWith("0x")) {
-    return null;
-  }
-  try {
-    return Number(BigInt(value)) / 1e6;
-  } catch {
-    return null;
-  }
-}
-
-async function readOnchainUsdcBalanceUsd(address: string): Promise<OnchainBalanceProbe> {
-  if (!address) {
-    return {
-      balanceUsd: null,
-      errorMessage: "missing funder address"
-    };
-  }
-  const rpcUrl = process.env.POLYGON_RPC_URL?.trim() || "https://polygon-bor-rpc.publicnode.com";
-  const usdcContract = (process.env.POLYGON_USDC_CONTRACT?.trim() || "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
-  const normalized = address.toLowerCase().replace(/^0x/, "");
-  if (normalized.length !== 40) {
-    return {
-      balanceUsd: null,
-      errorMessage: "invalid funder address length"
-    };
-  }
-  const data = `0x70a08231${normalized.padStart(64, "0")}`;
-  try {
-    const response = await fetch(rpcUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_call",
-        params: [{ to: usdcContract, data }, "latest"]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`rpc status ${response.status}`);
-    }
-    const payload = await response.json() as { result?: unknown; error?: { message?: string } };
-    if (payload.error) {
-      throw new Error(payload.error.message ?? "rpc returned error");
-    }
-    const parsed = parseHexToUsd(payload.result);
-    if (parsed == null) {
-      throw new Error("rpc payload missing hex result");
-    }
-    return {
-      balanceUsd: parsed,
-      errorMessage: null
-    };
-  } catch (error) {
-    return {
-      balanceUsd: null,
-      errorMessage: getErrorMessage(error)
-    };
-  }
-}
-
-async function ensureDirectory(dirPath: string) {
-  await mkdir(dirPath, { recursive: true });
-}
-
-async function writeJson(filePath: string, value: unknown) {
-  await ensureDirectory(path.dirname(filePath));
-  await writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
-}
-
-async function createArchiveDir(root: string, timestamp: string) {
-  const dirPath = path.join(root, buildLiveTestDirectoryName(timestamp, null));
-  await ensureDirectory(dirPath);
-  return dirPath;
-}
-
-async function finalizeArchiveDir(currentDir: string, timestamp: string, runId: string) {
-  const nextDir = path.join(path.dirname(currentDir), buildLiveTestDirectoryName(timestamp, runId));
-  if (nextDir === currentDir) {
-    return currentDir;
-  }
-  await rename(currentDir, nextDir);
-  return nextDir;
-}
-
-function buildContextRows(input: {
-  envFilePath: string | null;
-  archiveDir: string;
-  funderAddress: string;
-  executionMode: string;
-  decisionStrategy: string;
-  runId?: string | null;
-  marketSlug?: string;
-  tokenId?: string;
-  requestedUsd?: number | null;
-}) {
-  return [
-    ["Env File", input.envFilePath ?? "-"],
-    ...buildStatelessRunIdentityRows({
-      executionMode: input.executionMode,
-      decisionStrategy: input.decisionStrategy
-    }),
-    ["Archive Dir", input.archiveDir],
-    ["Wallet", maskAddress(input.funderAddress)],
-    ["Run ID", input.runId ?? "-"],
-    ["Market", input.marketSlug ?? "-"],
-    ["Token", input.tokenId ?? "-"],
-    ["Requested USD", input.requestedUsd == null ? "-" : formatUsd(input.requestedUsd)]
-  ];
-}
-
-async function readCollateralBalanceUsd(config: ReturnType<typeof loadExecutorConfig>): Promise<CollateralProbe> {
-  let reportedBalanceUsd: number | null = null;
-  let reportedError: string | null = null;
-
-  try {
-    const initialBalance = await getCollateralBalanceAllowance(config);
-    if (!initialBalance) {
-      throw new Error("No live Polymarket client available.");
-    }
-    const parsed = Number((initialBalance as any)?.balance ?? NaN);
-    if (Number.isFinite(parsed)) {
-      reportedBalanceUsd = parsed / 1e6;
-    } else {
-      throw new Error("Collateral payload did not contain numeric balance.");
-    }
-  } catch (error) {
-    reportedError = getErrorMessage(error);
-  }
-
-  const onchainProbe = await readOnchainUsdcBalanceUsd(config.funderAddress);
-
-  if ((reportedBalanceUsd ?? 0) > 0) {
-    return {
-      balanceUsd: reportedBalanceUsd,
-      source: "reported",
-      reportedBalanceUsd,
-      onchainBalanceUsd: onchainProbe.balanceUsd,
-      errorMessage: reportedError ?? onchainProbe.errorMessage
-    };
-  }
-
-  if ((onchainProbe.balanceUsd ?? 0) > 0) {
-    return {
-      balanceUsd: onchainProbe.balanceUsd,
-      source: "onchain",
-      reportedBalanceUsd,
-      onchainBalanceUsd: onchainProbe.balanceUsd,
-      errorMessage: reportedError
-    };
-  }
-
-  if (reportedBalanceUsd != null) {
-    return {
-      balanceUsd: reportedBalanceUsd,
-      source: "reported",
-      reportedBalanceUsd,
-      onchainBalanceUsd: onchainProbe.balanceUsd,
-      errorMessage: [reportedError, onchainProbe.errorMessage].filter(Boolean).join(" | ") || null
-    };
-  }
-
-  return {
-    balanceUsd: null,
-    source: "fallback",
-    reportedBalanceUsd: null,
-    onchainBalanceUsd: onchainProbe.balanceUsd,
-    errorMessage: [reportedError, onchainProbe.errorMessage].filter(Boolean).join(" | ") || null
-  };
-}
-
 async function buildRemotePublicPositions(
   executorConfig: ReturnType<typeof loadExecutorConfig>,
   remotePositions: RemotePosition[],
@@ -366,7 +190,7 @@ async function runPreflight(input: {
   recommendOnly: boolean;
 }) {
   const remotePositions = await fetchRemotePositions(input.executorConfig);
-  const collateralProbe = await readCollateralBalanceUsd(input.executorConfig);
+  const collateralProbe = await probeCollateralBalanceUsd(input.executorConfig);
   const signerAddress = input.executorConfig.privateKey
     ? (() => {
         try {
@@ -621,7 +445,7 @@ async function executePlans(input: {
       throw new StatelessLiveError(
         "execute",
         `Order rejected for ${plan.marketSlug}.`,
-        buildContextRows({
+        buildLiveRunContextRows({
           envFilePath: input.envFilePath,
           archiveDir: input.archiveDir,
           funderAddress: input.executorConfig.funderAddress,
@@ -645,7 +469,7 @@ async function buildFinalPortfolioState(input: {
 }) {
   const [remotePositions, collateralBalanceUsd] = await Promise.all([
     fetchRemotePositions(input.executorConfig),
-    readCollateralBalanceUsd(input.executorConfig)
+    probeCollateralBalanceUsd(input.executorConfig)
   ]);
   const positions = await buildRemotePublicPositions(
     input.executorConfig,
@@ -796,6 +620,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
   let pulseMarkdownPath: string | null = null;
   let pulseJsonPath: string | null = null;
   let runtimeLogPath: string | null = null;
+  let supplementalArtifactPaths: string[] = [];
 
   try {
     reporter.info("Flow: 1) preflight 2) fetch remote portfolio 3) generate pulse 4) run decision runtime 5) apply guards + 1-token cap 6) execute directly 7) summarize");
@@ -808,7 +633,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     });
     preflightReport = preflight.report;
     preflightPath = path.join(archiveDir, "preflight.json");
-    await writeJson(preflightPath, preflight.report);
+    await writeJsonArtifact(preflightPath, preflight.report);
     if (useHumanOutput) {
       const printer = createTerminalPrinter();
       printer.section("Stateless Live Preflight", "route live:test:stateless");
@@ -818,8 +643,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
           executionMode: preflight.report.executionMode,
           decisionStrategy: preflight.report.decisionStrategy
         }),
-        ["Signer", maskAddress(preflight.report.signerAddress)],
-        ["Wallet", maskAddress(preflight.report.funderAddress)],
+        ["Signer", maskAddressForDisplay(preflight.report.signerAddress)],
+        ["Wallet", maskAddressForDisplay(preflight.report.funderAddress)],
         ["Effective Collateral", formatUsd(preflight.report.collateralBalanceUsd)],
         ["Reported Collateral", preflight.report.reportedCollateralBalanceUsd == null ? "-" : formatUsd(preflight.report.reportedCollateralBalanceUsd)],
         ["Onchain USDC", preflight.report.onchainUsdcBalanceUsd == null ? "-" : formatUsd(preflight.report.onchainUsdcBalanceUsd)],
@@ -838,7 +663,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       throw new StatelessLiveError(
         "preflight",
         "Stateless live preflight failed.",
-        buildContextRows({
+        buildLiveRunContextRows({
           envFilePath: preflight.report.envFilePath,
           archiveDir,
           funderAddress: executorConfig.funderAddress,
@@ -860,7 +685,6 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     });
     overviewBefore = overview;
     const pulseRunId = randomUUID();
-    const settings = resolveProviderSkillSettings(orchestratorConfig, orchestratorConfig.runtimeProvider);
     reporter.stage({
       percent: 10,
       label: "Loaded stateless portfolio context",
@@ -872,10 +696,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
           pulseJsonPath: args.pulseJsonPath,
           pulseMarkdownPath: args.pulseMarkdownPath
         })
-      : await generatePulseSnapshot({
+      : await ensureDailyPulseSnapshot({
           config: orchestratorConfig,
-          provider: orchestratorConfig.runtimeProvider,
-          locale: settings.locale,
           runId: pulseRunId,
           mode: "full",
           progress: reporter
@@ -886,7 +708,9 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       detail: `${pulse.selectedCandidates} candidates | risk flags ${pulse.riskFlags.length}`
     });
     const runtime = createAgentRuntime(orchestratorConfig);
-    const runtimeResult = await runtime.run({
+    const coreResult = await runDailyPulseCore({
+      config: orchestratorConfig,
+      runtime,
       runId: pulseRunId,
       mode: "full",
       overview,
@@ -894,18 +718,22 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       pulse,
       progress: reporter
     });
-    runId = runtimeResult.decisionSet.run_id;
+    const runtimeResult = coreResult.result;
+    runId = coreResult.decisionSet.run_id;
     archiveDir = await finalizeArchiveDir(archiveDir, timestamp, runId);
     preflightPath = path.join(archiveDir, "preflight.json");
-    runtimeLogPath = runtimeResult.decisionSet.artifacts.find((artifact) => artifact.kind === "runtime-log")?.path ?? null;
+    runtimeLogPath = coreResult.decisionSet.artifacts.find((artifact) => artifact.kind === "runtime-log")?.path ?? null;
+    supplementalArtifactPaths = coreResult.decisionSet.artifacts
+      .filter((artifact) => !["pulse-report", "runtime-log"].includes(artifact.kind))
+      .map((artifact) => artifact.path);
     recommendationPath = path.join(archiveDir, "recommendation.json");
     promptSummary = runtimeResult.promptSummary;
     reasoningMd = runtimeResult.reasoningMd;
-    decisionsForSummary = runtimeResult.decisionSet.decisions;
+    decisionsForSummary = coreResult.decisionSet.decisions;
     pulseMarkdownPath = pulse.absoluteMarkdownPath;
     pulseJsonPath = pulse.absoluteJsonPath;
     const { plans, skipped } = await buildExecutionPlan({
-      decisions: runtimeResult.decisionSet.decisions,
+      decisions: coreResult.decisionSet.decisions,
       positions,
       overview,
       orchestratorConfig,
@@ -915,7 +743,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     });
     plansForSummary = plans;
     skippedForSummary = skipped;
-    await writeJson(recommendationPath, {
+    await writeJsonArtifact(recommendationPath, {
       runId,
       executionMode: "live-stateless",
       envFilePath: preflight.report.envFilePath,
@@ -926,7 +754,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       runtimeLogPath: runtimeLogPath,
       promptSummary: runtimeResult.promptSummary,
       reasoningMd: runtimeResult.reasoningMd,
-      decisions: runtimeResult.decisionSet.decisions,
+      decisions: coreResult.decisionSet.decisions,
       executablePlans: plans,
       skipped
     });
@@ -960,29 +788,9 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         stage: "recommend-only",
         promptSummary,
         reasoningMd,
-        decisions: decisionsForSummary.map((decision) => ({
-          action: decision.action,
-          marketSlug: decision.market_slug,
-          eventSlug: decision.event_slug,
-          tokenId: decision.token_id,
-          side: decision.side,
-          notionalUsd: decision.notional_usd,
-          thesisMd: decision.thesis_md
-        })),
-        executablePlans: plansForSummary.map((plan) => ({
-          action: plan.action,
-          marketSlug: plan.marketSlug,
-          eventSlug: plan.eventSlug,
-          tokenId: plan.tokenId,
-          side: plan.side,
-          notionalUsd: plan.notionalUsd,
-          bankrollRatio: plan.bankrollRatio,
-          thesisMd: plan.thesisMd
-        })),
-        blockedItems: skippedForSummary.map((item) => ({
-          marketSlug: item.marketSlug,
-          reason: item.reason
-        })),
+        decisions: decisionsForSummary.map(mapDecisionToSummaryDecision),
+        executablePlans: plansForSummary.map(mapStatelessPlanToSummaryPlan),
+        blockedItems: skippedForSummary.map(mapBlockedItemToSummaryBlockedItem),
         portfolioBefore: mapOverviewToSummarySnapshot(overview),
         portfolioAfter: mapOverviewToSummarySnapshot(overview),
         artifacts: {
@@ -990,7 +798,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
           recommendationPath,
           pulseMarkdownPath,
           pulseJsonPath,
-          runtimeLogPath
+          runtimeLogPath,
+          additionalPaths: supplementalArtifactPaths
         }
       });
       const output = {
@@ -1024,7 +833,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     });
     overviewAfter = finalState.overview;
     executionSummaryPath = path.join(archiveDir, "execution-summary.json");
-    await writeJson(executionSummaryPath, {
+    await writeJsonArtifact(executionSummaryPath, {
       runId,
       archiveDir,
       overview: finalState.overview,
@@ -1056,42 +865,10 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       stage: "completed",
       promptSummary,
       reasoningMd,
-      decisions: decisionsForSummary.map((decision) => ({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        eventSlug: decision.event_slug,
-        tokenId: decision.token_id,
-        side: decision.side,
-        notionalUsd: decision.notional_usd,
-        thesisMd: decision.thesis_md
-      })),
-      executablePlans: plansForSummary.map((plan) => ({
-        action: plan.action,
-        marketSlug: plan.marketSlug,
-        eventSlug: plan.eventSlug,
-        tokenId: plan.tokenId,
-        side: plan.side,
-        notionalUsd: plan.notionalUsd,
-        bankrollRatio: plan.bankrollRatio,
-        thesisMd: plan.thesisMd
-      })),
-      executedOrders: executedForSummary.map((order) => ({
-        action: order.action,
-        marketSlug: order.marketSlug,
-        tokenId: order.tokenId,
-        side: order.side,
-        requestedNotionalUsd: order.notionalUsd,
-        executionAmount: order.executionAmount,
-        executionUnit: order.unit,
-        filledNotionalUsd: order.filledNotionalUsd,
-        orderId: order.orderId,
-        avgPrice: order.avgPrice,
-        ok: order.ok
-      })),
-      blockedItems: skippedForSummary.map((item) => ({
-        marketSlug: item.marketSlug,
-        reason: item.reason
-      })),
+      decisions: decisionsForSummary.map(mapDecisionToSummaryDecision),
+      executablePlans: plansForSummary.map(mapStatelessPlanToSummaryPlan),
+      executedOrders: executedForSummary.map(mapExecutedOrderToSummaryOrder),
+      blockedItems: skippedForSummary.map(mapBlockedItemToSummaryBlockedItem),
       portfolioBefore: overviewBefore ? mapOverviewToSummarySnapshot(overviewBefore) : null,
       portfolioAfter: overviewAfter ? mapOverviewToSummarySnapshot(overviewAfter) : null,
       artifacts: {
@@ -1100,7 +877,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         executionSummaryPath,
         pulseMarkdownPath,
         pulseJsonPath,
-        runtimeLogPath
+        runtimeLogPath,
+        additionalPaths: supplementalArtifactPaths
       }
     });
 
@@ -1123,7 +901,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     const stage = error instanceof StatelessLiveError ? error.stage : "unknown";
     const errorContext = error instanceof StatelessLiveError
       ? error.context
-      : buildContextRows({
+      : buildLiveRunContextRows({
           envFilePath: preflightReport?.envFilePath ?? (orchestratorConfig.envFilePath ?? executorConfig.envFilePath),
           archiveDir,
           funderAddress: executorConfig.funderAddress,
@@ -1133,7 +911,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         });
     errorPath = path.join(archiveDir, "error.json");
     await ensureDirectory(archiveDir);
-    await writeJson(errorPath, {
+    await writeJsonArtifact(errorPath, {
       stage,
       message,
       archiveDir,
@@ -1151,42 +929,10 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       stage,
       promptSummary,
       reasoningMd,
-      decisions: decisionsForSummary.map((decision) => ({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        eventSlug: decision.event_slug,
-        tokenId: decision.token_id,
-        side: decision.side,
-        notionalUsd: decision.notional_usd,
-        thesisMd: decision.thesis_md
-      })),
-      executablePlans: plansForSummary.map((plan) => ({
-        action: plan.action,
-        marketSlug: plan.marketSlug,
-        eventSlug: plan.eventSlug,
-        tokenId: plan.tokenId,
-        side: plan.side,
-        notionalUsd: plan.notionalUsd,
-        bankrollRatio: plan.bankrollRatio,
-        thesisMd: plan.thesisMd
-      })),
-      executedOrders: executedForSummary.map((order) => ({
-        action: order.action,
-        marketSlug: order.marketSlug,
-        tokenId: order.tokenId,
-        side: order.side,
-        requestedNotionalUsd: order.notionalUsd,
-        executionAmount: order.executionAmount,
-        executionUnit: order.unit,
-        filledNotionalUsd: order.filledNotionalUsd,
-        orderId: order.orderId,
-        avgPrice: order.avgPrice,
-        ok: order.ok
-      })),
-      blockedItems: skippedForSummary.map((item) => ({
-        marketSlug: item.marketSlug,
-        reason: item.reason
-      })),
+      decisions: decisionsForSummary.map(mapDecisionToSummaryDecision),
+      executablePlans: plansForSummary.map(mapStatelessPlanToSummaryPlan),
+      executedOrders: executedForSummary.map(mapExecutedOrderToSummaryOrder),
+      blockedItems: skippedForSummary.map(mapBlockedItemToSummaryBlockedItem),
       portfolioBefore: overviewBefore ? mapOverviewToSummarySnapshot(overviewBefore) : null,
       portfolioAfter: overviewAfter ? mapOverviewToSummarySnapshot(overviewAfter) : null,
       failure: {
@@ -1204,7 +950,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         errorPath,
         pulseMarkdownPath,
         pulseJsonPath,
-        runtimeLogPath
+        runtimeLogPath,
+        additionalPaths: supplementalArtifactPaths
       }
     });
     if (args.json) {
@@ -1255,7 +1002,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       title: "Stateless Live Test Failed",
       stage: "bootstrap",
       error,
-      context: buildContextRows({
+      context: buildLiveRunContextRows({
         envFilePath: process.env.ENV_FILE?.trim() || null,
         archiveDir: "-",
         funderAddress: process.env.FUNDER_ADDRESS ?? "",

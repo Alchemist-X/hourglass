@@ -10,6 +10,10 @@ function formatArtifactKind(kind: PublicArtifactListItem["kind"]): string {
       return "脉冲报告";
     case "review-report":
       return "复盘报告";
+    case "monitor-report":
+      return "组合监控";
+    case "rebalance-report":
+      return "再平衡报告";
     case "resolution-report":
       return "结算跟踪";
     case "backtest-report":

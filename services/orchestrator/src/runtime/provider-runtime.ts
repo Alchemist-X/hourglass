@@ -261,7 +261,15 @@ function buildTradeDecisionSetSchema() {
           properties: {
             kind: {
               type: "string",
-              enum: ["pulse-report", "review-report", "resolution-report", "backtest-report", "runtime-log"]
+              enum: [
+                "pulse-report",
+                "review-report",
+                "monitor-report",
+                "rebalance-report",
+                "resolution-report",
+                "backtest-report",
+                "runtime-log"
+              ]
             },
             title: { type: "string", minLength: 1 },
             path: { type: "string", minLength: 1 },

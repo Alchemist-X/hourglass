@@ -14,9 +14,8 @@ import { Queue } from "bullmq";
 import type { OrchestratorConfig } from "../config.js";
 import { applyTradeGuards } from "../lib/risk.js";
 import { getSystemStatus } from "../lib/state.js";
-import { generatePulseSnapshot } from "../pulse/market-pulse.js";
 import type { AgentRuntime } from "../runtime/agent-runtime.js";
-import { resolveProviderSkillSettings } from "../runtime/skill-settings.js";
+import { runDailyPulseCore } from "./daily-pulse-core.js";
 
 export interface ExecutableTradePlan {
   decisionId: string | null;
@@ -25,10 +24,6 @@ export interface ExecutableTradePlan {
 
 export interface QueuedTradeJobSummary extends ExecutableTradePlan {
   jobId: string;
-}
-
-function sanitizeDecisionSet(decisionSet: TradeDecisionSet): TradeDecisionSet {
-  return tradeDecisionSetSchema.parse(decisionSet);
 }
 
 function detectSourceKind(url: string): string {
@@ -183,23 +178,16 @@ export async function runAgentCycle(deps: {
   const [overview, positions] = await Promise.all([getOverview(), getPublicPositions()]);
   const runId = randomUUID();
   const mode = "full";
-  const skillSettings = resolveProviderSkillSettings(deps.config, deps.config.runtimeProvider);
-  const pulse = await generatePulseSnapshot({
+  const coreResult = await runDailyPulseCore({
     config: deps.config,
-    provider: deps.config.runtimeProvider,
-    locale: skillSettings.locale,
-    runId,
-    mode
-  });
-  const result = await deps.runtime.run({
+    runtime: deps.runtime,
     runId,
     mode,
     overview,
-    positions,
-    pulse
+    positions
   });
-  const decisionSet = sanitizeDecisionSet(result.decisionSet);
-  const decisionIdMap = await persistRun({ ...result, decisionSet });
+  const decisionSet = tradeDecisionSetSchema.parse(coreResult.decisionSet);
+  const decisionIdMap = await persistRun({ ...coreResult.result, decisionSet });
   const executableTrades: ExecutableTradePlan[] = [];
   const queuedTradeJobs: QueuedTradeJobSummary[] = [];
 

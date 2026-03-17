@@ -89,10 +89,12 @@ The current system is easiest to understand as four layers:
 ### 2. Decision / Runtime layer
 
 - orchestrator turns `pulse + portfolio context` into structured decisions
-- two strategies currently exist:
+- the default main path is now:
+  - `pulse-direct`
+- one legacy comparison path still exists:
   - `pulse-direct`
   - `provider-runtime`
-- the project direction is currently more aligned with `pulse-direct`
+- `provider-runtime` still works, but it is no longer the default main path
 
 ### 3. Execution / Risk layer
 
@@ -121,9 +123,9 @@ From an execution-path perspective, there are currently three main modes:
 
 | Mode | Typical command | Dependencies | Purpose |
 | --- | --- | --- | --- |
-| `paper` | `pnpm trial:recommend` / `trial:approve` | local file state + provider runtime | local simulation with human approval |
-| `live:test:stateless` | `pnpm live:test:stateless` | wallet + Polymarket + provider runtime | fastest real-fund closed loop |
-| `live:test` | `pnpm live:test` | wallet + DB + Redis + queue worker | closer to the full production path |
+| `paper` | `pnpm trial:recommend` / `trial:approve` | local file state + daily pulse core | local simulation with human approval |
+| `live:test:stateless` | `pnpm live:test:stateless` | wallet + Polymarket + daily pulse core | fastest real-fund closed loop |
+| `live:test` | `pnpm live:test` | wallet + DB + Redis + queue worker + daily pulse core | closer to the full production path |
 
 ## Repository structure
 
@@ -539,9 +541,9 @@ As of `2026-03-17`, the practical completion state is:
 | real pulse fetch and archiving | complete | no mock pulse fallback in the main path |
 | bilingual run summaries | complete | live runs can write Chinese + English summaries |
 | Polymarket proxy wallet / signature type compatibility | complete | funder-address and signature-type handling has been clarified in the code and env flow |
-| review / monitor / rebalance Markdown design | design complete | design documents exist in `Illustration/`, but full automated producers are still pending |
+| review / monitor / rebalance reports | complete and connected | these artifacts are now written as part of the main daily pulse / live paths |
 | resolution tracking | implemented | independent recurring capability, not the main trading entrypoint |
-| backtest | basic | currently lightweight / placeholder-like |
+| backtest | connected to the shared artifact layer | still lightweight, but now emits bilingual artifacts |
 | openclaw provider | reserved | wired, but not the primary path |
 | rough-loop | separate subsystem | present and runnable, but not a prerequisite for remote build or the trading path |
 
@@ -561,7 +563,7 @@ The main current limitations are:
 
 - a dedicated production deployment handbook has not been finalized yet
 - `live:test` is more infra-dependent than `live:test:stateless`, so remote reproducibility is harder
-- `review / monitor / rebalance` have design docs but are not yet fully connected as automatic report producers
+- `provider-runtime` is still present as a legacy path and will be de-emphasized further
 - `backtest` is still lightweight and should not be treated as production-grade evaluation
 - the `openclaw` runtime surface exists, but it is not the default recommended path today
 

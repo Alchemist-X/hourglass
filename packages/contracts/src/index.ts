@@ -18,7 +18,15 @@ export const sourceSchema = z.object({
 });
 
 export const artifactSchema = z.object({
-  kind: z.enum(["pulse-report", "review-report", "resolution-report", "backtest-report", "runtime-log"]),
+  kind: z.enum([
+    "pulse-report",
+    "review-report",
+    "monitor-report",
+    "rebalance-report",
+    "resolution-report",
+    "backtest-report",
+    "runtime-log"
+  ]),
   title: z.string(),
   path: z.string(),
   content: z.string().optional(),

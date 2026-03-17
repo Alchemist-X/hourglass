@@ -13,11 +13,10 @@ import {
 import { getOverview, getPublicPositions } from "@autopoly/db";
 import path from "node:path";
 import { loadConfig } from "../config.js";
+import { ensureDailyPulseSnapshot, runDailyPulseCore } from "../jobs/daily-pulse-core.js";
 import { createTerminalProgressReporter } from "../lib/terminal-progress.js";
-import { generatePulseSnapshot } from "../pulse/market-pulse.js";
 import { resumeRuntimeExecutionFromOutputFile } from "../runtime/provider-runtime.js";
 import { createAgentRuntime } from "../runtime/runtime-factory.js";
-import { resolveProviderSkillSettings } from "../runtime/skill-settings.js";
 import { guardDecisionSetForPaper, persistPaperRecommendation } from "./paper-trading.js";
 import {
   checkpointAbsolutePath,
@@ -179,7 +178,6 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     stream: options?.forceJson || args.json ? process.stderr : process.stdout
   });
   const runtime = createAgentRuntime(config);
-  const settings = resolveProviderSkillSettings(config, config.runtimeProvider);
   reporter.info("Flow: 1) load portfolio 2) fetch pulse markets 3) enrich candidates 4) render full pulse 5) run decision runtime 6) apply guards 7) persist paper recommendation");
   const executionMode = getExecutionMode();
   const localStateFile = getConfiguredLocalStateFilePath();
@@ -220,10 +218,8 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     console.log(output.reason);
     return;
   }
-  const pulse = resumeCheckpoint?.pulse ?? await generatePulseSnapshot({
+  const pulse = resumeCheckpoint?.pulse ?? await ensureDailyPulseSnapshot({
     config,
-    provider: config.runtimeProvider,
-    locale: settings.locale,
     runId,
     mode: "full",
     progress: reporter
@@ -255,9 +251,9 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     label: "Pulse snapshot ready",
     detail: `${pulse.selectedCandidates} candidates | risk flags ${pulse.riskFlags.length}`
   });
-  let result;
+  let runtimeResult;
   try {
-    result = resumeCheckpoint?.stage === "provider_output_captured" && resumeCheckpoint.providerOutputPath
+    runtimeResult = resumeCheckpoint?.stage === "provider_output_captured" && resumeCheckpoint.providerOutputPath
       ? await resumeRuntimeExecutionFromOutputFile({
           config,
           provider: config.runtimeProvider,
@@ -271,14 +267,7 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
           },
           outputPath: resumeCheckpoint.providerOutputPath
         })
-      : await runtime.run({
-          runId,
-          mode: "full",
-          overview,
-          positions,
-          pulse,
-          progress: reporter
-        });
+      : undefined;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const tempDirMatch = message.match(/temp preserved at (.+)$/m);
@@ -315,13 +304,35 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     }
     throw error;
   }
+  const coreResult = runtimeResult == null
+    ? await runDailyPulseCore({
+        config,
+        runtime,
+        runId,
+        mode: "full",
+        overview,
+        positions,
+        progress: reporter,
+        pulse
+      })
+    : await runDailyPulseCore({
+        config,
+        runtime,
+        runId,
+        mode: "full",
+        overview,
+        positions,
+        progress: reporter,
+        pulse,
+        runtimeResult
+      });
   reporter.stage({
     percent: 92,
     label: "Decision runtime finished",
-    detail: `${result.decisionSet.decisions.length} raw decisions returned`
+    detail: `${coreResult.decisionSet.decisions.length} raw decisions returned`
   });
   const guarded = guardDecisionSetForPaper({
-    decisionSet: result.decisionSet,
+    decisionSet: coreResult.decisionSet,
     overview,
     positions,
     config
@@ -335,9 +346,9 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
   if (executionMode === "paper") {
     await updateLocalAppState((state) => persistPaperRecommendation({
       state,
-      promptSummary: result.promptSummary,
-      reasoningMd: result.reasoningMd,
-      logsMd: result.logsMd,
+      promptSummary: coreResult.result.promptSummary,
+      reasoningMd: coreResult.result.reasoningMd,
+      logsMd: coreResult.result.logsMd,
       decisionSet: guarded.decisionSet
     }));
     reporter.stage({
@@ -386,8 +397,8 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
       relativeMarkdownPath: pulse.relativeMarkdownPath,
       relativeJsonPath: pulse.relativeJsonPath
     },
-    promptSummary: result.promptSummary,
-    reasoningMd: result.reasoningMd,
+    promptSummary: coreResult.result.promptSummary,
+    reasoningMd: coreResult.result.reasoningMd,
     decisions: guarded.decisionSet.decisions.map((decision) => ({
       action: decision.action,
       market_slug: decision.market_slug,

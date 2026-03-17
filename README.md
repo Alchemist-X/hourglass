@@ -89,10 +89,12 @@
 ### 2. Decision / Runtime 层
 
 - orchestrator 负责把 `pulse + portfolio context` 转成结构化决策
-- 当前支持两种策略入口：
+- 当前主路径默认是：
+  - `pulse-direct`
+- 同时保留一个 legacy 对照入口：
   - `pulse-direct`
   - `provider-runtime`
-- 当前项目主方向更偏向 `pulse-direct`
+- `provider-runtime` 仍可用，但不再是默认主路径
 
 ### 3. Execution / Risk 层
 
@@ -121,9 +123,9 @@
 
 | 模式 | 典型命令 | 依赖 | 用途 |
 | --- | --- | --- | --- |
-| `paper` | `pnpm trial:recommend` / `trial:approve` | 本地文件状态 + provider runtime | 本地模拟与人工确认 |
-| `live:test:stateless` | `pnpm live:test:stateless` | 钱包 + Polymarket + provider runtime | 最快的真钱闭环 |
-| `live:test` | `pnpm live:test` | 钱包 + DB + Redis + queue worker | 更接近完整生产链路 |
+| `paper` | `pnpm trial:recommend` / `trial:approve` | 本地文件状态 + daily pulse core | 本地模拟与人工确认 |
+| `live:test:stateless` | `pnpm live:test:stateless` | 钱包 + Polymarket + daily pulse core | 最快的真钱闭环 |
+| `live:test` | `pnpm live:test` | 钱包 + DB + Redis + queue worker + daily pulse core | 更接近完整生产链路 |
 
 ## 仓库结构
 
@@ -539,9 +541,9 @@ pnpm trial:run
 | pulse 真实抓取与归档 | 已完成 | 不再依赖 mock pulse fallback |
 | bilingual run summaries | 已完成 | live 路径每轮可生成中英总结 |
 | Polymarket proxy wallet / signature type 兼容 | 已完成 | `FUNDER_ADDRESS` 与 `SIGNATURE_TYPE` 兼容逻辑已澄清 |
-| review / monitor / rebalance Markdown 设计 | 已完成设计 | 设计稿已放在 `Illustration/`，自动产物接入仍待继续 |
+| review / monitor / rebalance 报告 | 已完成并接入主链路 | 现在会随 daily pulse / live 运行一起写入 artifact |
 | resolution tracking | 已实现 | 属于独立周期能力，不是主交易入口 |
-| backtest | 基础版 | 当前更像轻量占位能力 |
+| backtest | 已接入统一 artifact 层 | 当前仍是轻量版，但已输出中英双语 artifact |
 | openclaw provider | 预留 | 接口存在，但不是当前主路径 |
 | rough-loop | 独立子系统 | 存在且可运行，但不是远程 build 主前置条件 |
 
@@ -561,8 +563,8 @@ pnpm trial:run
 
 - 完整生产部署说明还没有收敛成单独 deploy handbook
 - `live:test` 比 `live:test:stateless` 更依赖远端基础设施，远程复现成本更高
-- `review / monitor / rebalance` 已有设计稿，但还没有全部自动接到执行链路
-- `backtest` 当前还是轻量版，不适合作为生产级评估结论
+- `provider-runtime` 仍保留为 legacy 路径，后续会继续弱化
+- `backtest` 当前仍是轻量版，不适合作为生产级评估结论
 - `openclaw` 运行接口已预留，但不是当前默认推荐路径
 
 ## 后续规划

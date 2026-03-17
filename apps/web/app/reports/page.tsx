@@ -10,7 +10,7 @@ export default async function ReportsPage() {
         published_at_utc: String(report.published_at_utc)
       }))}
       endpoint="/api/public/reports"
-      title="每日脉冲、复盘与结算跟踪产物"
+      title="每日脉冲、组合复盘、监控、再平衡与结算跟踪产物"
       kicker="报告"
     />
   );

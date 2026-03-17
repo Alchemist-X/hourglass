@@ -7,7 +7,7 @@ type SummaryLocale = "zh" | "en";
 type DecisionAction = TradeDecision["action"];
 type DecisionSide = TradeDecision["side"];
 
-interface SummaryDecision {
+export interface SummaryDecision {
   action: DecisionAction;
   marketSlug: string;
   eventSlug: string;
@@ -17,7 +17,7 @@ interface SummaryDecision {
   thesisMd?: string | null;
 }
 
-interface SummaryPlan {
+export interface SummaryPlan {
   action: DecisionAction;
   marketSlug: string;
   eventSlug?: string;
@@ -28,7 +28,7 @@ interface SummaryPlan {
   thesisMd?: string | null;
 }
 
-interface SummaryOrder {
+export interface SummaryOrder {
   action?: DecisionAction | null;
   marketSlug: string;
   tokenId?: string | null;
@@ -44,28 +44,28 @@ interface SummaryOrder {
   reason?: string | null;
 }
 
-interface SummaryBlockedItem {
+export interface SummaryBlockedItem {
   action?: DecisionAction | null;
   marketSlug: string;
   tokenId?: string | null;
   reason: string;
 }
 
-interface SummaryPortfolioSnapshot {
+export interface SummaryPortfolioSnapshot {
   cashUsd: number;
   equityUsd: number;
   openPositions: number;
   drawdownPct: number;
 }
 
-interface SummaryFailure {
+export interface SummaryFailure {
   stage: string;
   message: string;
   rawSummary?: string | null;
   nextSteps?: string[];
 }
 
-interface SummaryArtifacts {
+export interface SummaryArtifacts {
   preflightPath?: string | null;
   recommendationPath?: string | null;
   executionSummaryPath?: string | null;
