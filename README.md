@@ -20,6 +20,111 @@
 - 让第三方用户可以在网页上看到真实仓位、交易历史、净值和报告
 - 把风控从提示词里拿出来，变成服务层的硬规则
 
+## 给远程 Agent 的最短接手路径
+
+如果你是第一次接手这个仓库，且之前不了解这里的 skills、进度和历史上下文，建议按下面的顺序理解：
+
+1. 读完本 README
+2. 查看 [.env.example](.env.example) 了解运行模式和依赖
+3. 查看 [risk-controls.md](risk-controls.md) 了解硬风控
+4. 查看 [Illustration/trading-modes-flowchart.md](Illustration/trading-modes-flowchart.md) 了解执行路径
+5. 需要更细设计时，再看 [progress.md](progress.md) 和 `Illustration/` 下的说明文档
+
+如果目标只是“远程把项目 build 起来”，并不需要先理解全部 skill 细节。
+
+## 依赖矩阵
+
+建议按“构建 / 本地运行 / 真正跑策略”来理解依赖：
+
+| 依赖 | 是否必需 | 用途 | 备注 |
+| --- | --- | --- | --- |
+| `git` | 必需 | clone、vendor sync、推送代码 | 任意较新版本即可 |
+| `Node.js >= 20` | 必需 | monorepo 构建与运行 | 根 `package.json` 已声明 |
+| `pnpm 10.x` | 必需 | workspace 包管理 | 当前锁定 `pnpm@10.28.1` |
+| `TypeScript 5.9.x` | 已内置 | 构建 TS 服务和包 | 随 workspace 安装 |
+| `Docker` / `docker compose` | 可选 | 跑本地 `Postgres + Redis` | `live:test:stateless` 和纯 `build` 不要求 |
+| `Postgres 17` | 可选 | stateful web / orchestrator / executor | `docker-compose.yml` 已提供 |
+| `Redis 8` | 可选 | queue、sync、后台任务 | `docker-compose.yml` 已提供 |
+| `Codex CLI` | 跑 pulse/runtime 时必需 | provider runtime | 纯 `pnpm build` 不要求 |
+| `OpenClaw CLI` | 可选 | 备用 provider | 当前不是主路径 |
+| Polymarket 钱包凭据 | live 路径必需 | 真钱下单或余额检查 | 仅 live 路径需要 |
+
+工作区内主要运行时依赖如下：
+
+- `apps/web`
+  - `next@16.1.6`
+  - `react@19.2.0`
+  - `react-dom@19.2.0`
+- `services/orchestrator`
+  - `fastify@5.8.2`
+  - `bullmq@5.71.0`
+  - `ioredis@5.10.0`
+  - `drizzle-orm@0.45.1`
+  - `dotenv@17.2.3`
+  - `node-cron@4.2.1`
+- `services/executor`
+  - `@polymarket/clob-client@5.8.0`
+  - `ethers@5.7.2`
+  - `fastify@5.8.2`
+  - `bullmq@5.71.0`
+  - `ioredis@5.10.0`
+  - `drizzle-orm@0.45.1`
+- `packages/db`
+  - `postgres@3.4.8`
+  - `drizzle-orm@0.45.1`
+  - `drizzle-kit@0.31.9`
+- `packages/contracts`
+  - `zod@4.1.12`
+
+## 整体架构
+
+建议把当前系统理解成四层：
+
+### 1. Research / Pulse 层
+
+- 从 Polymarket 市场列表和 vendor skills 中生成 `pulse`
+- 产物写入 `runtime-artifacts/reports/pulse/...`
+- 这是所有后续决策的研究输入
+
+### 2. Decision / Runtime 层
+
+- orchestrator 负责把 `pulse + portfolio context` 转成结构化决策
+- 当前支持两种策略入口：
+  - `pulse-direct`
+  - `provider-runtime`
+- 当前项目主方向更偏向 `pulse-direct`
+
+### 3. Execution / Risk 层
+
+- executor 负责：
+  - 下单
+  - sync 远端仓位
+  - stop-loss
+  - flatten
+- 风控不依赖提示词，而是在服务层硬裁剪：
+  - 单笔上限
+  - 事件暴露上限
+  - 总暴露上限
+  - 最大持仓数
+  - 回撤 halt
+
+### 4. State / Archive / UI 层
+
+- `packages/db`
+  - DB schema、查询与 file-backed local state
+- `runtime-artifacts/`
+  - pulse、runtime-log、live runs、paper state、rough-loop 等归档
+- `apps/web`
+  - 公开只读展示和管理员控制台
+
+从运行路径看，当前仓库主要有三种模式：
+
+| 模式 | 典型命令 | 依赖 | 用途 |
+| --- | --- | --- | --- |
+| `paper` | `pnpm trial:recommend` / `trial:approve` | 本地文件状态 + provider runtime | 本地模拟与人工确认 |
+| `live:test:stateless` | `pnpm live:test:stateless` | 钱包 + Polymarket + provider runtime | 最快的真钱闭环 |
+| `live:test` | `pnpm live:test` | 钱包 + DB + Redis + queue worker | 更接近完整生产链路 |
+
 ## 仓库结构
 
 本仓库是一个 `pnpm` monorepo，主要分为以下几部分：
@@ -36,6 +141,9 @@
   - 负责对接 Polymarket CLOB
   - 负责下单、成交同步、仓位同步
   - 负责 live ops 脚本
+- `services/rough-loop`
+  - 独立的代码任务持续执行器
+  - 不是主交易链路的前置条件
 - `packages/contracts`
   - 共享的 zod schema
   - 用来约束 `TradeDecisionSet` 等结构化数据
@@ -43,6 +151,10 @@
   - Drizzle schema
   - 数据查询
   - 种子数据与迁移
+- `packages/terminal-ui`
+  - 统一的终端彩色输出、错误摘要和表格渲染
+- `scripts`
+  - live test、stateless live、wallet env、summary 等工作区级入口脚本
 - `vendor`
   - 外部依赖仓库的固定清单
   - 用于把外部 repo 锁到特定 commit
@@ -135,7 +247,53 @@ reports/pulse/YYYY/MM/DD/pulse-<timestamp>-<runtime>-<mode>-<runId>.json
 
 `vendor` 目录的作用，是把这些外部依赖锁定在明确版本，而不是在运行时临时拉代码。
 
+当前 `vendor/manifest.json` 已锁定具体 commit，因此远端 Agent 不需要自己猜外部依赖版本。
+
 ## 快速开始
+
+### 只验证能否远程 build
+
+如果目标只是让一个陌生 Agent 在远端把项目 build 起来，最短命令是：
+
+```bash
+git clone https://github.com/Alchemist-X/autonomous-poly-trading.git
+cd autonomous-poly-trading
+pnpm install
+pnpm build
+```
+
+说明：
+
+- 这条路径不要求 `Docker`
+- 这条路径不要求 `Codex CLI`
+- 这条路径不要求真钱包或 `.env` 凭据
+- 这条路径只验证 workspace 能否完成 TS / Next.js 构建
+
+### 远程准备能运行 pulse / runtime
+
+如果远端不仅要 build，还要能跑 pulse 和 recommendation，请继续做：
+
+```bash
+cp .env.example .env
+pnpm vendor:sync
+```
+
+然后补齐：
+
+- `CODEX_COMMAND`
+- `ENV_FILE` 或真实 `.env`
+- 必要时的 Polymarket wallet 凭据
+
+### 远程准备完整 stateful 本地栈
+
+如果目标是启动完整 web + orchestrator + executor 本地栈，再继续：
+
+```bash
+docker compose up -d postgres redis
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
 
 1. 复制环境变量模板：
 
@@ -154,6 +312,11 @@ pnpm install
 ```bash
 pnpm vendor:sync
 ```
+
+说明：
+
+- `pnpm build` 本身不依赖 `vendor` 目录
+- 但只要你要跑 `pulse`、`trial:*`、`live:test*`，就应先执行 `pnpm vendor:sync`
 
 4. 启动本地数据服务：
 
@@ -363,17 +526,30 @@ pnpm trial:run
 
 ## 当前状态
 
-截至 `2026-03-14`，当前仓库已经完成这些基础工作：
+截至 `2026-03-17`，建议把当前完成度理解成下面这张表：
 
-- monorepo 已经搭起来
-- 围观站页面和管理员页面已经存在
-- 共享数据模型已经建立
-- executor / orchestrator 的服务骨架已完成
-- `.env.aizen` 自动发现已经接通
-- 已经成功完成一次不超过 `$1` 的真实下单测试
-- orchestrator 已切到 `codex/openclaw` provider runtime 结构
-- pulse 已改为真实抓取并按命名空间落盘，不再使用 mock pulse fallback
-- 已成功完成一次 `codex` 试运行，拿到真实 pulse + 结构化决策输出
+| 子系统 | 状态 | 说明 |
+| --- | --- | --- |
+| monorepo / workspace 构建 | 已完成 | `pnpm build`、`pnpm typecheck`、`pnpm test` 已具备基础工作区支持 |
+| web 围观页 / 管理页 | 已完成 | 首页、持仓、成交、runs、reports、backtests、admin 页面已存在 |
+| shared contracts / db / terminal-ui | 已完成 | schema、查询、本地 state、终端渲染都已落地 |
+| `paper` 本地测试盘 | 已完成 | 推荐、人工确认、file-backed state 已打通 |
+| `live:test:stateless` | 已完成 | 无 DB/Redis 的真钱闭环与归档已打通 |
+| `live:test` stateful 路径 | 已实现，持续验证中 | queue worker、preflight、sync、summary 已存在，但更依赖远端基础设施 |
+| pulse 真实抓取与归档 | 已完成 | 不再依赖 mock pulse fallback |
+| bilingual run summaries | 已完成 | live 路径每轮可生成中英总结 |
+| Polymarket proxy wallet / signature type 兼容 | 已完成 | `FUNDER_ADDRESS` 与 `SIGNATURE_TYPE` 兼容逻辑已澄清 |
+| review / monitor / rebalance Markdown 设计 | 已完成设计 | 设计稿已放在 `Illustration/`，自动产物接入仍待继续 |
+| resolution tracking | 已实现 | 属于独立周期能力，不是主交易入口 |
+| backtest | 基础版 | 当前更像轻量占位能力 |
+| openclaw provider | 预留 | 接口存在，但不是当前主路径 |
+| rough-loop | 独立子系统 | 存在且可运行，但不是远程 build 主前置条件 |
+
+如果你只是让远程 Agent “先把项目 build 起来”，当前完成度已经足够。真正需要额外环境的是：
+
+- pulse / recommendation 运行
+- live wallet 访问
+- DB/Redis 的 stateful 本地栈
 
 更详细的实现进度见 [progress.md](progress.md)。
 
@@ -383,10 +559,11 @@ pnpm trial:run
 
 目前仍有以下限制：
 
-- 这台开发机器没有 Docker，所以没有完成本地 Docker 运行态验证
-- Vercel 和云主机的正式部署还没做
-- `codex` 试运行链路已接入，但完整生产闭环还需要继续打通
-- `openclaw` 运行接口已预留，但本机尚未安装 `openclaw` CLI
+- 完整生产部署说明还没有收敛成单独 deploy handbook
+- `live:test` 比 `live:test:stateless` 更依赖远端基础设施，远程复现成本更高
+- `review / monitor / rebalance` 已有设计稿，但还没有全部自动接到执行链路
+- `backtest` 当前还是轻量版，不适合作为生产级评估结论
+- `openclaw` 运行接口已预留，但不是当前默认推荐路径
 
 ## 后续规划
 

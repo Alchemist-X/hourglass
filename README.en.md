@@ -20,6 +20,111 @@ This system is designed to solve three practical problems:
 - expose real positions, trade history, equity, and reports on the web
 - move risk management out of prompts and into hard service-side rules
 
+## Fast Handoff For A Remote Agent
+
+If you are taking over this repository for the first time and do not know its prior skills, progress, or chat context, use this order:
+
+1. read this README fully
+2. inspect [.env.example](.env.example) for runtime modes and dependencies
+3. inspect [risk-controls.en.md](risk-controls.en.md) for hard controls
+4. inspect [Illustration/trading-modes-flowchart.en.md](Illustration/trading-modes-flowchart.en.md) for execution routes
+5. only then read [progress.en.md](progress.en.md) and the documents under `Illustration/` if you need more detail
+
+If the immediate goal is only to build the project remotely, you do not need to understand every skill detail first.
+
+## Dependency Matrix
+
+It is easiest to understand dependencies by separating build, local stack, and live execution:
+
+| Dependency | Required | Purpose | Notes |
+| --- | --- | --- | --- |
+| `git` | required | clone, vendor sync, push | any recent version |
+| `Node.js >= 20` | required | workspace build and runtime | declared in the root `package.json` |
+| `pnpm 10.x` | required | workspace package manager | currently pinned to `pnpm@10.28.1` |
+| `TypeScript 5.9.x` | bundled | compile services and packages | installed through the workspace |
+| `Docker` / `docker compose` | optional | local `Postgres + Redis` | not required for `live:test:stateless` or plain `build` |
+| `Postgres 17` | optional | stateful web / orchestrator / executor flows | provided in `docker-compose.yml` |
+| `Redis 8` | optional | queues, sync, background jobs | provided in `docker-compose.yml` |
+| `Codex CLI` | required for pulse/runtime execution | provider runtime | not required for plain `pnpm build` |
+| `OpenClaw CLI` | optional | alternate provider | not the main path today |
+| Polymarket wallet credentials | required for live routes | real trading and balance checks | only needed for live execution |
+
+Main workspace runtime dependencies:
+
+- `apps/web`
+  - `next@16.1.6`
+  - `react@19.2.0`
+  - `react-dom@19.2.0`
+- `services/orchestrator`
+  - `fastify@5.8.2`
+  - `bullmq@5.71.0`
+  - `ioredis@5.10.0`
+  - `drizzle-orm@0.45.1`
+  - `dotenv@17.2.3`
+  - `node-cron@4.2.1`
+- `services/executor`
+  - `@polymarket/clob-client@5.8.0`
+  - `ethers@5.7.2`
+  - `fastify@5.8.2`
+  - `bullmq@5.71.0`
+  - `ioredis@5.10.0`
+  - `drizzle-orm@0.45.1`
+- `packages/db`
+  - `postgres@3.4.8`
+  - `drizzle-orm@0.45.1`
+  - `drizzle-kit@0.31.9`
+- `packages/contracts`
+  - `zod@4.1.12`
+
+## Architecture Overview
+
+The current system is easiest to understand as four layers:
+
+### 1. Research / Pulse layer
+
+- generates `pulse` from Polymarket market data plus vendor skills
+- writes artifacts to `runtime-artifacts/reports/pulse/...`
+- acts as the research input for later decisions
+
+### 2. Decision / Runtime layer
+
+- orchestrator turns `pulse + portfolio context` into structured decisions
+- two strategies currently exist:
+  - `pulse-direct`
+  - `provider-runtime`
+- the project direction is currently more aligned with `pulse-direct`
+
+### 3. Execution / Risk layer
+
+- executor handles:
+  - order placement
+  - remote position sync
+  - stop-loss
+  - flatten
+- risk controls are hard service-side rules rather than prompt instructions:
+  - per-trade cap
+  - per-event cap
+  - total exposure cap
+  - max positions
+  - drawdown halt
+
+### 4. State / Archive / UI layer
+
+- `packages/db`
+  - database schema, queries, and file-backed local state
+- `runtime-artifacts/`
+  - pulse, runtime-log, live runs, paper state, and rough-loop archives
+- `apps/web`
+  - public read-only UI plus the admin console
+
+From an execution-path perspective, there are currently three main modes:
+
+| Mode | Typical command | Dependencies | Purpose |
+| --- | --- | --- | --- |
+| `paper` | `pnpm trial:recommend` / `trial:approve` | local file state + provider runtime | local simulation with human approval |
+| `live:test:stateless` | `pnpm live:test:stateless` | wallet + Polymarket + provider runtime | fastest real-fund closed loop |
+| `live:test` | `pnpm live:test` | wallet + DB + Redis + queue worker | closer to the full production path |
+
 ## Repository structure
 
 This repository is a `pnpm` monorepo with the following main parts:
@@ -36,6 +141,9 @@ This repository is a `pnpm` monorepo with the following main parts:
   - Polymarket CLOB integration
   - order execution, fill sync, and position sync
   - live ops scripts
+- `services/rough-loop`
+  - standalone continuous code-task runner
+  - not a prerequisite for the main trading path
 - `packages/contracts`
   - shared zod schemas
   - validation for `TradeDecisionSet` and related payloads
@@ -43,8 +151,13 @@ This repository is a `pnpm` monorepo with the following main parts:
   - Drizzle schema
   - queries
   - seeds and migrations
+- `packages/terminal-ui`
+  - shared colored terminal output, error summaries, and table rendering
+- `scripts`
+  - workspace-level entrypoints for live test, stateless live, wallet env generation, and summaries
 - `vendor`
   - pinned manifest for external repositories
+  - external repos are locked to explicit commits here
 
 ## Website shape
 
@@ -134,7 +247,53 @@ The current system is built around the following external repositories:
 
 The `vendor` directory exists so these repositories can be pinned to explicit versions instead of being pulled ad hoc at runtime.
 
+The current `vendor/manifest.json` already pins the exact commits, so a remote agent does not need to guess external repository versions.
+
 ## Quick start
+
+### Build-only remote bootstrap
+
+If the only goal is to let an unfamiliar remote agent build the repository, the shortest path is:
+
+```bash
+git clone https://github.com/Alchemist-X/autonomous-poly-trading.git
+cd autonomous-poly-trading
+pnpm install
+pnpm build
+```
+
+Notes:
+
+- this path does not require `Docker`
+- this path does not require `Codex CLI`
+- this path does not require a real wallet or `.env` secrets
+- this path only verifies the workspace can complete its TS / Next.js build
+
+### Remote bootstrap for pulse / runtime execution
+
+If the remote machine should not only build but also run pulse and recommendation flows:
+
+```bash
+cp .env.example .env
+pnpm vendor:sync
+```
+
+Then fill in:
+
+- `CODEX_COMMAND`
+- `ENV_FILE` or a real `.env`
+- Polymarket wallet credentials if live execution is needed
+
+### Remote bootstrap for the full local stateful stack
+
+If the goal is to run web + orchestrator + executor locally:
+
+```bash
+docker compose up -d postgres redis
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
 
 1. Copy the env template:
 
@@ -153,6 +312,11 @@ pnpm install
 ```bash
 pnpm vendor:sync
 ```
+
+Notes:
+
+- `pnpm build` itself does not depend on `vendor`
+- but `pulse`, `trial:*`, and `live:test*` should be treated as vendor-dependent and should run after `pnpm vendor:sync`
 
 4. Start local data services:
 
@@ -362,17 +526,30 @@ Admin actions remain inside the site and call protected orchestrator endpoints i
 
 ## Current status
 
-As of `2026-03-14`, the repository already has:
+As of `2026-03-17`, the practical completion state is:
 
-- the monorepo structure
-- public pages and admin pages
-- the shared data model
-- orchestrator and executor service scaffolding
-- `.env.aizen` auto-discovery
-- one successful capped live trade test below `$1`
-- a `codex/openclaw` provider runtime structure inside the orchestrator
-- real pulse fetch plus namespaced pulse artifact storage, with no mock pulse fallback
-- one successful `codex` trial run with real pulse plus structured decisions
+| Subsystem | Status | Notes |
+| --- | --- | --- |
+| monorepo / workspace build | complete | `pnpm build`, `pnpm typecheck`, and `pnpm test` are first-class workspace operations |
+| web spectator/admin UI | complete | overview, positions, trades, runs, reports, backtests, and admin pages exist |
+| shared contracts / db / terminal-ui | complete | schemas, queries, local state, and terminal rendering are implemented |
+| local `paper` trading | complete | recommendation, human approval, and file-backed state are connected |
+| `live:test:stateless` | complete | DB-less real-fund closed loop plus archives is implemented |
+| `live:test` stateful path | implemented, still being validated | queue worker, preflight, sync, and summaries exist but depend more on infra |
+| real pulse fetch and archiving | complete | no mock pulse fallback in the main path |
+| bilingual run summaries | complete | live runs can write Chinese + English summaries |
+| Polymarket proxy wallet / signature type compatibility | complete | funder-address and signature-type handling has been clarified in the code and env flow |
+| review / monitor / rebalance Markdown design | design complete | design documents exist in `Illustration/`, but full automated producers are still pending |
+| resolution tracking | implemented | independent recurring capability, not the main trading entrypoint |
+| backtest | basic | currently lightweight / placeholder-like |
+| openclaw provider | reserved | wired, but not the primary path |
+| rough-loop | separate subsystem | present and runnable, but not a prerequisite for remote build or the trading path |
+
+If the immediate goal is only to let a remote agent build the project, the repository is already in good enough shape. The environment-sensitive pieces are:
+
+- pulse / recommendation execution
+- live wallet access
+- the stateful DB/Redis-backed stack
 
 See [progress.md](progress.md) for detailed progress tracking.
 
@@ -382,10 +559,11 @@ The E2E test driven development workspace lives in [E2E Test Driven Development/
 
 The main current limitations are:
 
-- Docker runtime validation has not been completed on this machine
-- production deployment to Vercel and the cloud host is not done yet
-- the `codex` trial-run path is connected, but the full production loop still needs more validation
-- the `openclaw` runtime surface is wired, but the CLI is not installed on this machine
+- a dedicated production deployment handbook has not been finalized yet
+- `live:test` is more infra-dependent than `live:test:stateless`, so remote reproducibility is harder
+- `review / monitor / rebalance` have design docs but are not yet fully connected as automatic report producers
+- `backtest` is still lightweight and should not be treated as production-grade evaluation
+- the `openclaw` runtime surface exists, but it is not the default recommended path today
 
 ## Next steps
 
