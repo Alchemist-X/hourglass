@@ -121,7 +121,7 @@ export function normalizeWalletPayload(payload: unknown, prefix = DEFAULT_PREFIX
     const signerAddressRaw = readString(row, ["signerAddress", "signer_address", "SIGNER_ADDRESS"]);
     const signerAddress = signerAddressRaw ? ensureAddress(signerAddressRaw, index) : null;
     const funderAddress = ensureAddress(
-      readString(row, ["funderAddress", "funder_address", "address", "FUNDER_ADDRESS", "EVM_ADDRESS"]) ?? "",
+      readString(row, ["funderAddress", "funder_address", "proxyWallet", "proxy_wallet", "address", "FUNDER_ADDRESS", "EVM_ADDRESS"]) ?? "",
       index
     );
     const signatureType = readNumber(row, ["signatureType", "signature_type", "SIGNATURE_TYPE"]) ?? DEFAULT_SIGNATURE_TYPE;

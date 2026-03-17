@@ -37,6 +37,29 @@ describe("normalizeWalletPayload", () => {
       }
     ]);
   });
+
+  it("accepts proxyWallet as the Polymarket funder address source", () => {
+    const wallets = normalizeWalletPayload([
+      {
+        PRIVATE_KEY: `0x${"1".repeat(64)}`,
+        SIGNER_ADDRESS: `0x${"b".repeat(40)}`,
+        proxyWallet: `0x${"c".repeat(40)}`,
+        SIGNATURE_TYPE: 2
+      }
+    ]);
+
+    expect(wallets).toEqual([
+      {
+        label: "poly-01",
+        privateKey: `0x${"1".repeat(64)}`,
+        signerAddress: `0x${"b".repeat(40)}`,
+        funderAddress: `0x${"c".repeat(40)}`,
+        signatureType: 2,
+        chainId: 137,
+        polymarketHost: "https://clob.polymarket.com"
+      }
+    ]);
+  });
 });
 
 describe("generateWalletEnvFiles", () => {
