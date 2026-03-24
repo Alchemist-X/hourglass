@@ -1,6 +1,6 @@
 # Autonomous Poly Trading
 
-英文版见 [README.en.md](README.en.md)。
+> This README is written in Chinese for the maintainer's convenience. Don't worry — every document in this repository has a matching English version. See [README.en.md](README.en.md) for the full English README.
 
 最后更新：2026-03-24
 
