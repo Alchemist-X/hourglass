@@ -12,9 +12,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   const spectatorMode = isSpectatorWalletMode();
 
   return (
-    <html lang="en">
+    <html lang={spectatorMode ? "zh-CN" : "en"}>
       <body>
-        <Shell spectatorMode={spectatorMode}>{children}</Shell>
+        {spectatorMode ? children : <Shell spectatorMode={spectatorMode}>{children}</Shell>}
       </body>
     </html>
   );
