@@ -117,3 +117,15 @@ Last updated: 2026-03-24
   - the task is very small and only involves local styling fixes
   - the user explicitly requests a single version only
   - the existing page is tightly constrained by a strict design system and not suitable for direction exploration
+
+## 11. Vercel Deployment Verification
+
+- For `apps/web` deployments to Vercel, do not treat the CLI URL alone as proof of success; the deployed page must be opened and visually verified.
+- After every public deployment, the main agent must at minimum:
+  - open the real deployed URL
+  - capture a screenshot of the live page
+  - compare that screenshot against the intended local version or the user-selected reference image
+  - verify that the target API is returning the expected data
+- For spectator mode pages, first verify that `POLYMARKET_PUBLIC_WALLET_ADDRESS` and `NEXT_PUBLIC_POLYMARKET_PUBLIC_WALLET_ADDRESS` are actually active in the target environment; do not assume `production` variables automatically cover `preview`.
+- If the homepage is already a full custom page or full-screen preview, also inspect whether `layout` is still wrapping it in the legacy shell, to avoid stacking the old hero/navigation on top of the new homepage.
+- Do not tell the user "it matches local" before that live screenshot verification has been done.

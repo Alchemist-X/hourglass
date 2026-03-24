@@ -117,3 +117,15 @@
   - 任务非常小，只是局部修样式
   - 用户明确要求只做一个版本
   - 当前页面已被设计系统严格约束，不适合做方向探索
+
+## 11. Vercel 部署校验
+
+- 对 `apps/web` 的 Vercel 部署，不能只看到 CLI 返回 URL 就宣布完成；必须真实打开部署后的页面做人工可见验收。
+- 每次公开部署后，主 agent 必须至少完成：
+  - 打开真实部署 URL
+  - 截图保存当前线上页面
+  - 把线上截图和本地目标版本或用户指定参考图对比
+  - 核对目标 API 是否返回了预期数据
+- 如果是 spectator mode 页面，必须先检查 `POLYMARKET_PUBLIC_WALLET_ADDRESS` 与 `NEXT_PUBLIC_POLYMARKET_PUBLIC_WALLET_ADDRESS` 是否在目标环境中生效；不要假设 `production` 变量自动覆盖 `preview`。
+- 如果首页本身已经是完整风格页或整页预览，必须同时检查 `layout` 是否还包着 legacy shell，避免旧 hero/导航和新首页叠在一起。
+- 没做过线上截图核验前，不要对用户说“已经和本地一致”。
