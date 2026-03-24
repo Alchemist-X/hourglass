@@ -71,25 +71,30 @@ interface Args {
 
 interface PreflightReport {
   ok: boolean;
+  blockingReason: string | null;
   envFilePath: string | null;
   executionMode: string;
   decisionStrategy: string;
   signerAddress: string;
   funderAddress: string;
-  collateralBalanceUsd: number;
-  collateralSource: "reported" | "onchain" | "fallback";
-  reportedCollateralBalanceUsd: number | null;
-  onchainUsdcBalanceUsd: number | null;
-  collateralProbeError: string | null;
+  signerMatchesFunder: boolean | null;
+  effectiveCollateralUsd: number;
   remotePositionCount: number;
   bankrollCapUsd: number;
   configuredMinTradeUsd: number;
   maxTradePct: number;
   maxEventExposurePct: number;
+  collateral: {
+    source: "reported" | "onchain" | "fallback";
+    reportedUsd: number | null;
+    onchainUsdcUsd: number | null;
+    probeError: string | null;
+  };
   checks: Array<{
     key: string;
     ok: boolean;
-    detail: string;
+    blocking: boolean;
+    summary: string;
   }>;
 }
 
@@ -155,6 +160,26 @@ function roundCurrency(value: number): number {
   return Number(value.toFixed(4));
 }
 
+function buildOpenExecutionFloorLabel(input: {
+  configuredMinTradeUsd: number;
+  exchangeMinNotionalUsd: number | null;
+}) {
+  const labels: string[] = [];
+  if (input.configuredMinTradeUsd > 0) {
+    labels.push(`internal minimum ${formatUsd(input.configuredMinTradeUsd)}`);
+  }
+  if (input.exchangeMinNotionalUsd != null && input.exchangeMinNotionalUsd > 0) {
+    labels.push(`Polymarket minimum ${formatUsd(input.exchangeMinNotionalUsd)}`);
+  }
+  return labels.join(" + ");
+}
+
+function shouldWarnSkippedDecision(reason: string) {
+  return reason.startsWith("blocked_by_risk_cap:")
+    || reason.startsWith("blocked_by_strategy_min_trade:")
+    || reason.startsWith("blocked_by_exchange_min:");
+}
+
 function getErrorCause(error: unknown): unknown {
   return error instanceof Error ? error.cause : undefined;
 }
@@ -165,6 +190,77 @@ function getErrorRawSummary(error: unknown): string | null {
     return null;
   }
   return getErrorMessage(cause);
+}
+
+function getPreflightBlockingReason(checks: PreflightReport["checks"]): string | null {
+  return checks.find((check) => check.blocking && !check.ok)?.summary ?? null;
+}
+
+function buildArchivedPreflightReport(report: PreflightReport) {
+  const gateCheckOrder = ["execution-mode", "env-file", "credentials", "collateral", "exchange-sizing"];
+  const gateChecks = gateCheckOrder
+    .map((key) => report.checks.find((check) => check.key === key))
+    .filter((check): check is PreflightReport["checks"][number] => Boolean(check))
+    .map((check) => ({
+      key: check.key,
+      ok: check.ok,
+      blocking: check.blocking,
+      detail: check.summary
+    }));
+
+  const warnings: string[] = [];
+  if (report.signerMatchesFunder === false) {
+    warnings.push(`Signer ${report.signerAddress} does not match wallet ${report.funderAddress}.`);
+  } else if (report.signerMatchesFunder == null && report.signerAddress) {
+    warnings.push("Signer and wallet alignment could not be fully verified.");
+  }
+  if (report.collateral.probeError) {
+    warnings.push(report.collateral.probeError);
+  }
+
+  const wallet = {
+    funderAddress: report.funderAddress,
+    signerAddress: report.signerAddress,
+    signerMatchesFunder: report.signerMatchesFunder
+  };
+  const collateralDiagnostics = {
+    source: report.collateral.source,
+    reportedUsd: report.collateral.reportedUsd,
+    onchainUsdcUsd: report.collateral.onchainUsdcUsd,
+    probeError: report.collateral.probeError
+  };
+
+  return {
+    ok: report.ok,
+    status: report.ok ? "pass" : "blocked",
+    primaryConclusion: report.blockingReason
+      ?? report.checks.find((check) => check.key === "collateral")?.summary
+      ?? "Preflight passed.",
+    liveReadiness: {
+      canContinue: report.ok,
+      blockingReason: report.blockingReason,
+      effectiveCollateralUsd: report.effectiveCollateralUsd,
+      remotePositionCount: report.remotePositionCount
+    },
+    execution: {
+      executionMode: report.executionMode,
+      decisionStrategy: report.decisionStrategy,
+      envFilePath: report.envFilePath
+    },
+    tradingConstraints: {
+      bankrollCapUsd: report.bankrollCapUsd,
+      configuredMinTradeUsd: report.configuredMinTradeUsd,
+      maxTradePct: report.maxTradePct,
+      maxEventExposurePct: report.maxEventExposurePct,
+      exchangeSizingRequired: true
+    },
+    gateChecks,
+    ...(warnings.length > 0 ? { warnings } : {}),
+    ...(report.funderAddress || report.signerAddress ? { wallet } : {}),
+    ...(report.collateral.reportedUsd != null || report.collateral.onchainUsdcUsd != null || report.collateral.probeError
+      ? { collateralDiagnostics }
+      : {})
+  };
 }
 
 async function buildRemotePublicPositions(
@@ -227,29 +323,33 @@ async function runPreflight(input: {
   const checks = [
     {
       key: "execution-mode",
+      blocking: true,
       ok: process.env.AUTOPOLY_EXECUTION_MODE === "live",
-      detail: process.env.AUTOPOLY_EXECUTION_MODE === "live"
-        ? "AUTOPOLY_EXECUTION_MODE is live."
+      summary: process.env.AUTOPOLY_EXECUTION_MODE === "live"
+        ? "Execution mode is live."
         : `AUTOPOLY_EXECUTION_MODE must be live. Received ${process.env.AUTOPOLY_EXECUTION_MODE ?? "-"}.`
     },
     {
       key: "env-file",
+      blocking: true,
       ok: Boolean(input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath),
-      detail: (input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath)
+      summary: (input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath)
         ? `Using env file ${(input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath)}.`
         : "ENV_FILE is required for stateless live runs."
     },
     {
       key: "credentials",
+      blocking: true,
       ok: Boolean(input.executorConfig.privateKey && input.executorConfig.funderAddress),
-      detail: input.executorConfig.privateKey && input.executorConfig.funderAddress
+      summary: input.executorConfig.privateKey && input.executorConfig.funderAddress
         ? "PRIVATE_KEY and FUNDER_ADDRESS are present."
         : "Missing PRIVATE_KEY or FUNDER_ADDRESS."
     },
     {
       key: "signer-funder",
+      blocking: false,
       ok: true,
-      detail: !signerAddress
+      summary: !signerAddress
         ? "Unable to derive signer address from PRIVATE_KEY."
         : !input.executorConfig.funderAddress
           ? "FUNDER_ADDRESS is missing."
@@ -259,8 +359,9 @@ async function runPreflight(input: {
     },
     {
       key: "collateral",
+      blocking: !input.recommendOnly,
       ok: input.recommendOnly || collateralProbe.balanceUsd == null || collateralProbe.balanceUsd > 0 || remotePositions.length > 0,
-      detail: input.recommendOnly && !(collateralProbe.balanceUsd == null || collateralProbe.balanceUsd > 0 || remotePositions.length > 0)
+      summary: input.recommendOnly && !(collateralProbe.balanceUsd == null || collateralProbe.balanceUsd > 0 || remotePositions.length > 0)
         ? "Recommend-only mode ignores zero collateral and continues without sending live orders."
         : collateralProbe.balanceUsd == null
           ? `Collateral probe unavailable; falling back to bankroll cap ${input.orchestratorConfig.initialBankrollUsd.toFixed(2)} USD. ${collateralProbe.errorMessage ?? ""}`.trim()
@@ -270,29 +371,36 @@ async function runPreflight(input: {
     },
     {
       key: "exchange-sizing",
+      blocking: false,
       ok: true,
-      detail: "Live orders are validated against Polymarket order-book sizing before execution."
+      summary: "Live orders will be checked against Polymarket order-book sizing before execution."
     }
   ];
 
   return {
     report: {
-      ok: checks.every((check) => check.ok),
+      ok: checks.every((check) => check.ok || !check.blocking),
+      blockingReason: getPreflightBlockingReason(checks),
       envFilePath: input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath,
       executionMode: process.env.AUTOPOLY_EXECUTION_MODE ?? "live",
       decisionStrategy: input.orchestratorConfig.decisionStrategy,
       signerAddress,
       funderAddress: input.executorConfig.funderAddress,
-      collateralBalanceUsd: effectiveCollateralBalanceUsd,
-      collateralSource: collateralProbe.source,
-      reportedCollateralBalanceUsd: collateralProbe.reportedBalanceUsd,
-      onchainUsdcBalanceUsd: collateralProbe.onchainBalanceUsd,
-      collateralProbeError: collateralProbe.errorMessage,
+      signerMatchesFunder: signerAddress && input.executorConfig.funderAddress
+        ? signerMatchesFunder
+        : null,
+      effectiveCollateralUsd: effectiveCollateralBalanceUsd,
       remotePositionCount: remotePositions.length,
       bankrollCapUsd: input.orchestratorConfig.initialBankrollUsd,
       configuredMinTradeUsd: input.orchestratorConfig.minTradeUsd,
       maxTradePct: input.orchestratorConfig.maxTradePct,
       maxEventExposurePct: input.orchestratorConfig.maxEventExposurePct,
+      collateral: {
+        source: collateralProbe.source,
+        reportedUsd: collateralProbe.reportedBalanceUsd,
+        onchainUsdcUsd: collateralProbe.onchainBalanceUsd,
+        probeError: collateralProbe.errorMessage
+      },
       checks
     } satisfies PreflightReport,
     remotePositions,
@@ -343,8 +451,11 @@ async function buildExecutionPlan(input: {
         minOrderSize: book.minOrderSize ?? null
       });
       const openSizing = resolveOpenExecutionSizing({
-        confidence: decision.confidence,
         decisionNotionalUsd: decision.notional_usd,
+        configuredMinTradeUsd: input.minTradeUsd,
+        exchangeMinNotionalUsd
+      });
+      const openExecutionFloorLabel = buildOpenExecutionFloorLabel({
         configuredMinTradeUsd: input.minTradeUsd,
         exchangeMinNotionalUsd
       });
@@ -371,38 +482,14 @@ async function buildExecutionPlan(input: {
         });
         continue;
       }
-      const guardedNotionalUsd = applyTradeGuards({
-        requestedUsd: openSizing.requestedForGuardsUsd,
-        bankrollUsd: input.overview.total_equity_usd,
-        minTradeUsd: openSizing.minTradeUsdForGuards,
-        maxTradePct: input.orchestratorConfig.maxTradePct,
-        liquidityCapUsd: openSizing.requestedForGuardsUsd,
-        totalExposureUsd: usePulseDirectEmptyPortfolioGuards ? 0 : projectedTotalExposureUsd,
-        maxTotalExposurePct: usePulseDirectEmptyPortfolioGuards ? 1 : input.orchestratorConfig.maxTotalExposurePct,
-        eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
-        maxEventExposurePct: input.orchestratorConfig.maxEventExposurePct,
-        openPositions: usePulseDirectEmptyPortfolioGuards ? 0 : projectedOpenPositions,
-        maxPositions: usePulseDirectEmptyPortfolioGuards ? Number.MAX_SAFE_INTEGER : input.orchestratorConfig.maxPositions,
-        edge: decision.edge
-      });
-      const plannedNotionalUsd = roundCurrency(guardedNotionalUsd);
+      const plannedNotionalUsd = roundCurrency(rawGuardedNotionalUsd);
 
-      if (!(guardedNotionalUsd > 0)) {
+      if (openSizing.executableFloorUsd > 0 && rawGuardedNotionalUsd + 1e-9 < openSizing.executableFloorUsd) {
         skipped.push({
           action: decision.action,
           marketSlug: decision.market_slug,
           tokenId: decision.token_id,
-          reason: `blocked_by_strategy_min_trade: configured minimum trade is ${formatUsd(input.minTradeUsd)} after guardrails`
-        });
-        continue;
-      }
-
-      if (openSizing.clampToExecutableMinimum && exchangeMinNotionalUsd != null && plannedNotionalUsd < exchangeMinNotionalUsd) {
-        skipped.push({
-          action: decision.action,
-          marketSlug: decision.market_slug,
-          tokenId: decision.token_id,
-          reason: `blocked_by_risk_cap: exchange minimum ${formatUsd(exchangeMinNotionalUsd)} exceeds current risk-limited cap ${formatUsd(plannedNotionalUsd)}`
+          reason: `blocked_by_risk_cap: internal risk limits cap this order at ${formatUsd(plannedNotionalUsd)}, but ${openExecutionFloorLabel || "the executable minimum"} is ${formatUsd(openSizing.executableFloorUsd)} so the Polymarket order would fail`
         });
         continue;
       }
@@ -614,7 +701,7 @@ function printRecommendationSummary(input: {
   if (input.skipped.length > 0) {
     printer.section("Skipped Decisions");
     for (const item of input.skipped) {
-      printer.note("muted", item.marketSlug, item.reason);
+      printer.note(shouldWarnSkippedDecision(item.reason) ? "warn" : "muted", item.marketSlug, item.reason);
     }
   }
   printer.section("Artifacts");
@@ -702,29 +789,47 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     });
     preflightReport = preflight.report;
     preflightPath = path.join(archiveDir, "preflight.json");
-    await writeJsonArtifact(preflightPath, preflight.report);
+    await writeJsonArtifact(preflightPath, buildArchivedPreflightReport(preflight.report));
     if (useHumanOutput) {
       const printer = createTerminalPrinter();
       printer.section("Stateless Live Preflight", "route live:test:stateless");
       printer.table([
-        ["Env File", preflight.report.envFilePath ?? "-"],
         ...buildStatelessRunIdentityRows({
           executionMode: preflight.report.executionMode,
           decisionStrategy: preflight.report.decisionStrategy
         }),
-        ["Signer", maskAddressForDisplay(preflight.report.signerAddress)],
-        ["Wallet", maskAddressForDisplay(preflight.report.funderAddress)],
-        ["Effective Collateral", formatUsd(preflight.report.collateralBalanceUsd)],
-        ["Reported Collateral", preflight.report.reportedCollateralBalanceUsd == null ? "-" : formatUsd(preflight.report.reportedCollateralBalanceUsd)],
-        ["Onchain USDC", preflight.report.onchainUsdcBalanceUsd == null ? "-" : formatUsd(preflight.report.onchainUsdcBalanceUsd)],
-        ["Collateral Source", preflight.report.collateralSource],
+        ["Env File", preflight.report.envFilePath ?? "-"],
+        ["Effective Collateral", formatUsd(preflight.report.effectiveCollateralUsd)],
         ["Remote Positions", String(preflight.report.remotePositionCount)],
         ["Bankroll Cap", formatUsd(preflight.report.bankrollCapUsd)],
         ["Configured Min Trade", formatUsd(preflight.report.configuredMinTradeUsd)],
+        ["Max Trade", formatRatioPercent(preflight.report.maxTradePct)],
+        ["Max Event Exposure", formatRatioPercent(preflight.report.maxEventExposurePct)],
+        ["Wallet", maskAddressForDisplay(preflight.report.funderAddress)],
         ["Exchange Sizing", "Validated per Polymarket order book"]
       ]);
+      if (preflight.report.blockingReason) {
+        printer.note("error", "Blocking reason", preflight.report.blockingReason);
+      }
+      if (preflight.report.signerMatchesFunder === false) {
+        printer.note(
+          "warn",
+          "Signer / Wallet mismatch",
+          `${maskAddressForDisplay(preflight.report.signerAddress)} vs ${maskAddressForDisplay(preflight.report.funderAddress)}`
+        );
+      }
+      if (preflight.report.collateral.reportedUsd != null || preflight.report.collateral.onchainUsdcUsd != null) {
+        printer.note(
+          "muted",
+          "Collateral diagnostics",
+          `reported ${preflight.report.collateral.reportedUsd == null ? "-" : formatUsd(preflight.report.collateral.reportedUsd)} | onchain ${preflight.report.collateral.onchainUsdcUsd == null ? "-" : formatUsd(preflight.report.collateral.onchainUsdcUsd)} | source ${preflight.report.collateral.source}`
+        );
+      }
+      if (preflight.report.collateral.probeError) {
+        printer.note("warn", "Collateral probe", preflight.report.collateral.probeError);
+      }
       for (const check of preflight.report.checks) {
-        printer.note(check.ok ? "success" : "error", check.key, check.detail);
+        printer.note(check.ok ? "success" : check.blocking ? "error" : "warn", check.key, check.summary);
       }
     }
     if (!preflight.report.ok) {
@@ -814,7 +919,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       runId,
       executionMode: "live-stateless",
       envFilePath: preflight.report.envFilePath,
-      collateralBalanceUsd: preflight.report.collateralBalanceUsd,
+      collateralBalanceUsd: preflight.report.effectiveCollateralUsd,
       overview,
       pulseMarkdownPath: pulse.absoluteMarkdownPath,
       pulseJsonPath: pulse.absoluteJsonPath,
@@ -833,7 +938,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         envFilePath: preflight.report.envFilePath,
         runId,
         archiveDir,
-        collateralBalanceUsd: preflight.report.collateralBalanceUsd,
+        collateralBalanceUsd: preflight.report.effectiveCollateralUsd,
         overview,
         plans,
         skipped,

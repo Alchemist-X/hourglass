@@ -31,6 +31,14 @@ function createContext(markdown: string): RuntimeExecutionContext {
       totalFiltered: 5,
       selectedCandidates: 1,
       minLiquidityUsd: 5000,
+      fetchConfig: {
+        pagesPerDimension: 5,
+        eventsPerPage: 50,
+        minFetchedMarkets: 5000,
+        dimensions: ["volume24hr", "liquidity", "startDate", "competitive"]
+      },
+      categoryStats: { fetched: [], filtered: [] },
+      tagStats: { fetched: [], filtered: [] },
       candidates: [
         {
           question: "Demo market question",
@@ -45,7 +53,11 @@ function createContext(markdown: string): RuntimeExecutionContext {
           endDate: "2026-12-31T00:00:00Z",
           bestBid: 0.41,
           bestAsk: 0.43,
-          spread: 0.02
+          spread: 0.02,
+          categorySlug: null,
+          categoryLabel: null,
+          categorySource: null,
+          tags: []
         }
       ],
       riskFlags: [],

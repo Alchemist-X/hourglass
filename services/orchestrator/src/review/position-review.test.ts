@@ -49,6 +49,14 @@ function createContext(): RuntimeExecutionContext {
       totalFiltered: 5,
       selectedCandidates: 2,
       minLiquidityUsd: 5000,
+      fetchConfig: {
+        pagesPerDimension: 5,
+        eventsPerPage: 50,
+        minFetchedMarkets: 5000,
+        dimensions: ["volume24hr", "liquidity", "startDate", "competitive"]
+      },
+      categoryStats: { fetched: [], filtered: [] },
+      tagStats: { fetched: [], filtered: [] },
       candidates: [],
       riskFlags: [],
       tradeable: true

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildArtifactRelativePath } from "../lib/artifacts.js";
-import { evaluatePulseRiskFlags } from "./market-pulse.js";
+import { evaluatePulseRiskFlags, resolvePulseFetchTimeoutMs } from "./market-pulse.js";
 import type { OrchestratorConfig } from "../config.js";
 
 const baseConfig: OrchestratorConfig = {
@@ -26,17 +26,20 @@ const baseConfig: OrchestratorConfig = {
   decisionStrategy: "provider-runtime",
   artifactStorageRoot: "runtime-artifacts",
   providerTimeoutSeconds: 90,
-  pulseFetchTimeoutSeconds: 60,
+  pulseFetchTimeoutSeconds: 300,
+  pulseTimeoutMode: "default",
   pulse: {
     sourceRepo: "all-polymarket-skill",
     sourceRepoDir: "vendor/repos/all-polymarket-skill",
-    pages: 1,
-    eventsPerPage: 20,
+    pages: 5,
+    eventsPerPage: 50,
+    minFetchedMarkets: 5000,
     minLiquidityUsd: 5000,
     maxCandidates: 12,
     reportCandidates: 4,
     reportCommentLimit: 20,
     reportTimeoutSeconds: 420,
+    directRenderTimeoutSeconds: 1200,
     minTradeableCandidates: 5,
     maxAgeMinutes: 30,
     maxMarkdownChars: 24000
@@ -75,7 +78,11 @@ describe("market pulse risk guards", () => {
           endDate: "2026-03-31T00:00:00.000Z",
           bestBid: 0.39,
           bestAsk: 0.41,
-          spread: 0.02
+          spread: 0.02,
+          categorySlug: null,
+          categoryLabel: null,
+          categorySource: null,
+          tags: []
         }
       ]
     }, baseConfig);
@@ -96,5 +103,22 @@ describe("market pulse risk guards", () => {
     expect(relativePath).toBe(
       "reports/pulse/2026/03/14/pulse-20260314T005114Z-codex-full-11111111-1111-1111-1111-111111111111.md"
     );
+  });
+
+  it("disables pulse fetch timeout in unbounded mode", () => {
+    expect(resolvePulseFetchTimeoutMs({
+      ...baseConfig,
+      pulseTimeoutMode: "unbounded"
+    })).toBeNull();
+  });
+
+  it("flags snapshots whose fetched universe is below the configured target", () => {
+    const flags = evaluatePulseRiskFlags({
+      generatedAtUtc: new Date().toISOString(),
+      totalFetched: 100,
+      candidates: []
+    }, baseConfig);
+
+    expect(flags.some((flag) => flag.includes("below target"))).toBe(true);
   });
 });

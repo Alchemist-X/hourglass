@@ -41,6 +41,8 @@ export type SkillLocale = (typeof skillLocales)[number];
 
 export const pulseSourceRepos = ["all-polymarket-skill", "polymarket-market-pulse"] as const;
 export type PulseSourceRepo = (typeof pulseSourceRepos)[number];
+export const pulseTimeoutModes = ["default", "unbounded"] as const;
+export type PulseTimeoutMode = (typeof pulseTimeoutModes)[number];
 
 export interface SkillProviderConfig {
   command: string;
@@ -55,11 +57,13 @@ export interface PulseConfig {
   sourceRepoDir: string;
   pages: number;
   eventsPerPage: number;
+  minFetchedMarkets: number;
   minLiquidityUsd: number;
   maxCandidates: number;
   reportCandidates: number;
   reportCommentLimit: number;
   reportTimeoutSeconds: number;
+  directRenderTimeoutSeconds: number;
   minTradeableCandidates: number;
   maxAgeMinutes: number;
   maxMarkdownChars: number;
@@ -89,6 +93,7 @@ export interface OrchestratorConfig {
   artifactStorageRoot: string;
   providerTimeoutSeconds: number;
   pulseFetchTimeoutSeconds: number;
+  pulseTimeoutMode: PulseTimeoutMode;
   pulse: PulseConfig;
   codex: SkillProviderConfig;
   openclaw: SkillProviderConfig;
@@ -148,17 +153,20 @@ export function loadConfig(): OrchestratorConfig {
     decisionStrategy: readEnum("AGENT_DECISION_STRATEGY", "pulse-direct", agentDecisionStrategies),
     artifactStorageRoot: path.resolve(readString("ARTIFACT_STORAGE_ROOT", path.join(repoRoot, "runtime-artifacts"))),
     providerTimeoutSeconds: readNumber("PROVIDER_TIMEOUT_SECONDS", 0),
-    pulseFetchTimeoutSeconds: readNumber("PULSE_FETCH_TIMEOUT_SECONDS", 60),
+    pulseFetchTimeoutSeconds: readNumber("PULSE_FETCH_TIMEOUT_SECONDS", 300),
+    pulseTimeoutMode: readEnum("PULSE_TIMEOUT_MODE", "default", pulseTimeoutModes),
     pulse: {
       sourceRepo: pulseSourceRepo,
       sourceRepoDir: path.resolve(readString("PULSE_SOURCE_REPO_DIR", defaultPulseSourceRepoDir)),
-      pages: readNumber("PULSE_PAGES", 1),
-      eventsPerPage: readNumber("PULSE_EVENTS_PER_PAGE", 20),
+      pages: readNumber("PULSE_PAGES", 5),
+      eventsPerPage: readNumber("PULSE_EVENTS_PER_PAGE", 50),
+      minFetchedMarkets: readNumber("PULSE_MIN_FETCHED_MARKETS", 5000),
       minLiquidityUsd: readNumber("PULSE_MIN_LIQUIDITY_USD", 5000),
       maxCandidates: readNumber("PULSE_MAX_CANDIDATES", 12),
       reportCandidates: readNumber("PULSE_REPORT_CANDIDATES", 4),
       reportCommentLimit: readNumber("PULSE_REPORT_COMMENT_LIMIT", 20),
       reportTimeoutSeconds: readNumber("PULSE_REPORT_TIMEOUT_SECONDS", 0),
+      directRenderTimeoutSeconds: readNumber("PULSE_DIRECT_RENDER_TIMEOUT_SECONDS", 1200),
       minTradeableCandidates: readNumber("PULSE_MIN_TRADEABLE_CANDIDATES", 5),
       maxAgeMinutes: readNumber("PULSE_MAX_AGE_MINUTES", 30),
       maxMarkdownChars: readNumber("PULSE_MAX_MARKDOWN_CHARS", 24000)

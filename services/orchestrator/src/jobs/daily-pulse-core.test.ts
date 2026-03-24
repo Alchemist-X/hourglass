@@ -36,17 +36,20 @@ function createConfig(tempDir: string): OrchestratorConfig {
     decisionStrategy: "pulse-direct",
     artifactStorageRoot: tempDir,
     providerTimeoutSeconds: 0,
-    pulseFetchTimeoutSeconds: 60,
+    pulseFetchTimeoutSeconds: 300,
+    pulseTimeoutMode: "default",
     pulse: {
       sourceRepo: "all-polymarket-skill",
       sourceRepoDir: tempDir,
-      pages: 1,
-      eventsPerPage: 20,
+      pages: 5,
+      eventsPerPage: 50,
+      minFetchedMarkets: 5000,
       minLiquidityUsd: 5000,
       maxCandidates: 12,
       reportCandidates: 4,
       reportCommentLimit: 20,
       reportTimeoutSeconds: 0,
+      directRenderTimeoutSeconds: 1200,
       minTradeableCandidates: 5,
       maxAgeMinutes: 30,
       maxMarkdownChars: 24000
@@ -96,6 +99,14 @@ function createPulse(): PulseSnapshot {
     totalFiltered: 5,
     selectedCandidates: 2,
     minLiquidityUsd: 5000,
+    fetchConfig: {
+      pagesPerDimension: 5,
+      eventsPerPage: 50,
+      minFetchedMarkets: 5000,
+      dimensions: ["volume24hr", "liquidity", "startDate", "competitive"]
+    },
+    categoryStats: { fetched: [], filtered: [] },
+    tagStats: { fetched: [], filtered: [] },
     candidates: [],
     riskFlags: [],
     tradeable: true

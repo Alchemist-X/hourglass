@@ -7,8 +7,7 @@ import {
   calculatePositionValueUsd,
   isBelowExchangeBuyMinimum,
   isBelowExchangeSellMinimum,
-  resolveOpenExecutionSizing,
-  shouldClampHighConfidenceOpen
+  resolveOpenExecutionSizing
 } from "./live-test-stateless-helpers.ts";
 
 describe("stateless live test helpers", () => {
@@ -94,33 +93,42 @@ describe("stateless live test helpers", () => {
     expect(calculatePositionPnlPct(0.4, 0.5)).toBeCloseTo(0.25);
   });
 
-  it("clamps high-confidence opens up to the exchange minimum for guard evaluation", () => {
-    expect(shouldClampHighConfidenceOpen("medium-high")).toBe(true);
-    expect(shouldClampHighConfidenceOpen("high")).toBe(true);
-    expect(shouldClampHighConfidenceOpen("medium")).toBe(false);
-
+  it("raises opens to the highest executable floor before applying guards", () => {
     expect(resolveOpenExecutionSizing({
-      confidence: "high",
       decisionNotionalUsd: 1.5,
       configuredMinTradeUsd: 10,
       exchangeMinNotionalUsd: 2.15
     })).toEqual({
-      requestedForGuardsUsd: 2.15,
-      minTradeUsdForGuards: 0,
-      clampToExecutableMinimum: true
+      requestedForGuardsUsd: 10,
+      executableFloorUsd: 10,
+      raisedToConfiguredMinTrade: true,
+      raisedToExchangeMinimum: false
     });
   });
 
-  it("keeps configured minimum trade sizing for lower-confidence opens", () => {
+  it("raises opens to the exchange minimum when it exceeds the configured minimum", () => {
     expect(resolveOpenExecutionSizing({
-      confidence: "medium",
       decisionNotionalUsd: 1.5,
-      configuredMinTradeUsd: 10,
+      configuredMinTradeUsd: 1,
       exchangeMinNotionalUsd: 2.15
     })).toEqual({
-      requestedForGuardsUsd: 1.5,
-      minTradeUsdForGuards: 10,
-      clampToExecutableMinimum: false
+      requestedForGuardsUsd: 2.15,
+      executableFloorUsd: 2.15,
+      raisedToConfiguredMinTrade: false,
+      raisedToExchangeMinimum: true
+    });
+  });
+
+  it("keeps the model amount when it already clears both floors", () => {
+    expect(resolveOpenExecutionSizing({
+      decisionNotionalUsd: 4,
+      configuredMinTradeUsd: 1,
+      exchangeMinNotionalUsd: 2.15
+    })).toEqual({
+      requestedForGuardsUsd: 4,
+      executableFloorUsd: 2.15,
+      raisedToConfiguredMinTrade: false,
+      raisedToExchangeMinimum: false
     });
   });
 });

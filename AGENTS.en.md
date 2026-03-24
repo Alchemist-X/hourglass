@@ -2,7 +2,7 @@
 
 Chinese version: [AGENTS.md](AGENTS.md)
 
-Last updated: 2026-03-23
+Last updated: 2026-03-24
 
 ## 1. Language and Documentation
 
@@ -29,6 +29,9 @@ Last updated: 2026-03-23
 
 - Default to language that a normal product manager can understand; do not hide behind jargon, buzzwords, or vague technical phrasing.
 - Necessary technical terms are allowed, but explain them the first time they appear: what they mean and what they affect.
+- Every substantive reply or progress update should start with a human review entry point:
+  - first point out the `1-3` most important places worth manual review
+  - prefer concrete files and key sections before abstract summary
 - When describing a plan, answer these four things first:
   - what the problem is
   - what it affects
@@ -56,6 +59,7 @@ Last updated: 2026-03-23
   - default behavior is fail-fast
   - critical failures should halt the system when designed to do so
   - `collateral=0` and `remote positions=0` must be blocked (unless explicitly recommend-only)
+  - when internal risk limits, minimum trade sizing, or position caps push an order below Polymarket's executable threshold, print an explicit warning that the trade will fail and show both the internal executable cap and the exchange threshold
 - Decision strategies:
   - `provider-runtime`
   - `pulse-direct` (House Direct)
@@ -85,6 +89,6 @@ Last updated: 2026-03-23
 
 - Documentation: Chinese primary + English copy.
 - Terminal UX: visible progress + color levels + actionable errors.
-- Human communication: plain language first, conclusions and impact before technical detail.
+- Human communication: start with a human review entry point, then give conclusions and impact, and only then add technical detail.
 - Collaboration mode: the main agent should delegate parallelizable work to sub-agents first and keep the main session focused on integration.
 - Preferred trading debug route: `live:test:stateless` first, then `live:test`.

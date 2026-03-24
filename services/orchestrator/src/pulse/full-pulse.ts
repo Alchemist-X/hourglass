@@ -8,7 +8,7 @@ import { writeStoredArtifact } from "../lib/artifacts.js";
 import { combineTextMetrics, formatTextMetrics, measureText, readTextMetrics } from "../lib/text-metrics.js";
 import type { ProgressReporter } from "../lib/terminal-progress.js";
 import { resolveProviderSkillSettings } from "../runtime/skill-settings.js";
-import type { PulseCandidate } from "./market-pulse.js";
+import type { PulseBucketStat, PulseCandidate, PulseFetchConfig, PulseStatsBundle } from "./market-pulse.js";
 
 interface PulseResearchOrderbook {
   outcomeLabel: string;
@@ -34,6 +34,20 @@ interface FullPulseContext {
   total_filtered: number;
   selected_candidates: number;
   min_liquidity_usd: number;
+  fetch_config: {
+    pages_per_dimension: number;
+    events_per_page: number;
+    min_fetched_markets: number;
+    dimensions: string[];
+  };
+  category_stats: {
+    fetched: PulseBucketStat[];
+    filtered: PulseBucketStat[];
+  };
+  tag_stats: {
+    fetched: PulseBucketStat[];
+    filtered: PulseBucketStat[];
+  };
   risk_flags: string[];
   candidates: PulseCandidate[];
   research_candidates: PulseResearchCandidate[];
@@ -48,7 +62,7 @@ interface FullPulsePaths {
 
 type JsonRecord = Record<string, unknown>;
 const COMMAND_HEARTBEAT_INTERVAL_MS = 5000;
-const DEFAULT_PULSE_DIRECT_RENDER_TIMEOUT_SECONDS = 180;
+const DEFAULT_PULSE_DIRECT_RENDER_TIMEOUT_SECONDS = 1200;
 
 function isChineseLocale(locale: SkillLocale): boolean {
   return locale === "zh";
@@ -272,13 +286,26 @@ function formatPctMetric(value: number): string {
 }
 
 export function resolvePulseRenderTimeoutMs(config: OrchestratorConfig): number {
+  if (config.pulseTimeoutMode === "unbounded") {
+    return 0;
+  }
   if (config.pulse.reportTimeoutSeconds > 0) {
     return config.pulse.reportTimeoutSeconds * 1000;
   }
   if (config.decisionStrategy === "pulse-direct") {
-    return DEFAULT_PULSE_DIRECT_RENDER_TIMEOUT_SECONDS * 1000;
+    const seconds = config.pulse.directRenderTimeoutSeconds > 0
+      ? config.pulse.directRenderTimeoutSeconds
+      : DEFAULT_PULSE_DIRECT_RENDER_TIMEOUT_SECONDS;
+    return seconds * 1000;
   }
   return 0;
+}
+
+function resolvePulseResearchTimeoutMs(config: OrchestratorConfig): number {
+  if (config.pulseTimeoutMode === "unbounded") {
+    return 0;
+  }
+  return config.pulse.reportTimeoutSeconds * 1000;
 }
 
 function clampProbability(value: number): number {
@@ -709,7 +736,8 @@ async function collectResearchCandidate(
     return candidate;
   }
 
-  await ensureApiTradeScriptsInstalled(apiTradeScriptsDir, config.pulse.reportTimeoutSeconds * 1000, progress);
+  const researchTimeoutMs = resolvePulseResearchTimeoutMs(config);
+  await ensureApiTradeScriptsInstalled(apiTradeScriptsDir, researchTimeoutMs, progress);
 
   try {
     candidate.scrapeResult = summarizeScrapeResult(await runJsonCommand({
@@ -727,7 +755,7 @@ async function collectResearchCandidate(
         "likes"
       ],
       cwd: apiTradeScriptsDir,
-      timeoutMs: config.pulse.reportTimeoutSeconds * 1000,
+      timeoutMs: researchTimeoutMs,
       progress,
       progressPercent: 32,
       progressLabel: "Scraping market context",
@@ -758,7 +786,7 @@ async function collectResearchCandidate(
           "5"
         ],
         cwd: apiTradeScriptsDir,
-        timeoutMs: config.pulse.reportTimeoutSeconds * 1000,
+        timeoutMs: researchTimeoutMs,
         progress,
         progressPercent: 38,
         progressLabel: "Reading orderbooks",
@@ -1006,7 +1034,7 @@ async function renderFullPulseMarkdown(input: {
       `Pulse render inputs | support docs 3 files / ${formatTextMetrics(supportDocMetrics)} | est total ${formatTextMetrics(totalInputMetrics)}`
     );
     input.progress?.info(`Pulse render temp dir | ${tempDir}`);
-    if (input.config.pulse.reportTimeoutSeconds <= 0 && renderTimeoutMs > 0) {
+    if (input.config.pulseTimeoutMode !== "unbounded" && input.config.pulse.reportTimeoutSeconds <= 0 && renderTimeoutMs > 0) {
       input.progress?.info(
         `Pulse render timeout fallback | PULSE_REPORT_TIMEOUT_SECONDS disabled, using internal ${Math.round(renderTimeoutMs / 1000)}s timeout for ${input.config.decisionStrategy}`
       );
@@ -1097,6 +1125,9 @@ export async function buildFullPulseArchive(input: {
   totalFetched: number;
   totalFiltered: number;
   minLiquidityUsd: number;
+  fetchConfig: PulseFetchConfig;
+  categoryStats: PulseStatsBundle;
+  tagStats: PulseStatsBundle;
   candidates: PulseCandidate[];
   riskFlags: string[];
   relativeJsonPath: string;
@@ -1142,6 +1173,20 @@ export async function buildFullPulseArchive(input: {
     total_filtered: input.totalFiltered,
     selected_candidates: input.candidates.length,
     min_liquidity_usd: input.minLiquidityUsd,
+    fetch_config: {
+      pages_per_dimension: input.fetchConfig.pagesPerDimension,
+      events_per_page: input.fetchConfig.eventsPerPage,
+      min_fetched_markets: input.fetchConfig.minFetchedMarkets,
+      dimensions: input.fetchConfig.dimensions
+    },
+    category_stats: {
+      fetched: input.categoryStats.fetched,
+      filtered: input.categoryStats.filtered
+    },
+    tag_stats: {
+      fetched: input.tagStats.fetched,
+      filtered: input.tagStats.filtered
+    },
     risk_flags: input.riskFlags,
     candidates: input.candidates,
     research_candidates: researchCandidates

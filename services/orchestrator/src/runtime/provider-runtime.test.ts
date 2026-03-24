@@ -34,17 +34,20 @@ function createConfig(repoRoot: string, artifactStorageRoot: string): Orchestrat
     decisionStrategy: "provider-runtime",
     artifactStorageRoot,
     providerTimeoutSeconds: 0,
-    pulseFetchTimeoutSeconds: 60,
+    pulseFetchTimeoutSeconds: 300,
+    pulseTimeoutMode: "default",
     pulse: {
       sourceRepo: "all-polymarket-skill",
       sourceRepoDir: path.join(repoRoot, "vendor", "repos", "all-polymarket-skill"),
-      pages: 1,
-      eventsPerPage: 20,
+      pages: 5,
+      eventsPerPage: 50,
+      minFetchedMarkets: 5000,
       minLiquidityUsd: 5000,
       maxCandidates: 12,
       reportCandidates: 4,
       reportCommentLimit: 20,
       reportTimeoutSeconds: 0,
+      directRenderTimeoutSeconds: 1200,
       minTradeableCandidates: 5,
       maxAgeMinutes: 30,
       maxMarkdownChars: 24000
@@ -116,7 +119,11 @@ function createPulseCandidate(): RuntimeExecutionContext["pulse"]["candidates"][
     endDate: "2026-03-31T00:00:00.000Z",
     bestBid: 0.39,
     bestAsk: 0.41,
-    spread: 0.02
+    spread: 0.02,
+    categorySlug: null,
+    categoryLabel: null,
+    categorySource: null,
+    tags: []
   };
 }
 
@@ -156,6 +163,14 @@ function createContext(
       totalFiltered: 1,
       selectedCandidates: candidates.length,
       minLiquidityUsd: 5000,
+      fetchConfig: {
+        pagesPerDimension: 5,
+        eventsPerPage: 50,
+        minFetchedMarkets: 5000,
+        dimensions: ["volume24hr", "liquidity", "startDate", "competitive"]
+      },
+      categoryStats: { fetched: [], filtered: [] },
+      tagStats: { fetched: [], filtered: [] },
       candidates,
       riskFlags: [],
       tradeable: true

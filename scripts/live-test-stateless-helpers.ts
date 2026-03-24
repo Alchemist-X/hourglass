@@ -10,25 +10,23 @@ export function buildStatelessRunIdentityRows(input: {
   ];
 }
 
-export function shouldClampHighConfidenceOpen(confidence: "low" | "medium" | "medium-high" | "high") {
-  return confidence === "medium-high" || confidence === "high";
-}
-
 export function resolveOpenExecutionSizing(input: {
-  confidence: "low" | "medium" | "medium-high" | "high";
   decisionNotionalUsd: number;
   configuredMinTradeUsd: number;
   exchangeMinNotionalUsd: number | null;
 }) {
-  const clampToExecutableMinimum = shouldClampHighConfidenceOpen(input.confidence)
-    && input.exchangeMinNotionalUsd != null
-    && input.exchangeMinNotionalUsd > 0;
+  const configuredFloorUsd = input.configuredMinTradeUsd > 0 ? input.configuredMinTradeUsd : 0;
+  const exchangeFloorUsd = input.exchangeMinNotionalUsd != null && input.exchangeMinNotionalUsd > 0
+    ? input.exchangeMinNotionalUsd
+    : 0;
+  const executableFloorUsd = Math.max(configuredFloorUsd, exchangeFloorUsd);
   return {
-    requestedForGuardsUsd: clampToExecutableMinimum
-      ? Math.max(input.decisionNotionalUsd, input.exchangeMinNotionalUsd ?? 0)
-      : input.decisionNotionalUsd,
-    minTradeUsdForGuards: clampToExecutableMinimum ? 0 : input.configuredMinTradeUsd,
-    clampToExecutableMinimum
+    requestedForGuardsUsd: Math.max(input.decisionNotionalUsd, executableFloorUsd),
+    executableFloorUsd,
+    raisedToConfiguredMinTrade: configuredFloorUsd > input.decisionNotionalUsd
+      && configuredFloorUsd >= exchangeFloorUsd,
+    raisedToExchangeMinimum: exchangeFloorUsd > input.decisionNotionalUsd
+      && exchangeFloorUsd >= configuredFloorUsd
   };
 }
 

@@ -49,18 +49,25 @@ function applyDecisionExposureDelta(
   decisions: TradeDecision[]
 ) {
   const after = new Map(before);
+  const setExposure = (eventSlug: string, value: number) => {
+    if (value <= 0) {
+      after.delete(eventSlug);
+      return;
+    }
+    after.set(eventSlug, value);
+  };
   for (const decision of decisions) {
     if (decision.action === "open") {
-      after.set(decision.event_slug, (after.get(decision.event_slug) ?? 0) + decision.notional_usd);
+      setExposure(decision.event_slug, (after.get(decision.event_slug) ?? 0) + decision.notional_usd);
       continue;
     }
     if (decision.action === "close") {
       const current = positions.find((position) => position.token_id === decision.token_id)?.current_value_usd ?? 0;
-      after.set(decision.event_slug, Math.max(0, (after.get(decision.event_slug) ?? 0) - current));
+      setExposure(decision.event_slug, Math.max(0, (after.get(decision.event_slug) ?? 0) - current));
       continue;
     }
     if (decision.action === "reduce") {
-      after.set(decision.event_slug, Math.max(0, (after.get(decision.event_slug) ?? 0) - decision.notional_usd));
+      setExposure(decision.event_slug, Math.max(0, (after.get(decision.event_slug) ?? 0) - decision.notional_usd));
     }
   }
   return after;
@@ -267,11 +274,23 @@ function buildRebalanceMarkdown(input: {
   const zh = [
     "# 再平衡报告",
     "",
+    "> 口径：基于当前持仓 + 本轮决策提案估算结构变化；在 recommend-only / preview 链路中，这不等于实际成交后的账户状态。",
+    "",
     "## 结构变化",
     "",
     `- 运行前事件敞口数：${before.size}`,
     `- 运行后事件敞口数：${after.size}`,
     `- 当前净值基准：${formatUsd(input.overview.total_equity_usd)}`,
+    `- 敞口占比口径：事件敞口 / ${formatUsd(input.overview.total_equity_usd)}`,
+    "",
+    "## 这些数字怎么来的",
+    "",
+    "- 运行前事件敞口数：按当前持仓里的 event_slug 去重后计数。",
+    "- 运行后事件敞口数：在运行前的事件敞口基础上，按本轮决策做一遍假设增减后的去重计数。",
+    "- open：把 decision.notional_usd 加到对应 event_slug。",
+    "- close：按该 token 当前持仓市值，从对应 event_slug 扣减。",
+    "- reduce：按 decision.notional_usd 从对应 event_slug 扣减。",
+    "- 当前净值基准：直接使用 overview.total_equity_usd。",
     "",
     "## 运行前 Top 事件敞口",
     "",
@@ -290,11 +309,23 @@ function buildRebalanceMarkdown(input: {
   const en = [
     "# Rebalance Report",
     "",
+    "> Basis: this is a proposal-based structure view built from current positions plus this run's decisions. On recommend-only / preview flows, it is not the same as the post-fill account state.",
+    "",
     "## Structure Change",
     "",
     `- Event exposures before run: ${before.size}`,
     `- Event exposures after run: ${after.size}`,
     `- Equity baseline: ${formatUsd(input.overview.total_equity_usd)}`,
+    `- Exposure ratio basis: event exposure / ${formatUsd(input.overview.total_equity_usd)}`,
+    "",
+    "## How These Numbers Are Computed",
+    "",
+    "- Event exposures before run: count distinct event_slug values in the current positions.",
+    "- Event exposures after run: count distinct event_slug values after applying the proposed decision deltas to the before-run map.",
+    "- open: add decision.notional_usd to the target event_slug.",
+    "- close: subtract the current marked value of the matching token from the target event_slug.",
+    "- reduce: subtract decision.notional_usd from the target event_slug.",
+    "- Equity baseline: copied directly from overview.total_equity_usd.",
     "",
     "## Top Event Exposures Before",
     "",

@@ -60,6 +60,14 @@ function createPulse(): PulseSnapshot {
     totalFiltered: 5,
     selectedCandidates: 2,
     minLiquidityUsd: 5000,
+    fetchConfig: {
+      pagesPerDimension: 5,
+      eventsPerPage: 50,
+      minFetchedMarkets: 5000,
+      dimensions: ["volume24hr", "liquidity", "startDate", "competitive"]
+    },
+    categoryStats: { fetched: [], filtered: [] },
+    tagStats: { fetched: [], filtered: [] },
     candidates: [],
     riskFlags: ["spread widened"],
     tradeable: true
@@ -215,8 +223,12 @@ describe("portfolio report artifacts", () => {
 
       const reviewPath = path.join(tempDir, artifacts[0]!.path);
       const reviewEnglishPath = path.join(tempDir, buildEnglishMirrorRelativePath(artifacts[0]!.path));
+      const rebalancePath = path.join(tempDir, artifacts[2]!.path);
+      const rebalanceEnglishPath = path.join(tempDir, buildEnglishMirrorRelativePath(artifacts[2]!.path));
       const reviewContent = await readFile(reviewPath, "utf8");
       const reviewEnglishContent = await readFile(reviewEnglishPath, "utf8");
+      const rebalanceContent = await readFile(rebalancePath, "utf8");
+      const rebalanceEnglishContent = await readFile(rebalanceEnglishPath, "utf8");
 
       expect(reviewContent).toContain("# 组合复盘报告");
       expect(reviewContent).toContain("仍有 edge：是");
@@ -227,6 +239,46 @@ describe("portfolio report artifacts", () => {
       expect(reviewEnglishContent).toContain("# Portfolio Review Report");
       expect(reviewEnglishContent).toContain("still has edge: yes");
       expect(reviewEnglishContent).toContain("pulse coverage: none");
+      expect(rebalanceContent).toContain("口径：基于当前持仓 + 本轮决策提案估算结构变化");
+      expect(rebalanceEnglishContent).toContain("proposal-based structure view");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("drops zero-value event exposures from the rebalance after-state", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autopoly-rebalance-zero-exposure-"));
+    try {
+      const closeDecisionSet: TradeDecisionSet = {
+        ...createDecisionSet(),
+        decisions: [
+          {
+            ...createDecisionSet().decisions[0]!,
+            action: "close",
+            market_slug: "demo-market",
+            token_id: "token-1",
+            notional_usd: createPositions()[0]!.current_value_usd
+          }
+        ]
+      };
+
+      const artifacts = await buildPortfolioReportArtifacts({
+        config: { artifactStorageRoot: tempDir },
+        overview: createOverview(),
+        positions: createPositions(),
+        pulse: createPulse(),
+        decisionSet: closeDecisionSet,
+        promptSummary: "Prompt summary",
+        reasoningMd: "Reasoning summary",
+        positionReviews: createPositionReviews(),
+        entryPlans: []
+      });
+
+      const rebalancePath = path.join(tempDir, artifacts[2]!.path);
+      const rebalanceContent = await readFile(rebalancePath, "utf8");
+
+      expect(rebalanceContent).toContain("运行前事件敞口数：1");
+      expect(rebalanceContent).toContain("运行后事件敞口数：0");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

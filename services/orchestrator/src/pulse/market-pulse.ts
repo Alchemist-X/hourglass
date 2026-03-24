@@ -23,6 +23,32 @@ interface RawPulseMarket {
   best_bid: number;
   best_ask: number;
   spread: number;
+  category_slug?: string | null;
+  category_label?: string | null;
+  category_source?: string | null;
+  tags?: Array<{
+    slug?: string | null;
+    label?: string | null;
+  }>;
+}
+
+interface RawPulseBucketStat {
+  slug: string;
+  label: string;
+  count: number;
+  source?: string | null;
+}
+
+interface RawPulseStatsBundle {
+  fetched?: RawPulseBucketStat[];
+  filtered?: RawPulseBucketStat[];
+}
+
+interface RawPulseFetchConfig {
+  pages_per_dimension?: number;
+  events_per_page?: number;
+  min_fetched_markets?: number;
+  dimensions?: string[];
 }
 
 interface RawPulseOutput {
@@ -30,7 +56,34 @@ interface RawPulseOutput {
   total_fetched: number;
   total_filtered: number;
   min_liquidity: number;
+  fetch_config?: RawPulseFetchConfig;
+  category_stats?: RawPulseStatsBundle;
+  tag_stats?: RawPulseStatsBundle;
   markets: RawPulseMarket[];
+}
+
+export interface PulseTag {
+  slug: string;
+  label: string;
+}
+
+export interface PulseBucketStat {
+  slug: string;
+  label: string;
+  count: number;
+  source?: string;
+}
+
+export interface PulseStatsBundle {
+  fetched: PulseBucketStat[];
+  filtered: PulseBucketStat[];
+}
+
+export interface PulseFetchConfig {
+  pagesPerDimension: number;
+  eventsPerPage: number;
+  minFetchedMarkets: number;
+  dimensions: string[];
 }
 
 export interface PulseCandidate {
@@ -47,6 +100,10 @@ export interface PulseCandidate {
   bestBid: number;
   bestAsk: number;
   spread: number;
+  categorySlug?: string | null;
+  categoryLabel?: string | null;
+  categorySource?: string | null;
+  tags?: PulseTag[];
 }
 
 export interface PulseSnapshot {
@@ -62,6 +119,9 @@ export interface PulseSnapshot {
   totalFiltered: number;
   selectedCandidates: number;
   minLiquidityUsd: number;
+  fetchConfig?: PulseFetchConfig;
+  categoryStats?: PulseStatsBundle;
+  tagStats?: PulseStatsBundle;
   candidates: PulseCandidate[];
   riskFlags: string[];
   tradeable: boolean;
@@ -69,6 +129,56 @@ export interface PulseSnapshot {
 
 function isChineseLocale(locale: SkillLocale): boolean {
   return locale === "zh";
+}
+
+function toPulseTag(tag: NonNullable<RawPulseMarket["tags"]>[number]): PulseTag | null {
+  const slug = typeof tag?.slug === "string" ? tag.slug.trim() : "";
+  const label = typeof tag?.label === "string" ? tag.label.trim() : "";
+  if (!slug && !label) {
+    return null;
+  }
+  return {
+    slug: slug || label.toLowerCase().replace(/\s+/g, "-"),
+    label: label || slug
+  };
+}
+
+function toPulseStatsBundle(value: RawPulseStatsBundle | undefined): PulseStatsBundle {
+  const normalize = (rows: RawPulseBucketStat[] | undefined) =>
+    Array.isArray(rows)
+      ? rows
+          .filter((row) =>
+            typeof row?.slug === "string" &&
+            row.slug.trim() &&
+            typeof row?.label === "string" &&
+            row.label.trim() &&
+            typeof row?.count === "number" &&
+            Number.isFinite(row.count)
+          )
+          .map((row) => ({
+            slug: row.slug.trim(),
+            label: row.label.trim(),
+            count: Number(row.count),
+            ...(typeof row.source === "string" && row.source.trim() ? { source: row.source.trim() } : {})
+          }))
+      : [];
+
+  return {
+    fetched: normalize(value?.fetched),
+    filtered: normalize(value?.filtered)
+  };
+}
+
+function toPulseFetchConfig(raw: RawPulseOutput, config: OrchestratorConfig): PulseFetchConfig {
+  const dimensions = Array.isArray(raw.fetch_config?.dimensions)
+    ? raw.fetch_config?.dimensions.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    : [];
+  return {
+    pagesPerDimension: Number(raw.fetch_config?.pages_per_dimension ?? config.pulse.pages),
+    eventsPerPage: Number(raw.fetch_config?.events_per_page ?? config.pulse.eventsPerPage),
+    minFetchedMarkets: Number(raw.fetch_config?.min_fetched_markets ?? config.pulse.minFetchedMarkets),
+    dimensions: dimensions.length > 0 ? dimensions : ["volume24hr", "liquidity", "startDate", "competitive"]
+  };
 }
 
 function toPulseCandidate(market: RawPulseMarket): PulseCandidate {
@@ -85,20 +195,25 @@ function toPulseCandidate(market: RawPulseMarket): PulseCandidate {
     endDate: market.end_date,
     bestBid: Number(market.best_bid ?? 0),
     bestAsk: Number(market.best_ask ?? 0),
-    spread: Number(market.spread ?? 0)
+    spread: Number(market.spread ?? 0),
+    categorySlug: typeof market.category_slug === "string" && market.category_slug.trim() ? market.category_slug.trim() : null,
+    categoryLabel: typeof market.category_label === "string" && market.category_label.trim() ? market.category_label.trim() : null,
+    categorySource: typeof market.category_source === "string" && market.category_source.trim() ? market.category_source.trim() : null,
+    tags: Array.isArray(market.tags)
+      ? market.tags
+          .map((tag) => toPulseTag(tag))
+          .filter((tag): tag is PulseTag => tag != null)
+      : []
   };
 }
 
 function resolvePulseScriptsDir(config: OrchestratorConfig, locale: SkillLocale): string {
   if (config.pulse.sourceRepo === "polymarket-market-pulse") {
     const repoDir = config.pulse.sourceRepoDir;
-    return locale === "zh"
-      ? path.join(repoDir, "polymarket-market-pulse-zh", "scripts")
-      : path.join(repoDir, "scripts");
+    return path.join(repoDir, "scripts");
   }
 
-  const skillDir = locale === "zh" ? "polymarket-market-pulse-zh" : "polymarket-market-pulse";
-  return path.join(config.pulse.sourceRepoDir, skillDir, "scripts");
+  return path.join(config.pulse.sourceRepoDir, "polymarket-market-pulse", "scripts");
 }
 
 function buildPulseTitle(generatedAtUtc: string, provider: AgentRuntimeProvider, locale: SkillLocale): string {
@@ -118,13 +233,32 @@ function buildPulseTitle(generatedAtUtc: string, provider: AgentRuntimeProvider,
     : `Pulse ${formatted} ${time} [${provider}]`;
 }
 
+export function resolvePulseFetchTimeoutMs(config: OrchestratorConfig): number | null {
+  if (config.pulseTimeoutMode === "unbounded") {
+    return null;
+  }
+  if (config.pulseFetchTimeoutSeconds <= 0) {
+    return null;
+  }
+  return config.pulseFetchTimeoutSeconds * 1000;
+}
+
 export function evaluatePulseRiskFlags(snapshot: {
   generatedAtUtc: string;
+  totalFetched?: number;
   candidates: PulseCandidate[];
 }, config: OrchestratorConfig, locale: SkillLocale = "en"): string[] {
   const flags: string[] = [];
   const ageMinutes = (Date.now() - new Date(snapshot.generatedAtUtc).getTime()) / 60000;
   const zh = isChineseLocale(locale);
+
+  if (typeof snapshot.totalFetched === "number" && snapshot.totalFetched < config.pulse.minFetchedMarkets) {
+    flags.push(
+      zh
+        ? `抓取到的原始市场数量低于目标（${snapshot.totalFetched}/${config.pulse.minFetchedMarkets}）`
+        : `fetched market universe is below target (${snapshot.totalFetched}/${config.pulse.minFetchedMarkets})`
+    );
+  }
 
   if (snapshot.candidates.length < config.pulse.minTradeableCandidates) {
     flags.push(
@@ -168,6 +302,8 @@ async function runPulseFetch(
       String(config.pulse.pages),
       "--events-per-page",
       String(config.pulse.eventsPerPage),
+      "--min-fetched-markets",
+      String(config.pulse.minFetchedMarkets),
       "--min-liquidity",
       String(config.pulse.minLiquidityUsd),
       "--output",
@@ -179,7 +315,7 @@ async function runPulseFetch(
         cwd: path.dirname(scriptPath),
         stdio: ["ignore", "pipe", "pipe"]
       });
-      const timeoutMs = config.pulseFetchTimeoutSeconds * 1000;
+      const timeoutMs = resolvePulseFetchTimeoutMs(config);
       const startedAt = Date.now();
       const heartbeat = setInterval(() => {
         progress?.heartbeat({
@@ -187,26 +323,32 @@ async function runPulseFetch(
           label: "Pulse fetch in progress",
           detail: path.basename(scriptPath),
           elapsedMs: Date.now() - startedAt,
-          timeoutMs
+          timeoutMs: timeoutMs ?? undefined
         });
       }, 10000);
 
       let stderr = "";
-      const timeout = setTimeout(() => {
-        child.kill("SIGTERM");
-        reject(new Error(`fetch_markets.py timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
+      const timeout = timeoutMs == null
+        ? null
+        : setTimeout(() => {
+            child.kill("SIGTERM");
+            reject(new Error(`fetch_markets.py timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
       child.stderr.on("data", (chunk) => {
         stderr += String(chunk);
       });
       child.on("error", (error) => {
         clearInterval(heartbeat);
-        clearTimeout(timeout);
+        if (timeout) {
+          clearTimeout(timeout);
+        }
         reject(error);
       });
       child.on("close", (code) => {
         clearInterval(heartbeat);
-        clearTimeout(timeout);
+        if (timeout) {
+          clearTimeout(timeout);
+        }
         if (code === 0) {
           resolve();
           return;
@@ -239,6 +381,9 @@ export async function generatePulseSnapshot(input: {
     detail: `reading market list via ${path.basename(scriptPath)}`
   });
   const raw = await runPulseFetch(scriptPath, input.config, input.progress);
+  const fetchConfig = toPulseFetchConfig(raw, input.config);
+  const categoryStats = toPulseStatsBundle(raw.category_stats);
+  const tagStats = toPulseStatsBundle(raw.tag_stats);
   const candidates = raw.markets
     .map(toPulseCandidate)
     .filter((candidate) => candidate.clobTokenIds.length > 0)
@@ -248,7 +393,11 @@ export async function generatePulseSnapshot(input: {
     label: "Pulse market list ready",
     detail: `${raw.total_fetched} fetched | ${raw.total_filtered} filtered | ${candidates.length} selected`
   });
-  const baseFlags = evaluatePulseRiskFlags({ generatedAtUtc, candidates }, input.config, input.locale);
+  const baseFlags = evaluatePulseRiskFlags({
+    generatedAtUtc,
+    totalFetched: raw.total_fetched,
+    candidates
+  }, input.config, input.locale);
   const title = buildPulseTitle(generatedAtUtc, input.provider, input.locale);
   const relativeMarkdownPath = buildArtifactRelativePath({
     kind: "pulse-report",
@@ -276,6 +425,9 @@ export async function generatePulseSnapshot(input: {
     totalFetched: raw.total_fetched,
     totalFiltered: raw.total_filtered,
     minLiquidityUsd: raw.min_liquidity,
+    fetchConfig,
+    categoryStats,
+    tagStats,
     candidates,
     riskFlags: baseFlags,
     relativeJsonPath,
@@ -301,6 +453,9 @@ export async function generatePulseSnapshot(input: {
     totalFiltered: raw.total_filtered,
     selectedCandidates: candidates.length,
     minLiquidityUsd: raw.min_liquidity,
+    fetchConfig,
+    categoryStats,
+    tagStats,
     candidates,
     riskFlags: baseFlags,
     tradeable: baseFlags.length === 0
