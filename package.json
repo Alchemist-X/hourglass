@@ -25,6 +25,7 @@
     "daily:pulse": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/terminal-ui build && tsx scripts/daily-pulse.ts",
     "live:test": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/db build && pnpm --filter @autopoly/terminal-ui build && tsx scripts/live-test.ts",
     "live:test:stateless": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/terminal-ui build && tsx scripts/live-test-stateless.ts",
+    "poly:cache-order-limits": "tsx scripts/cache-polymarket-order-limits.ts",
     "db:generate": "pnpm --filter @autopoly/db drizzle-kit generate",
     "db:migrate": "pnpm --filter @autopoly/db drizzle-kit migrate",
     "db:seed": "pnpm --filter @autopoly/db seed",

@@ -4,13 +4,14 @@ import {
   getPublicPositionsData,
   getPublicTradesData,
   getSpectatorClosedPositionsData,
-  isSpectatorInternalLedgerMode,
   isSpectatorWalletMode
 } from "../../lib/public-wallet";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function PnlPage() {
   const spectatorMode = isSpectatorWalletMode();
-  const spectatorInternalLedgerMode = isSpectatorInternalLedgerMode();
   const [overview, positions, trades, closedPositions] = await Promise.all([
     getPublicOverviewData(),
     getPublicPositionsData(),
@@ -28,9 +29,7 @@ export default async function PnlPage() {
           </div>
           <p className="panel-note">
             {spectatorMode
-              ? spectatorInternalLedgerMode
-                ? "这一页优先使用内部 snapshot、持仓和成交账本来解释账户表现；已平仓 realized P&L 仍会补公共 closed-position 数据。这样总额和暴露口径会更严，但资金流水仍不是最终完整版。"
-                : "这一页是更深入的分析页。它会把账户总额、cost basis、未实现 P&L、已实现 P&L 和仓位贡献拆开，方便围观者看清楚现在到底是谁在拉动账户表现。"
+              ? "这一页是更深入的分析页。它会把账户总额、cost basis、未实现 P&L、已实现 P&L 和仓位贡献拆开，方便围观者看清楚现在到底是谁在拉动账户表现。"
               : "这个页面会严格使用当前价格、平均成本和持仓库存来计算未实现 P&L。"}
           </p>
         </div>
@@ -49,7 +48,7 @@ export default async function PnlPage() {
             </div>
             <div>
               <dt>已实现</dt>
-              <dd>{spectatorInternalLedgerMode ? "已平仓部分仍补公共 feed 里的 closed-position 记录。" : "来自公开 feed 里的 closed-position 记录。"}</dd>
+              <dd>来自公开 feed 里的 closed-position 记录。</dd>
             </div>
             <div>
               <dt>仍不完整的部分</dt>

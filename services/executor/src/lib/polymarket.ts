@@ -17,6 +17,10 @@ import {
   getCollateralBalanceAllowance as getCollateralBalanceAllowanceSdk,
   readBook as readBookSdk
 } from "./polymarket-sdk.js";
+import {
+  persistPolymarketOrderLimit,
+  resolveDefaultPolymarketOrderLimitPath
+} from "./orderbook-limits.js";
 
 type PolyCliAction =
   | "read-book"
@@ -42,6 +46,7 @@ interface PolyCliEnvelope<T> {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../");
 const defaultPolyCliPath = path.join(repoRoot, "scripts", "poly-cli.ts");
+const defaultPolymarketOrderLimitPath = resolveDefaultPolymarketOrderLimitPath(repoRoot);
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -198,7 +203,7 @@ export async function executeMarketOrder(
 }
 
 export async function readBook(config: ExecutorConfig, tokenId: string): Promise<BookSnapshot | null> {
-  return await withPolyCliReadFallback<BookSnapshot | null>(
+  const book = await withPolyCliReadFallback<BookSnapshot | null>(
     {
       action: "read-book",
       config,
@@ -206,6 +211,14 @@ export async function readBook(config: ExecutorConfig, tokenId: string): Promise
     },
     async () => await readBookSdk(config, tokenId)
   );
+  if (book) {
+    void persistPolymarketOrderLimit({
+      filePath: defaultPolymarketOrderLimitPath,
+      tokenId,
+      book
+    }).catch(() => {});
+  }
+  return book;
 }
 
 export async function fetchRemotePositions(config: ExecutorConfig): Promise<RemotePosition[]> {

@@ -1,5 +1,5 @@
 import type { OverviewResponse, PublicArtifactListItem, PublicPosition, PublicRunSummary, PublicTrade } from "@autopoly/contracts";
-import { getOverview, getPublicPositions, getPublicRuns, getPublicTrades, getReports, hasDatabaseUrl } from "@autopoly/db";
+import { getOverview, getPublicPositions, getPublicRuns, getPublicTrades, getReports } from "@autopoly/db";
 
 const DATA_API_BASE = "https://data-api.polymarket.com";
 const GAMMA_API_BASE = "https://gamma-api.polymarket.com";
@@ -118,32 +118,6 @@ export function getSpectatorWalletAddress(): string | null {
 
 export function isSpectatorWalletMode(): boolean {
   return Boolean(getSpectatorWalletAddress());
-}
-
-function resolveConfiguredInternalWalletCandidate(): string {
-  return (
-    process.env.FUNDER_ADDRESS?.trim()
-    || process.env.ADDRESS?.trim()
-    || process.env.WALLET_ADDRESS?.trim()
-    || process.env.EVM_ADDRESS?.trim()
-    || ""
-  );
-}
-
-function getConfiguredInternalWalletAddress(): string | null {
-  const value = resolveConfiguredInternalWalletCandidate();
-  return /^0x[a-fA-F0-9]{40}$/.test(value) ? value : null;
-}
-
-export function isSpectatorInternalLedgerMode(): boolean {
-  const spectatorAddress = getSpectatorWalletAddress();
-  const internalWalletAddress = getConfiguredInternalWalletAddress();
-  return Boolean(
-    spectatorAddress
-    && internalWalletAddress
-    && hasDatabaseUrl()
-    && spectatorAddress.toLowerCase() === internalWalletAddress.toLowerCase()
-  );
 }
 
 export function buildPolymarketProfileUrl(address: string): string {
@@ -557,9 +531,6 @@ export async function getPublicOverviewData(): Promise<OverviewResponse> {
   if (!address) {
     return await getOverview();
   }
-  if (isSpectatorInternalLedgerMode()) {
-    return await getOverview();
-  }
 
   const [activities, positions, closedPositions, cashBalance] = await Promise.all([
     fetchPolymarketActivity(address),
@@ -576,9 +547,6 @@ export async function getPublicPositionsData(): Promise<PublicPosition[]> {
   if (!address) {
     return await getPublicPositions();
   }
-  if (isSpectatorInternalLedgerMode()) {
-    return await getPublicPositions();
-  }
 
   const [openPositions, activities] = await Promise.all([
     fetchPolymarketOpenPositions(address),
@@ -593,23 +561,20 @@ export async function getPublicTradesData(): Promise<PublicTrade[]> {
   if (!address) {
     return await getPublicTrades();
   }
-  if (isSpectatorInternalLedgerMode()) {
-    return await getPublicTrades();
-  }
 
   const activities = await fetchPolymarketActivity(address);
   return mapTradeActivity(activities);
 }
 
 export async function getPublicRunsData(): Promise<PublicRunSummary[]> {
-  if (isSpectatorWalletMode() && !isSpectatorInternalLedgerMode()) {
+  if (isSpectatorWalletMode()) {
     return [];
   }
   return await getPublicRuns();
 }
 
 export async function getReportsData(): Promise<PublicArtifactListItem[]> {
-  if (isSpectatorWalletMode() && !isSpectatorInternalLedgerMode()) {
+  if (isSpectatorWalletMode()) {
     return [];
   }
   return await getReports();

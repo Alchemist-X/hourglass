@@ -9,6 +9,7 @@ Last updated: 2026-03-24
 - Code comments must be in English.
 - Human-facing Markdown defaults to Chinese, with an English copy (`*.en.md`).
 - Chinese keeps the primary filename, English uses `*.en.md`.
+- If the Chinese and English versions diverge, the Chinese version is the source of truth and the English version must be brought back into alignment.
 - Any update to human-facing docs must update both language versions.
 
 ## 2. Terminal Interaction Preferences
@@ -30,8 +31,11 @@ Last updated: 2026-03-24
 - Default to language that a normal product manager can understand; do not hide behind jargon, buzzwords, or vague technical phrasing.
 - Necessary technical terms are allowed, but explain them the first time they appear: what they mean and what they affect.
 - Every substantive reply or progress update should start with a human review entry point:
-  - first point out the `1-3` most important places worth manual review
+  - first point out the `1-5` most important places worth manual review
   - prefer concrete files and key sections before abstract summary
+  - immediately after the review entry point, explain:
+    - what was changed
+    - what effect the change had
 - When describing a plan, answer these four things first:
   - what the problem is
   - what it affects
@@ -89,6 +93,27 @@ Last updated: 2026-03-24
 
 - Documentation: Chinese primary + English copy.
 - Terminal UX: visible progress + color levels + actionable errors.
-- Human communication: start with a human review entry point, then give conclusions and impact, and only then add technical detail.
+- Human communication: start with a human review entry point, then explain what changed and what effect it had, and only then add conclusions, impact, and technical detail.
 - Collaboration mode: the main agent should delegate parallelizable work to sub-agents first and keep the main session focused on integration.
 - Preferred trading debug route: `live:test:stateless` first, then `live:test`.
+
+## 10. Frontend Preview Workflow
+
+- When the user asks to "redo the site", explore clearly different UI directions, or substantially rethink the frontend, do not default to a single version. The agent should first produce `3` locally renderable preview variants so the user can compare them before any production replacement.
+- These `3` variants must differ in at least `2` of the following:
+  - information architecture
+  - visual language
+  - first-screen narrative
+  - priority/order of data modules
+- The three variants must not be mere color swaps or spacing tweaks. They should read as three clearly distinct directions at a glance.
+- During preview work, reuse the real data layer or existing public APIs whenever possible. Do not create a fake backend just for mock visuals. If static samples are necessary, label them explicitly.
+- Preview variants should live under separate local routes or a dedicated preview entry, instead of replacing the production page before the user chooses a direction.
+- After generating the three previews, the main agent must explain for each one:
+  - what the design idea is
+  - what scenario it fits best
+  - what it improves relative to the original version
+- Once the user picks a direction, only then should the chosen variant be promoted to the formal page and followed by detailed polish, responsive cleanup, and accessibility finishing.
+- The agent may skip the three-variant preview workflow only when:
+  - the task is very small and only involves local styling fixes
+  - the user explicitly requests a single version only
+  - the existing page is tightly constrained by a strict design system and not suitable for direction exploration

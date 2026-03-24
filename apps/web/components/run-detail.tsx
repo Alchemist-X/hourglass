@@ -1,10 +1,10 @@
 "use client";
 
-import type { PublicRunDetail } from "@autopoly/contracts";
+import type { PublicRunDetailWithPulse } from "../lib/public-run-pulse";
 import { formatDate, formatPct, formatUsd } from "../lib/format";
 import { usePollingJson } from "../lib/use-polling";
 
-function formatRunMode(mode: PublicRunDetail["mode"]): string {
+function formatRunMode(mode: PublicRunDetailWithPulse["mode"]): string {
   switch (mode) {
     case "full":
       return "全量";
@@ -32,7 +32,7 @@ function formatRunStatus(status: string): string {
   }
 }
 
-function formatDecisionAction(action: PublicRunDetail["decisions"][number]["action"]): string {
+function formatDecisionAction(action: PublicRunDetailWithPulse["decisions"][number]["action"]): string {
   switch (action) {
     case "open":
       return "开仓";
@@ -47,11 +47,11 @@ function formatDecisionAction(action: PublicRunDetail["decisions"][number]["acti
   }
 }
 
-function formatDecisionSide(side: PublicRunDetail["decisions"][number]["side"]): string {
+function formatDecisionSide(side: PublicRunDetailWithPulse["decisions"][number]["side"]): string {
   return side === "BUY" ? "买入" : "卖出";
 }
 
-function formatConfidence(confidence: PublicRunDetail["decisions"][number]["confidence"]): string {
+function formatConfidence(confidence: PublicRunDetailWithPulse["decisions"][number]["confidence"]): string {
   switch (confidence) {
     case "low":
       return "低";
@@ -83,8 +83,8 @@ function formatTrackingStatus(status: string): string {
   }
 }
 
-export function RunDetail({ runId, initialData }: { runId: string; initialData: PublicRunDetail }) {
-  const { data } = usePollingJson(`/api/public/runs/${runId}`, initialData);
+export function RunDetail({ runId, initialData }: { runId: string; initialData: PublicRunDetailWithPulse }) {
+  const { data } = usePollingJson<PublicRunDetailWithPulse>(`/api/public/runs/${runId}`, initialData);
 
   return (
     <>
@@ -126,6 +126,58 @@ export function RunDetail({ runId, initialData }: { runId: string; initialData: 
         <pre>{data.reasoning_md}</pre>
         <pre>{data.logs_md}</pre>
       </section>
+
+      {data.pulse_explainer ? (
+        <section className="panel prose-panel">
+          <div className="panel-header">
+            <div>
+              <p className="panel-kicker">脉冲</p>
+              <h2>这次推荐为什么会出现</h2>
+            </div>
+            <span className="badge">仅在已完成且有真实成交时显示</span>
+          </div>
+          <dl className="detail-grid">
+            <div>
+              <dt>脉冲发布时间</dt>
+              <dd>{formatDate(data.pulse_explainer.pulse_published_at_utc)}</dd>
+            </div>
+            <div>
+              <dt>脉冲文件</dt>
+              <dd className="table-code">{data.pulse_explainer.pulse_path}</dd>
+            </div>
+            <div>
+              <dt>首次成交时间</dt>
+              <dd>{formatDate(data.pulse_explainer.first_executed_trade_at_utc)}</dd>
+            </div>
+            <div>
+              <dt>最近成交时间</dt>
+              <dd>{formatDate(data.pulse_explainer.last_executed_trade_at_utc)}</dd>
+            </div>
+            <div>
+              <dt>成交笔数</dt>
+              <dd>{data.pulse_explainer.executed_trade_count}</dd>
+            </div>
+          </dl>
+          <p className="panel-note">
+            {data.pulse_explainer.pulse_title}。这段内容只展示本轮已完成、且确实有成交的 pulse 摘要。它用来说明模型当时为什么会把注意力放到这些市场上。
+          </p>
+          <pre>{data.pulse_explainer.pulse_excerpt_md}</pre>
+          <div className="report-list">
+            {data.pulse_explainer.executed_trades.map((trade) => (
+              <article key={trade.id} className="report-card">
+                <span className="badge">{trade.side}</span>
+                <h3>{trade.market_slug}</h3>
+                <p>
+                  成交金额 {formatUsd(trade.filled_notional_usd)}
+                  {trade.avg_price == null ? "" : ` · 均价 ${trade.avg_price.toFixed(3)}`}
+                </p>
+                <p className="table-code">{trade.token_id}</p>
+                <small>{formatDate(trade.timestamp_utc)}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel-header">
