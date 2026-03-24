@@ -1,6 +1,5 @@
-import { getPublicPositions } from "@autopoly/db";
+import { getPublicPositionsData } from "../../../../lib/public-wallet";
 
 export async function GET() {
-  return Response.json(await getPublicPositions());
+  return Response.json(await getPublicPositionsData());
 }
-

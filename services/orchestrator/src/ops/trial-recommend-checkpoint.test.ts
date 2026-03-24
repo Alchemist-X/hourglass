@@ -1,9 +1,13 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { OrchestratorConfig } from "../config.js";
-import { loadTrialRecommendCheckpoint, saveTrialRecommendCheckpoint } from "./trial-recommend-checkpoint.js";
+import {
+  loadTrialRecommendCheckpoint,
+  saveTrialRecommendCheckpoint,
+  saveTrialRecommendErrorArtifact
+} from "./trial-recommend-checkpoint.js";
 
 function createConfig(artifactStorageRoot: string): OrchestratorConfig {
   return {
@@ -116,6 +120,41 @@ describe("trial recommend checkpoint", () => {
       expect(checkpoint?.runId).toBe("run-1");
       expect(checkpoint?.stage).toBe("pulse_ready");
       expect(checkpoint?.pulse.title).toBe("Pulse");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("saves a structured error artifact with preserved paths", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "trial-recommend-error-artifact-"));
+    try {
+      const config = createConfig(root);
+      const savedPath = await saveTrialRecommendErrorArtifact(config, {
+        runId: "run-2",
+        stage: "decision_runtime",
+        executionMode: "paper",
+        localStateFile: "runtime-artifacts/local/paper-state.json",
+        message: "Decision runtime failed",
+        pulseTempDir: "/tmp/pulse-temp",
+        pulsePromptPath: "/tmp/pulse-temp/full-pulse-prompt.txt",
+        pulseOutputPath: "/tmp/pulse-temp/full-pulse-report.md",
+        providerTempDir: "/tmp/provider-temp",
+        providerOutputPath: "/tmp/provider-temp/provider-output.json",
+        providerPromptPath: "/tmp/provider-temp/provider-prompt.txt",
+        providerSchemaPath: "/tmp/provider-temp/trade-decision-set.schema.json"
+      });
+
+      const artifact = JSON.parse(await readFile(savedPath, "utf8")) as {
+        runId: string;
+        stage: string;
+        pulseTempDir: string | null;
+        providerOutputPath: string | null;
+      };
+
+      expect(artifact.runId).toBe("run-2");
+      expect(artifact.stage).toBe("decision_runtime");
+      expect(artifact.pulseTempDir).toBe("/tmp/pulse-temp");
+      expect(artifact.providerOutputPath).toBe("/tmp/provider-temp/provider-output.json");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

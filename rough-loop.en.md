@@ -8,7 +8,44 @@ Chinese version: [rough-loop.md](rough-loop.md).
 - 每次任务完成后，Rough Loop 都应立即提交本轮任务触碰到的文件。
 
 ## Queue
-Add new task cards here.
+### RL-004 | 补齐 Hostinger 443 SSH 清单并写明阿里云独立账户要求 / Add the Hostinger 443 SSH checklist and record the Aliyun dedicated-user requirement
+
+#### Title
+补齐 Hostinger 443 SSH 清单并写明阿里云独立账户要求 / Add the Hostinger 443 SSH checklist and record the Aliyun dedicated-user requirement
+
+#### Status
+todo
+
+#### Priority
+P1
+
+#### Depends On
+- none
+
+#### Allowed Paths
+- Illustration/hostinger-root-access.md
+- Illustration/hostinger-root-access.en.md
+- Illustration/ssh-connectivity-postmortem-2026-03-23.md
+- Illustration/ssh-connectivity-postmortem-2026-03-23.en.md
+
+#### Definition of Done
+- Add a shortest executable Hostinger `SSH over 443` checklist to `Illustration/hostinger-root-access.md` and `Illustration/hostinger-root-access.en.md`
+- Make the postmortem state explicitly that Hostinger over `443` is technically feasible but must be validated separately rather than treated as already proven
+- Record explicitly in the relevant docs that Aliyun `admin` is bootstrap-only and long-term deployment plus daily ops must move to a dedicated `AutoPulse` user
+
+#### Verification
+- rg -n "Port 443|SSH over 443|AutoPulse|bootstrap-only|独立账户" Illustration/hostinger-root-access.md Illustration/hostinger-root-access.en.md Illustration/ssh-connectivity-postmortem-2026-03-23.md Illustration/ssh-connectivity-postmortem-2026-03-23.en.md
+
+#### Context
+- This round of debugging already proved that `22` is unstable under the current local network / VPN path while Aliyun `443` is usable
+- The user explicitly asked to record “if needed, the next step is to add the shortest Hostinger SSH-to-443 checklist” into Rough Loop
+- The user also explicitly required that Aliyun must not keep using `admin` long-term and needs a separate account
+
+#### Latest Result
+- Task recorded, not started yet.
+
+#### Attempts
+0
 
 ## Running
 No tasks.

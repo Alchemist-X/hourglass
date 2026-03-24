@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -11,6 +11,8 @@ import { combineTextMetrics, formatTextMetrics, measureText, readTextMetrics } f
 import type { PulseSnapshot } from "../pulse/market-pulse.js";
 import type { AgentRuntime, RuntimeExecutionContext, RuntimeExecutionResult } from "./agent-runtime.js";
 import { resolveProviderSkillSettings, type ResolvedProviderSkillSettings } from "./skill-settings.js";
+
+const RUNTIME_HEARTBEAT_INTERVAL_MS = 5000;
 
 function isChineseLocale(locale: ResolvedProviderSkillSettings["locale"]): boolean {
   return locale === "zh";
@@ -46,6 +48,44 @@ function stripCodeFences(text: string): string {
   }
 
   return lines.slice(1, -1).join("\n").trim();
+}
+
+function readOutputSizeBytes(outputPath: string | undefined): number {
+  if (!outputPath || !existsSync(outputPath)) {
+    return 0;
+  }
+  try {
+    return statSync(outputPath).size;
+  } catch {
+    return 0;
+  }
+}
+
+function formatRemainingTimeoutMs(startedAt: number, timeoutMs: number | null): string {
+  if (timeoutMs == null) {
+    return "disabled";
+  }
+  const remainingMs = Math.max(0, timeoutMs - (Date.now() - startedAt));
+  return `${Math.ceil(remainingMs / 1000)}s`;
+}
+
+function buildRuntimeHeartbeatDetail(input: {
+  stage: string;
+  providerDetail: string;
+  startedAt: number;
+  timeoutMs: number | null;
+  tempDir: string;
+  outputPath: string;
+}): string {
+  return [
+    `stage ${input.stage}`,
+    input.providerDetail,
+    `elapsed ${Math.round((Date.now() - input.startedAt) / 1000)}s`,
+    `temp ${input.tempDir}`,
+    `output ${input.outputPath}`,
+    `output bytes ${readOutputSizeBytes(input.outputPath)}`,
+    `timeout remaining ${formatRemainingTimeoutMs(input.startedAt, input.timeoutMs)}`
+  ].join(" | ");
 }
 
 function normalizeSourceUrl(url: string): string {
@@ -386,6 +426,7 @@ async function runCodex(
   prompt: string,
   settings: ResolvedProviderSkillSettings,
   repoRoot: string,
+  tempDir: string,
   outputPath: string,
   schemaPath: string,
   timeoutMs: number,
@@ -432,17 +473,34 @@ async function runCodex(
       progress?.heartbeat({
         percent: 80,
         label: "Decision runtime is running",
-        detail: `${settings.provider} provider`,
+        detail: buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime is running",
+          providerDetail: `${settings.provider} provider`,
+          startedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir,
+          outputPath
+        }),
         elapsedMs: Date.now() - startedAt,
         timeoutMs: effectiveTimeoutMs ?? undefined
       });
-    }, 10000);
+    }, RUNTIME_HEARTBEAT_INTERVAL_MS);
     const timeout = effectiveTimeoutMs == null
       ? null
       : setTimeout(() => {
           clearInterval(heartbeat);
           child.kill("SIGTERM");
-          reject(new Error(`codex exec timed out after ${effectiveTimeoutMs}ms`));
+          reject(new Error(
+            `codex exec timed out after ${effectiveTimeoutMs}ms\n` +
+            `${buildRuntimeHeartbeatDetail({
+              stage: "Decision runtime is running",
+              providerDetail: `${settings.provider} provider`,
+              startedAt,
+              timeoutMs: effectiveTimeoutMs,
+              tempDir,
+              outputPath
+            })}`
+          ));
         }, effectiveTimeoutMs);
     child.stderr.on("data", (chunk) => {
       stderr += String(chunk);
@@ -452,7 +510,18 @@ async function runCodex(
       if (timeout) {
         clearTimeout(timeout);
       }
-      reject(error);
+      reject(new Error(
+        `${error.message}\n` +
+        `${buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime is running",
+          providerDetail: `${settings.provider} provider`,
+          startedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir,
+          outputPath
+        })}`,
+        { cause: error }
+      ));
     });
     child.on("close", (code) => {
       clearInterval(heartbeat);
@@ -463,7 +532,17 @@ async function runCodex(
         resolve();
         return;
       }
-      reject(new Error(stderr || `codex exec exited with code ${code}`));
+      reject(new Error(
+        `${stderr || `codex exec exited with code ${code}`}\n` +
+        `${buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime is running",
+          providerDetail: `${settings.provider} provider`,
+          startedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir,
+          outputPath
+        })}`
+      ));
     });
     child.stdin.write(prompt);
     child.stdin.end();
@@ -486,7 +565,11 @@ async function runTemplateCommandWithProgress(
   template: string,
   replacements: Record<string, string>,
   timeoutMs: number,
-  progress?: RuntimeExecutionContext["progress"]
+  progress?: RuntimeExecutionContext["progress"],
+  diagnostics?: {
+    tempDir: string;
+    outputPath: string;
+  }
 ) {
   const effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : null;
   const command = applyTemplate(template, replacements);
@@ -502,17 +585,34 @@ async function runTemplateCommandWithProgress(
       progress?.heartbeat({
         percent: 80,
         label: "Decision runtime is running",
-        detail: "template provider",
+        detail: buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime is running",
+          providerDetail: "template provider",
+          startedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir: diagnostics?.tempDir ?? "-",
+          outputPath: diagnostics?.outputPath ?? replacements.output_file ?? "-"
+        }),
         elapsedMs: Date.now() - startedAt,
         timeoutMs: effectiveTimeoutMs ?? undefined
       });
-    }, 10000);
+    }, RUNTIME_HEARTBEAT_INTERVAL_MS);
     const timeout = effectiveTimeoutMs == null
       ? null
       : setTimeout(() => {
           clearInterval(heartbeat);
           child.kill("SIGTERM");
-          reject(new Error(`provider command timed out after ${effectiveTimeoutMs}ms`));
+          reject(new Error(
+            `provider command timed out after ${effectiveTimeoutMs}ms\n` +
+            `${buildRuntimeHeartbeatDetail({
+              stage: "Decision runtime is running",
+              providerDetail: "template provider",
+              startedAt,
+              timeoutMs: effectiveTimeoutMs,
+              tempDir: diagnostics?.tempDir ?? "-",
+              outputPath: diagnostics?.outputPath ?? replacements.output_file ?? "-"
+            })}`
+          ));
         }, effectiveTimeoutMs);
     child.stderr.on("data", (chunk) => {
       stderr += String(chunk);
@@ -522,7 +622,18 @@ async function runTemplateCommandWithProgress(
       if (timeout) {
         clearTimeout(timeout);
       }
-      reject(error);
+      reject(new Error(
+        `${error.message}\n` +
+        `${buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime is running",
+          providerDetail: "template provider",
+          startedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir: diagnostics?.tempDir ?? "-",
+          outputPath: diagnostics?.outputPath ?? replacements.output_file ?? "-"
+        })}`,
+        { cause: error }
+      ));
     });
     child.on("close", (code) => {
       clearInterval(heartbeat);
@@ -533,7 +644,17 @@ async function runTemplateCommandWithProgress(
         resolve();
         return;
       }
-      reject(new Error(stderr || `provider command exited with code ${code}`));
+      reject(new Error(
+        `${stderr || `provider command exited with code ${code}`}\n` +
+        `${buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime is running",
+          providerDetail: "template provider",
+          startedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir: diagnostics?.tempDir ?? "-",
+          outputPath: diagnostics?.outputPath ?? replacements.output_file ?? "-"
+        })}`
+      ));
     });
   });
 }
@@ -736,13 +857,13 @@ export class ProviderRuntime implements AgentRuntime {
     const schemaPath = path.join(tempDir, "trade-decision-set.schema.json");
     let preserveTempDir = false;
     const runtimeStartedAt = Date.now();
+    const timeoutMs = this.config.providerTimeoutSeconds * 1000;
+    const effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : null;
 
     try {
       await writeFile(promptPath, prompt, "utf8");
       const schemaContent = JSON.stringify(buildTradeDecisionSetSchema(), null, 2);
       await writeFile(schemaPath, schemaContent, "utf8");
-      const timeoutMs = this.config.providerTimeoutSeconds * 1000;
-      const effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : null;
       const [
         pulseJsonMetrics,
         pulseMarkdownMetrics,
@@ -780,7 +901,7 @@ export class ProviderRuntime implements AgentRuntime {
       );
 
       if (this.provider === "codex" && !settings.command) {
-        await runCodex(prompt, settings, this.config.repoRoot, outputPath, schemaPath, timeoutMs, context.progress);
+        await runCodex(prompt, settings, this.config.repoRoot, tempDir, outputPath, schemaPath, timeoutMs, context.progress);
       } else {
         const commandTemplate = settings.command;
         if (!commandTemplate) {
@@ -795,7 +916,10 @@ export class ProviderRuntime implements AgentRuntime {
           pulse_json: context.pulse.absoluteJsonPath,
           pulse_markdown: context.pulse.absoluteMarkdownPath,
           risk_doc: riskDocPath
-        }, timeoutMs, context.progress);
+        }, timeoutMs, context.progress, {
+          tempDir,
+          outputPath
+        });
       }
 
       const rawOutput = await readFile(outputPath, "utf8");
@@ -826,7 +950,18 @@ export class ProviderRuntime implements AgentRuntime {
       }
       context.progress?.fail(`Decision runtime failed | temp preserved at ${tempDir}`);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${message}\n\nDecision runtime temp preserved at ${tempDir}`, { cause: error });
+      throw new Error(
+        `${message}\n` +
+        `${buildRuntimeHeartbeatDetail({
+          stage: "Decision runtime failure",
+          providerDetail: `${settings.provider} provider`,
+          startedAt: runtimeStartedAt,
+          timeoutMs: effectiveTimeoutMs,
+          tempDir,
+          outputPath
+        })}\n\nDecision runtime temp preserved at ${tempDir}`,
+        { cause: error }
+      );
     } finally {
       if (!preserveTempDir) {
         await rm(tempDir, { recursive: true, force: true });

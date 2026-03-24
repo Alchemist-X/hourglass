@@ -20,3 +20,11 @@
 
 - [下单模式流程图](./trading-modes-flowchart.md)
 - [Trading Modes Flowchart](./trading-modes-flowchart.en.md)
+- [新人 Onboarding 架构图](./onboarding-architecture.md)
+- [Onboarding Architecture Flow](./onboarding-architecture.en.md)
+- [Portfolio Monitor / Review / Rebalance 产物设计](./portfolio-ops-report-design.md)
+- [Portfolio Monitor / Review / Rebalance Report Design](./portfolio-ops-report-design.en.md)
+- [仓库瘦身与重构讨论稿](./repo-slimming-plan.md)
+- [Repository Slimming And Refactor Draft](./repo-slimming-plan.en.md)
+- [SSH 连通性复盘（2026-03-23）](./ssh-connectivity-postmortem-2026-03-23.md)
+- [SSH Connectivity Postmortem (2026-03-23)](./ssh-connectivity-postmortem-2026-03-23.en.md)

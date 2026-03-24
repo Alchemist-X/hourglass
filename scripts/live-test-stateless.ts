@@ -30,13 +30,14 @@ import { createTerminalProgressReporter } from "../services/orchestrator/src/lib
 import { createAgentRuntime } from "../services/orchestrator/src/runtime/runtime-factory.ts";
 import { loadPulseSnapshotFromArtifacts } from "./live-test-stateless-pulse.ts";
 import {
-  STATELESS_MAX_BUY_TOKENS,
-  STATELESS_MIN_TRADE_USD,
   buildStatelessRunIdentityRows,
   buildStatelessOverview,
   calculatePositionPnlPct,
   calculatePositionValueUsd,
-  capBuyNotionalToTokenLimit
+  computeExchangeBuyMinNotionalUsd,
+  isBelowExchangeBuyMinimum,
+  isBelowExchangeSellMinimum,
+  resolveOpenExecutionSizing
 } from "./live-test-stateless-helpers.ts";
 import {
   mapOverviewToSummarySnapshot,
@@ -82,11 +83,9 @@ interface PreflightReport {
   collateralProbeError: string | null;
   remotePositionCount: number;
   bankrollCapUsd: number;
-  minTradeUsd: number;
-  statelessMinTradeUsd: number;
+  configuredMinTradeUsd: number;
   maxTradePct: number;
   maxEventExposurePct: number;
-  maxBuyTokens: number;
   checks: Array<{
     key: string;
     ok: boolean;
@@ -105,9 +104,17 @@ interface PlannedExecution {
   executionAmount: number;
   unit: "usd" | "shares";
   thesisMd: string;
-  cappedByTokenLimit: boolean;
   bestAsk: number | null;
   bestBid: number | null;
+  minOrderSize: number | null;
+  exchangeMinNotionalUsd: number | null;
+}
+
+interface SkippedDecision {
+  action: TradeDecision["action"] | null;
+  marketSlug: string;
+  tokenId: string | null;
+  reason: string;
 }
 
 interface ExecutedOrderSummary extends PlannedExecution {
@@ -148,6 +155,18 @@ function roundCurrency(value: number): number {
   return Number(value.toFixed(4));
 }
 
+function getErrorCause(error: unknown): unknown {
+  return error instanceof Error ? error.cause : undefined;
+}
+
+function getErrorRawSummary(error: unknown): string | null {
+  const cause = getErrorCause(error);
+  if (cause == null) {
+    return null;
+  }
+  return getErrorMessage(cause);
+}
+
 async function buildRemotePublicPositions(
   executorConfig: ReturnType<typeof loadExecutorConfig>,
   remotePositions: RemotePosition[],
@@ -185,8 +204,6 @@ async function buildRemotePublicPositions(
 async function runPreflight(input: {
   executorConfig: ReturnType<typeof loadExecutorConfig>;
   orchestratorConfig: ReturnType<typeof loadOrchestratorConfig>;
-  maxBuyTokens: number;
-  minTradeUsd: number;
   recommendOnly: boolean;
 }) {
   const remotePositions = await fetchRemotePositions(input.executorConfig);
@@ -252,9 +269,9 @@ async function runPreflight(input: {
           : `No tradable collateral and no remote positions are available. reported ${(collateralProbe.reportedBalanceUsd ?? 0).toFixed(2)} USD | onchain ${(collateralProbe.onchainBalanceUsd ?? 0).toFixed(2)} USD.`
     },
     {
-      key: "buy-token-cap",
-      ok: input.maxBuyTokens > 0,
-      detail: `Each buy order is capped to ${input.maxBuyTokens} token(s).`
+      key: "exchange-sizing",
+      ok: true,
+      detail: "Live orders are validated against Polymarket order-book sizing before execution."
     }
   ];
 
@@ -273,11 +290,9 @@ async function runPreflight(input: {
       collateralProbeError: collateralProbe.errorMessage,
       remotePositionCount: remotePositions.length,
       bankrollCapUsd: input.orchestratorConfig.initialBankrollUsd,
-      minTradeUsd: input.orchestratorConfig.minTradeUsd,
-      statelessMinTradeUsd: input.minTradeUsd,
+      configuredMinTradeUsd: input.orchestratorConfig.minTradeUsd,
       maxTradePct: input.orchestratorConfig.maxTradePct,
       maxEventExposurePct: input.orchestratorConfig.maxEventExposurePct,
-      maxBuyTokens: input.maxBuyTokens,
       checks
     } satisfies PreflightReport,
     remotePositions,
@@ -291,11 +306,10 @@ async function buildExecutionPlan(input: {
   overview: OverviewResponse;
   orchestratorConfig: ReturnType<typeof loadOrchestratorConfig>;
   executorConfig: ReturnType<typeof loadExecutorConfig>;
-  maxBuyTokens: number;
   minTradeUsd: number;
 }) {
   const plans: PlannedExecution[] = [];
-  const skipped: Array<{ marketSlug: string; reason: string }> = [];
+  const skipped: SkippedDecision[] = [];
   const usePulseDirectEmptyPortfolioGuards =
     input.orchestratorConfig.decisionStrategy === "pulse-direct" && input.positions.length === 0;
   let projectedTotalExposureUsd = input.positions.reduce((sum, position) => sum + position.current_value_usd, 0);
@@ -314,12 +328,32 @@ async function buildExecutionPlan(input: {
     }
 
     if (decision.action === "open") {
-      const guardedNotionalUsd = applyTradeGuards({
-        requestedUsd: decision.notional_usd,
+      const book = await readBook(input.executorConfig, decision.token_id);
+      if (!(book?.bestAsk != null && book.bestAsk > 0)) {
+        skipped.push({
+          action: decision.action,
+          marketSlug: decision.market_slug,
+          tokenId: decision.token_id,
+          reason: "blocked_by_orderbook_unavailable: no executable ask book is available from Polymarket"
+        });
+        continue;
+      }
+      const exchangeMinNotionalUsd = computeExchangeBuyMinNotionalUsd({
+        bestAsk: book.bestAsk,
+        minOrderSize: book.minOrderSize ?? null
+      });
+      const openSizing = resolveOpenExecutionSizing({
+        confidence: decision.confidence,
+        decisionNotionalUsd: decision.notional_usd,
+        configuredMinTradeUsd: input.minTradeUsd,
+        exchangeMinNotionalUsd
+      });
+      const rawGuardedNotionalUsd = applyTradeGuards({
+        requestedUsd: openSizing.requestedForGuardsUsd,
         bankrollUsd: input.overview.total_equity_usd,
-        minTradeUsd: input.minTradeUsd,
+        minTradeUsd: 0,
         maxTradePct: input.orchestratorConfig.maxTradePct,
-        liquidityCapUsd: decision.notional_usd,
+        liquidityCapUsd: openSizing.requestedForGuardsUsd,
         totalExposureUsd: usePulseDirectEmptyPortfolioGuards ? 0 : projectedTotalExposureUsd,
         maxTotalExposurePct: usePulseDirectEmptyPortfolioGuards ? 1 : input.orchestratorConfig.maxTotalExposurePct,
         eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
@@ -328,29 +362,61 @@ async function buildExecutionPlan(input: {
         maxPositions: usePulseDirectEmptyPortfolioGuards ? Number.MAX_SAFE_INTEGER : input.orchestratorConfig.maxPositions,
         edge: decision.edge
       });
+      if (!(rawGuardedNotionalUsd > 0)) {
+        skipped.push({
+          action: decision.action,
+          marketSlug: decision.market_slug,
+          tokenId: decision.token_id,
+          reason: "blocked_by_risk_cap: total exposure, event exposure, max positions, bankroll cap, or edge scaling reduced the maximum executable notional to zero"
+        });
+        continue;
+      }
+      const guardedNotionalUsd = applyTradeGuards({
+        requestedUsd: openSizing.requestedForGuardsUsd,
+        bankrollUsd: input.overview.total_equity_usd,
+        minTradeUsd: openSizing.minTradeUsdForGuards,
+        maxTradePct: input.orchestratorConfig.maxTradePct,
+        liquidityCapUsd: openSizing.requestedForGuardsUsd,
+        totalExposureUsd: usePulseDirectEmptyPortfolioGuards ? 0 : projectedTotalExposureUsd,
+        maxTotalExposurePct: usePulseDirectEmptyPortfolioGuards ? 1 : input.orchestratorConfig.maxTotalExposurePct,
+        eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
+        maxEventExposurePct: input.orchestratorConfig.maxEventExposurePct,
+        openPositions: usePulseDirectEmptyPortfolioGuards ? 0 : projectedOpenPositions,
+        maxPositions: usePulseDirectEmptyPortfolioGuards ? Number.MAX_SAFE_INTEGER : input.orchestratorConfig.maxPositions,
+        edge: decision.edge
+      });
+      const plannedNotionalUsd = roundCurrency(guardedNotionalUsd);
 
       if (!(guardedNotionalUsd > 0)) {
         skipped.push({
+          action: decision.action,
           marketSlug: decision.market_slug,
-          reason: "guardrails removed the open decision"
+          tokenId: decision.token_id,
+          reason: `blocked_by_strategy_min_trade: configured minimum trade is ${formatUsd(input.minTradeUsd)} after guardrails`
         });
         continue;
       }
 
-      const book = await readBook(input.executorConfig, decision.token_id);
-      const cappedNotionalUsd = roundCurrency(
-        capBuyNotionalToTokenLimit({
-          requestedNotionalUsd: guardedNotionalUsd,
-          bestAsk: book?.bestAsk ?? null,
-          marketProb: decision.market_prob,
-          maxTokens: input.maxBuyTokens
-        })
-      );
-
-      if (!(cappedNotionalUsd >= input.minTradeUsd)) {
+      if (openSizing.clampToExecutableMinimum && exchangeMinNotionalUsd != null && plannedNotionalUsd < exchangeMinNotionalUsd) {
         skipped.push({
+          action: decision.action,
           marketSlug: decision.market_slug,
-          reason: `1-token cap reduced notional below stateless minimum trade (${input.minTradeUsd})`
+          tokenId: decision.token_id,
+          reason: `blocked_by_risk_cap: exchange minimum ${formatUsd(exchangeMinNotionalUsd)} exceeds current risk-limited cap ${formatUsd(plannedNotionalUsd)}`
+        });
+        continue;
+      }
+
+      if (isBelowExchangeBuyMinimum({
+        notionalUsd: plannedNotionalUsd,
+        bestAsk: book.bestAsk,
+        minOrderSize: book.minOrderSize ?? null
+      })) {
+        skipped.push({
+          action: decision.action,
+          marketSlug: decision.market_slug,
+          tokenId: decision.token_id,
+          reason: `blocked_by_exchange_min: below Polymarket minimum order size (${book.minOrderSize} shares @ ${formatUsd(book.bestAsk)} ask => ${formatUsd(exchangeMinNotionalUsd ?? 0)} minimum)`
         });
         continue;
       }
@@ -361,23 +427,24 @@ async function buildExecutionPlan(input: {
         eventSlug: decision.event_slug,
         tokenId: decision.token_id,
         side: decision.side,
-        notionalUsd: cappedNotionalUsd,
+        notionalUsd: plannedNotionalUsd,
         bankrollRatio: input.overview.total_equity_usd > 0
-          ? cappedNotionalUsd / input.overview.total_equity_usd
+          ? plannedNotionalUsd / input.overview.total_equity_usd
           : 0,
-        executionAmount: cappedNotionalUsd,
+        executionAmount: plannedNotionalUsd,
         unit: "usd",
         thesisMd: decision.thesis_md,
-        cappedByTokenLimit: cappedNotionalUsd < guardedNotionalUsd,
         bestAsk: book?.bestAsk ?? null,
-        bestBid: book?.bestBid ?? null
+        bestBid: book?.bestBid ?? null,
+        minOrderSize: book?.minOrderSize ?? null,
+        exchangeMinNotionalUsd
       });
 
-      projectedTotalExposureUsd += cappedNotionalUsd;
+      projectedTotalExposureUsd += plannedNotionalUsd;
       projectedOpenPositions += 1;
       eventExposureUsd.set(
         decision.event_slug,
-        (eventExposureUsd.get(decision.event_slug) ?? 0) + cappedNotionalUsd
+        (eventExposureUsd.get(decision.event_slug) ?? 0) + plannedNotionalUsd
       );
       continue;
     }
@@ -386,13 +453,27 @@ async function buildExecutionPlan(input: {
     const executionAmount = inferPaperSellAmount(currentPosition, decision);
     if (!(executionAmount > 0)) {
       skipped.push({
+        action: decision.action,
         marketSlug: decision.market_slug,
-        reason: "no matching remote position is available to sell"
+        tokenId: decision.token_id,
+        reason: "blocked_by_position_unavailable: no matching remote position is available to sell"
       });
       continue;
     }
 
     const book = await readBook(input.executorConfig, decision.token_id);
+    if (isBelowExchangeSellMinimum({
+      size: executionAmount,
+      minOrderSize: book?.minOrderSize ?? null
+    })) {
+      skipped.push({
+        action: decision.action,
+        marketSlug: decision.market_slug,
+        tokenId: decision.token_id,
+        reason: `blocked_by_exchange_min: below Polymarket minimum order size (${book?.minOrderSize ?? 0} shares)`
+      });
+      continue;
+    }
     plans.push({
       action: decision.action,
       marketSlug: decision.market_slug,
@@ -406,9 +487,10 @@ async function buildExecutionPlan(input: {
       executionAmount,
       unit: "shares",
       thesisMd: decision.thesis_md,
-      cappedByTokenLimit: false,
       bestAsk: book?.bestAsk ?? null,
-      bestBid: book?.bestBid ?? null
+      bestBid: book?.bestBid ?? null,
+      minOrderSize: book?.minOrderSize ?? null,
+      exchangeMinNotionalUsd: null
     });
   }
 
@@ -498,7 +580,7 @@ function printRecommendationSummary(input: {
   collateralBalanceUsd: number;
   overview: OverviewResponse;
   plans: PlannedExecution[];
-  skipped: Array<{ marketSlug: string; reason: string }>;
+  skipped: SkippedDecision[];
   pulseMarkdownPath: string;
   pulseJsonPath: string;
   runtimeLogPath: string | null;
@@ -516,15 +598,15 @@ function printRecommendationSummary(input: {
     ["Effective Bankroll", formatUsd(input.overview.total_equity_usd)],
     ["Archive Dir", input.archiveDir]
   ]);
-  printer.section("Executable Decisions", `${input.plans.length} trade(s)`);
+  printer.section("Planned Orders", `${input.plans.length} trade(s)`);
   if (input.plans.length === 0) {
-    printer.note("warn", "No executable trades", "All open decisions were removed by guardrails or token caps.");
+    printer.note("warn", "No live-ready orders", "All candidate orders were removed by guardrails or Polymarket sizing checks.");
   } else {
     for (const [index, plan] of input.plans.entries()) {
       printer.note(
-        plan.action === "open" ? "success" : "warn",
+        "info",
         `${index + 1}. ${plan.action} ${plan.marketSlug}`,
-        `${formatUsd(plan.notionalUsd)} | ${formatRatioPercent(plan.bankrollRatio)} bankroll${plan.cappedByTokenLimit ? " | capped to 1 token" : ""}`
+        `${formatUsd(plan.notionalUsd)} | ${formatRatioPercent(plan.bankrollRatio)} bankroll${plan.exchangeMinNotionalUsd != null ? ` | exchange minimum ${formatUsd(plan.exchangeMinNotionalUsd)}` : ""}`
       );
       printer.line(`    ${plan.thesisMd}`);
     }
@@ -586,18 +668,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
   const useHumanOutput = !args.json && shouldUseHumanOutput(process.stdout);
   const orchestratorConfig = loadOrchestratorConfig();
   const executorConfig = loadExecutorConfig();
-  const maxBuyTokens = Math.max(
-    0,
-    Number.isFinite(Number(process.env.STATELESS_MAX_BUY_TOKENS))
-      ? Number(process.env.STATELESS_MAX_BUY_TOKENS)
-      : STATELESS_MAX_BUY_TOKENS
-  );
-  const statelessMinTradeUsd = Math.max(
-    0,
-    Number.isFinite(Number(process.env.STATELESS_MIN_TRADE_USD))
-      ? Number(process.env.STATELESS_MIN_TRADE_USD)
-      : Math.min(orchestratorConfig.minTradeUsd, STATELESS_MIN_TRADE_USD)
-  );
+  const configuredMinTradeUsd = Math.max(0, orchestratorConfig.minTradeUsd);
   const timestamp = formatTimestampToken();
   let archiveDir = await createArchiveDir(
     path.join(orchestratorConfig.artifactStorageRoot, "live-stateless"),
@@ -613,7 +684,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
   let overviewAfter: OverviewResponse | null = null;
   let decisionsForSummary: TradeDecision[] = [];
   let plansForSummary: PlannedExecution[] = [];
-  let skippedForSummary: Array<{ marketSlug: string; reason: string }> = [];
+  let skippedForSummary: SkippedDecision[] = [];
   let executedForSummary: ExecutedOrderSummary[] = [];
   let promptSummary: string | null = null;
   let reasoningMd: string | null = null;
@@ -623,12 +694,10 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
   let supplementalArtifactPaths: string[] = [];
 
   try {
-    reporter.info("Flow: 1) preflight 2) fetch remote portfolio 3) generate pulse 4) run decision runtime 5) apply guards + 1-token cap 6) execute directly 7) summarize");
+    reporter.info("Flow: 1) preflight 2) fetch remote portfolio 3) generate pulse 4) run decision runtime 5) apply guards + exchange sizing checks 6) execute directly 7) summarize");
     const preflight = await runPreflight({
       executorConfig,
       orchestratorConfig,
-      maxBuyTokens,
-      minTradeUsd: statelessMinTradeUsd,
       recommendOnly: args.recommendOnly
     });
     preflightReport = preflight.report;
@@ -651,9 +720,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         ["Collateral Source", preflight.report.collateralSource],
         ["Remote Positions", String(preflight.report.remotePositionCount)],
         ["Bankroll Cap", formatUsd(preflight.report.bankrollCapUsd)],
-        ["Min Trade", formatUsd(preflight.report.minTradeUsd)],
-        ["Stateless Min Trade", formatUsd(preflight.report.statelessMinTradeUsd)],
-        ["Buy Token Cap", String(preflight.report.maxBuyTokens)]
+        ["Configured Min Trade", formatUsd(preflight.report.configuredMinTradeUsd)],
+        ["Exchange Sizing", "Validated per Polymarket order book"]
       ]);
       for (const check of preflight.report.checks) {
         printer.note(check.ok ? "success" : "error", check.key, check.detail);
@@ -738,8 +806,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       overview,
       orchestratorConfig,
       executorConfig,
-      maxBuyTokens,
-      minTradeUsd: statelessMinTradeUsd
+      minTradeUsd: configuredMinTradeUsd
     });
     plansForSummary = plans;
     skippedForSummary = skipped;
@@ -899,6 +966,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const stage = error instanceof StatelessLiveError ? error.stage : "unknown";
+    const rawSummary = getErrorRawSummary(error);
+    const rawResponse = getErrorCause(error) ?? null;
     const errorContext = error instanceof StatelessLiveError
       ? error.context
       : buildLiveRunContextRows({
@@ -914,6 +983,8 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     await writeJsonArtifact(errorPath, {
       stage,
       message,
+      rawSummary,
+      rawResponse,
       archiveDir,
       runId,
       context: errorContext
@@ -938,6 +1009,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       failure: {
         stage,
         message,
+        rawSummary,
         nextSteps: [
           "Inspect error.json and recommendation.json in the stateless archive.",
           "Retry after fixing the Polymarket or provider-side failure."
@@ -970,6 +1042,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         title: "Stateless Live Test Failed",
         stage,
         error,
+        rawSummary,
         context: errorContext,
         artifactDir: archiveDir,
         nextSteps: [

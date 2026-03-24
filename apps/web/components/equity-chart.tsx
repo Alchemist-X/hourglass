@@ -30,15 +30,15 @@ export function EquityChart({ points }: { points: OverviewPoint[] }) {
     <section className="panel chart-panel">
       <div className="panel-header">
         <div>
-          <p className="panel-kicker">Equity Curve</p>
-          <h2>5 second spectator refresh</h2>
+          <p className="panel-kicker">净值曲线</p>
+          <h2>最近一段时间的账户金额</h2>
         </div>
         <div className="chart-stats">
-          <span>High {formatUsd(high)}</span>
-          <span>Low {formatUsd(low)}</span>
+          <span>高点 {formatUsd(high)}</span>
+          <span>低点 {formatUsd(low)}</span>
         </div>
       </div>
-      <svg viewBox="0 0 640 260" className="chart" role="img" aria-label="equity curve">
+      <svg viewBox="0 0 640 260" className="chart" role="img" aria-label="账户净值曲线">
         <defs>
           <linearGradient id="equity-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="rgba(201, 76, 76, 0.5)" />
@@ -51,4 +51,3 @@ export function EquityChart({ points }: { points: OverviewPoint[] }) {
     </section>
   );
 }
-

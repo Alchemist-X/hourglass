@@ -16,6 +16,7 @@ function formatRunStatus(status: PublicRunSummary["status"]): string {
 
 export function LiveRuns({ initialData }: { initialData: PublicRunSummary[] }) {
   const { data } = usePollingJson("/api/public/runs", initialData);
+  const awaitingCount = data.filter((run) => run.status === "awaiting-approval").length;
 
   return (
     <section className="panel">
@@ -23,6 +24,10 @@ export function LiveRuns({ initialData }: { initialData: PublicRunSummary[] }) {
         <div>
           <p className="panel-kicker">Runs</p>
           <h2>Decision cycles</h2>
+        </div>
+        <div className="table-meta">
+          <span>{data.length} runs</span>
+          <span>{awaitingCount} awaiting approval</span>
         </div>
       </div>
       <div className="table-wrap">
@@ -41,13 +46,13 @@ export function LiveRuns({ initialData }: { initialData: PublicRunSummary[] }) {
           <tbody>
             {data.map((run) => (
               <tr key={run.id}>
-                <td>{formatDate(run.generated_at_utc)}</td>
-                <td>{run.runtime}</td>
-                <td>{run.mode}</td>
-                <td>{formatRunStatus(run.status)}</td>
-                <td>{formatUsd(run.bankroll_usd)}</td>
-                <td>{run.decision_count}</td>
-                <td>
+                <td data-label="Generated">{formatDate(run.generated_at_utc)}</td>
+                <td data-label="Runtime">{run.runtime}</td>
+                <td data-label="Mode">{run.mode}</td>
+                <td data-label="Status">{formatRunStatus(run.status)}</td>
+                <td data-label="Bankroll">{formatUsd(run.bankroll_usd)}</td>
+                <td data-label="Decisions">{run.decision_count}</td>
+                <td data-label="Detail">
                   <Link href={`/runs/${run.id}`} className="action-link">
                     Open
                   </Link>

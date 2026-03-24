@@ -1,29 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
-  STATELESS_MIN_TRADE_USD,
   buildStatelessRunIdentityRows,
   buildStatelessOverview,
+  computeExchangeBuyMinNotionalUsd,
   calculatePositionPnlPct,
   calculatePositionValueUsd,
-  capBuyNotionalToTokenLimit
+  isBelowExchangeBuyMinimum,
+  isBelowExchangeSellMinimum,
+  resolveOpenExecutionSizing,
+  shouldClampHighConfidenceOpen
 } from "./live-test-stateless-helpers.ts";
 
 describe("stateless live test helpers", () => {
-  it("caps buy notional to a single token using best ask", () => {
-    expect(capBuyNotionalToTokenLimit({
-      requestedNotionalUsd: 20,
+  it("computes the exchange minimum buy notional from best ask and min order size", () => {
+    expect(computeExchangeBuyMinNotionalUsd({
       bestAsk: 0.43,
-      maxTokens: 1
-    })).toBeCloseTo(0.43);
+      minOrderSize: 5
+    })).toBeCloseTo(2.15);
   });
 
-  it("falls back to market probability when the order book is unavailable", () => {
-    expect(capBuyNotionalToTokenLimit({
-      requestedNotionalUsd: 20,
+  it("returns null when exchange sizing metadata is unavailable", () => {
+    expect(computeExchangeBuyMinNotionalUsd({
       bestAsk: null,
-      marketProb: 0.61,
-      maxTokens: 1
-    })).toBeCloseTo(0.61);
+      minOrderSize: 5
+    })).toBeNull();
   });
 
   it("builds a capped overview from collateral and open exposure", () => {
@@ -55,8 +55,28 @@ describe("stateless live test helpers", () => {
     expect(overview.open_positions).toBe(1);
   });
 
-  it("keeps the stateless minimum trade low enough for one-token orders", () => {
-    expect(STATELESS_MIN_TRADE_USD).toBeLessThan(1);
+  it("blocks buys below the exchange minimum order size", () => {
+    expect(isBelowExchangeBuyMinimum({
+      notionalUsd: 1.2,
+      bestAsk: 0.43,
+      minOrderSize: 5
+    })).toBe(true);
+    expect(isBelowExchangeBuyMinimum({
+      notionalUsd: 2.15,
+      bestAsk: 0.43,
+      minOrderSize: 5
+    })).toBe(false);
+  });
+
+  it("blocks sells below the exchange minimum share size", () => {
+    expect(isBelowExchangeSellMinimum({
+      size: 4.9,
+      minOrderSize: 5
+    })).toBe(true);
+    expect(isBelowExchangeSellMinimum({
+      size: 5,
+      minOrderSize: 5
+    })).toBe(false);
   });
 
   it("surfaces execution mode and decision strategy in terminal summary rows", () => {
@@ -72,5 +92,35 @@ describe("stateless live test helpers", () => {
   it("computes position value and pnl from market price", () => {
     expect(calculatePositionValueUsd(2, 0.37)).toBeCloseTo(0.74);
     expect(calculatePositionPnlPct(0.4, 0.5)).toBeCloseTo(0.25);
+  });
+
+  it("clamps high-confidence opens up to the exchange minimum for guard evaluation", () => {
+    expect(shouldClampHighConfidenceOpen("medium-high")).toBe(true);
+    expect(shouldClampHighConfidenceOpen("high")).toBe(true);
+    expect(shouldClampHighConfidenceOpen("medium")).toBe(false);
+
+    expect(resolveOpenExecutionSizing({
+      confidence: "high",
+      decisionNotionalUsd: 1.5,
+      configuredMinTradeUsd: 10,
+      exchangeMinNotionalUsd: 2.15
+    })).toEqual({
+      requestedForGuardsUsd: 2.15,
+      minTradeUsdForGuards: 0,
+      clampToExecutableMinimum: true
+    });
+  });
+
+  it("keeps configured minimum trade sizing for lower-confidence opens", () => {
+    expect(resolveOpenExecutionSizing({
+      confidence: "medium",
+      decisionNotionalUsd: 1.5,
+      configuredMinTradeUsd: 10,
+      exchangeMinNotionalUsd: 2.15
+    })).toEqual({
+      requestedForGuardsUsd: 1.5,
+      minTradeUsdForGuards: 10,
+      clampToExecutableMinimum: false
+    });
   });
 });

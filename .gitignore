@@ -8,6 +8,7 @@ coverage
 .env
 .env.*
 !.env.example
+agents.env
 .rough-loop.pause
 .rough-loop.lock
 vendor/repos
@@ -16,3 +17,5 @@ runtime-artifacts/*
 E2E Test Driven Development/artifacts/*
 !E2E Test Driven Development/artifacts/.gitkeep
 E2E Test Driven Development/E2E Test Driven Development/
+.vercel
+.local/

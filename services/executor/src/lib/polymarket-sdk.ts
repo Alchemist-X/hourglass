@@ -7,6 +7,9 @@ import type { ExecutorConfig } from "../config.js";
 export interface BookSnapshot {
   bestBid: number;
   bestAsk: number;
+  minOrderSize?: number | null;
+  tickSize?: number | null;
+  lastTradePrice?: number | null;
 }
 
 export interface RemotePosition {
@@ -142,7 +145,10 @@ export async function readBook(config: ExecutorConfig, tokenId: string): Promise
   if (!client) {
     return {
       bestBid: 0.48,
-      bestAsk: 0.52
+      bestAsk: 0.52,
+      minOrderSize: null,
+      tickSize: null,
+      lastTradePrice: null
     };
   }
   const book = await client.getOrderBook(tokenId);
@@ -164,7 +170,16 @@ export async function readBook(config: ExecutorConfig, tokenId: string): Promise
   }
   return {
     bestBid,
-    bestAsk
+    bestAsk,
+    minOrderSize: Number.isFinite(Number((book as any)?.min_order_size))
+      ? Number((book as any)?.min_order_size)
+      : null,
+    tickSize: Number.isFinite(Number((book as any)?.tick_size))
+      ? Number((book as any)?.tick_size)
+      : null,
+    lastTradePrice: Number.isFinite(Number((book as any)?.last_trade_price))
+      ? Number((book as any)?.last_trade_price)
+      : null
   };
 }
 

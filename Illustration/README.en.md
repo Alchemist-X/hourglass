@@ -21,3 +21,11 @@ This directory is the single archive location for human-readable collaboration a
 
 - [Order Mode Flowchart (ZH)](./trading-modes-flowchart.md)
 - [Order Mode Flowchart (EN)](./trading-modes-flowchart.en.md)
+- [Onboarding Architecture Flow (ZH)](./onboarding-architecture.md)
+- [Onboarding Architecture Flow (EN)](./onboarding-architecture.en.md)
+- [Portfolio Monitor / Review / Rebalance Report Design (ZH)](./portfolio-ops-report-design.md)
+- [Portfolio Monitor / Review / Rebalance Report Design (EN)](./portfolio-ops-report-design.en.md)
+- [Repository Slimming And Refactor Draft (ZH)](./repo-slimming-plan.md)
+- [Repository Slimming And Refactor Draft (EN)](./repo-slimming-plan.en.md)
+- [SSH Connectivity Postmortem (ZH)](./ssh-connectivity-postmortem-2026-03-23.md)
+- [SSH Connectivity Postmortem (EN)](./ssh-connectivity-postmortem-2026-03-23.en.md)

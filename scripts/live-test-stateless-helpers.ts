@@ -1,8 +1,5 @@
 import type { OverviewResponse, PublicPosition } from "@autopoly/contracts";
 
-export const STATELESS_MAX_BUY_TOKENS = 1;
-export const STATELESS_MIN_TRADE_USD = 0.01;
-
 export function buildStatelessRunIdentityRows(input: {
   executionMode: string;
   decisionStrategy: string;
@@ -13,6 +10,28 @@ export function buildStatelessRunIdentityRows(input: {
   ];
 }
 
+export function shouldClampHighConfidenceOpen(confidence: "low" | "medium" | "medium-high" | "high") {
+  return confidence === "medium-high" || confidence === "high";
+}
+
+export function resolveOpenExecutionSizing(input: {
+  confidence: "low" | "medium" | "medium-high" | "high";
+  decisionNotionalUsd: number;
+  configuredMinTradeUsd: number;
+  exchangeMinNotionalUsd: number | null;
+}) {
+  const clampToExecutableMinimum = shouldClampHighConfidenceOpen(input.confidence)
+    && input.exchangeMinNotionalUsd != null
+    && input.exchangeMinNotionalUsd > 0;
+  return {
+    requestedForGuardsUsd: clampToExecutableMinimum
+      ? Math.max(input.decisionNotionalUsd, input.exchangeMinNotionalUsd ?? 0)
+      : input.decisionNotionalUsd,
+    minTradeUsdForGuards: clampToExecutableMinimum ? 0 : input.configuredMinTradeUsd,
+    clampToExecutableMinimum
+  };
+}
+
 function roundCurrency(value: number): number {
   return Number(value.toFixed(2));
 }
@@ -21,21 +40,39 @@ function roundMetric(value: number): number {
   return Number(value.toFixed(6));
 }
 
-export function capBuyNotionalToTokenLimit(input: {
-  requestedNotionalUsd: number;
+export function computeExchangeBuyMinNotionalUsd(input: {
   bestAsk: number | null;
-  marketProb?: number;
-  maxTokens: number;
+  minOrderSize: number | null;
 }) {
-  const referencePrice = input.bestAsk && input.bestAsk > 0
-    ? input.bestAsk
-    : input.marketProb && input.marketProb > 0
-      ? input.marketProb
-      : 0;
-  if (!(referencePrice > 0) || !(input.maxTokens > 0)) {
-    return input.requestedNotionalUsd;
+  if (!(input.bestAsk != null && input.bestAsk > 0) || !(input.minOrderSize != null && input.minOrderSize > 0)) {
+    return null;
   }
-  return Math.min(input.requestedNotionalUsd, referencePrice * input.maxTokens);
+  return roundCurrency(input.bestAsk * input.minOrderSize);
+}
+
+export function isBelowExchangeBuyMinimum(input: {
+  notionalUsd: number;
+  bestAsk: number | null;
+  minOrderSize: number | null;
+}) {
+  const minNotionalUsd = computeExchangeBuyMinNotionalUsd({
+    bestAsk: input.bestAsk,
+    minOrderSize: input.minOrderSize
+  });
+  if (!(minNotionalUsd != null && minNotionalUsd > 0)) {
+    return false;
+  }
+  return input.notionalUsd < minNotionalUsd;
+}
+
+export function isBelowExchangeSellMinimum(input: {
+  size: number;
+  minOrderSize: number | null;
+}) {
+  if (!(input.minOrderSize != null && input.minOrderSize > 0)) {
+    return false;
+  }
+  return input.size < input.minOrderSize;
 }
 
 export function buildStatelessOverview(input: {

@@ -24,6 +24,23 @@ export interface TrialRecommendCheckpoint {
   providerSchemaPath: string | null;
 }
 
+export interface TrialRecommendErrorArtifact {
+  version: 1;
+  runId: string;
+  stage: string;
+  savedAtUtc: string;
+  executionMode: string;
+  localStateFile: string | null;
+  message: string;
+  pulseTempDir: string | null;
+  pulsePromptPath: string | null;
+  pulseOutputPath: string | null;
+  providerTempDir: string | null;
+  providerOutputPath: string | null;
+  providerPromptPath: string | null;
+  providerSchemaPath: string | null;
+}
+
 function checkpointRoot(config: OrchestratorConfig): string {
   return path.join(config.artifactStorageRoot, "checkpoints", "trial-recommend");
 }
@@ -34,6 +51,10 @@ function checkpointPath(config: OrchestratorConfig, runId: string): string {
 
 function latestCheckpointPath(config: OrchestratorConfig): string {
   return path.join(checkpointRoot(config), "latest.json");
+}
+
+function errorArtifactPath(config: OrchestratorConfig, runId: string): string {
+  return path.join(checkpointRoot(config), `${runId}.error.json`);
 }
 
 export async function saveTrialRecommendCheckpoint(
@@ -77,4 +98,24 @@ export async function loadTrialRecommendCheckpoint(input: {
 
 export function checkpointAbsolutePath(config: OrchestratorConfig, runId: string): string {
   return checkpointPath(config, runId);
+}
+
+export async function saveTrialRecommendErrorArtifact(
+  config: OrchestratorConfig,
+  artifact: Omit<TrialRecommendErrorArtifact, "version" | "savedAtUtc">
+): Promise<string> {
+  const root = checkpointRoot(config);
+  await mkdir(root, { recursive: true });
+  const next: TrialRecommendErrorArtifact = {
+    version: 1,
+    savedAtUtc: new Date().toISOString(),
+    ...artifact
+  };
+  const absolutePath = errorArtifactPath(config, artifact.runId);
+  await writeFile(absolutePath, JSON.stringify(next, null, 2), "utf8");
+  return absolutePath;
+}
+
+export function errorArtifactAbsolutePath(config: OrchestratorConfig, runId: string): string {
+  return errorArtifactPath(config, runId);
 }

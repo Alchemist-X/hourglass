@@ -27,8 +27,9 @@ If you are taking over this repository for the first time and do not know its pr
 1. read this README fully
 2. inspect [.env.example](.env.example) for runtime modes and dependencies
 3. inspect [risk-controls.en.md](risk-controls.en.md) for hard controls
-4. inspect [Illustration/trading-modes-flowchart.en.md](Illustration/trading-modes-flowchart.en.md) for execution routes
-5. only then read [progress.en.md](progress.en.md) and the documents under `Illustration/` if you need more detail
+4. inspect [Illustration/onboarding-architecture.en.md](Illustration/onboarding-architecture.en.md) first for module boundaries, state sources, and the default main path
+5. inspect [Illustration/trading-modes-flowchart.en.md](Illustration/trading-modes-flowchart.en.md) for execution-route branching
+6. only then read [progress.en.md](progress.en.md) and the documents under `Illustration/` if you need more detail
 
 If the immediate goal is only to build the project remotely, you do not need to understand every skill detail first.
 
@@ -77,6 +78,8 @@ Main workspace runtime dependencies:
   - `zod@4.1.12`
 
 ## Architecture Overview
+
+If this is your first time inside the codebase, read [Illustration/onboarding-architecture.en.md](Illustration/onboarding-architecture.en.md) before mapping the four layers below.
 
 The current system is easiest to understand as four layers:
 

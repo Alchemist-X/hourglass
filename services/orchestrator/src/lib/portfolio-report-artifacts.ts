@@ -7,6 +7,7 @@ import type {
 } from "@autopoly/contracts";
 import type { OrchestratorConfig } from "../config.js";
 import type { PulseSnapshot } from "../pulse/market-pulse.js";
+import type { PositionReviewResult, PulseEntryPlan } from "../runtime/decision-metadata.js";
 import {
   buildArtifactRelativePath,
   writeStoredMarkdownPair
@@ -78,11 +79,33 @@ function buildReviewMarkdown(input: {
   decisionSet: TradeDecisionSet;
   promptSummary: string;
   reasoningMd: string;
+  positionReviews?: PositionReviewResult[];
+  entryPlans?: PulseEntryPlan[];
 }) {
   const counts = summarizeActions(input.decisionSet.decisions);
-  const keyDecisions = input.decisionSet.decisions
-    .filter((decision) => decision.action !== "hold")
-    .slice(0, 6);
+  const keyDecisions = input.decisionSet.decisions.filter((decision) => decision.action !== "hold").slice(0, 6);
+  const positionReviews = input.positionReviews ?? [];
+  const entryPlans = input.entryPlans ?? [];
+  const reviewLinesZh = positionReviews.length === 0
+    ? ["- 当前没有独立的已有仓位复审结果。"]
+    : positionReviews.map((review) =>
+        `- ${review.position.market_slug} | 结论 ${review.action} | 仍有 edge：${review.stillHasEdge ? "是" : "否"} | edge=${review.edgeValue.toFixed(4)} | Pulse 覆盖：${review.pulseCoverage} | 人工复核：${review.humanReviewFlag ? "是" : "否"} | 归因：${review.basis} | ${review.reviewConclusion} | 原因：${review.reason}`
+      );
+  const reviewLinesEn = positionReviews.length === 0
+    ? ["- No standalone existing-position review results were produced."]
+    : positionReviews.map((review) =>
+        `- ${review.position.market_slug} | action ${review.action} | still has edge: ${review.stillHasEdge ? "yes" : "no"} | edge=${review.edgeValue.toFixed(4)} | pulse coverage: ${review.pulseCoverage} | human review: ${review.humanReviewFlag ? "yes" : "no"} | basis: ${review.basis} | ${review.reviewConclusion} | reason: ${review.reason}`
+      );
+  const entryLinesZh = entryPlans.length === 0
+    ? ["- 本轮没有新的开仓建议。"]
+    : entryPlans.slice(0, 6).map((plan) =>
+        `- ${plan.marketSlug} | 建议开仓 ${formatUsd(plan.decision.notional_usd)} | 理由：${plan.thesisMd}`
+      );
+  const entryLinesEn = entryPlans.length === 0
+    ? ["- No new entry suggestions were produced in this run."]
+    : entryPlans.slice(0, 6).map((plan) =>
+        `- ${plan.marketSlug} | suggested open ${formatUsd(plan.decision.notional_usd)} | reason: ${plan.thesisMd}`
+      );
 
   const zh = [
     "# 组合复盘报告",
@@ -103,6 +126,14 @@ function buildReviewMarkdown(input: {
     `- reduce：${counts.reduce}`,
     `- hold：${counts.hold}`,
     `- skip：${counts.skip}`,
+    "",
+    "## 已有仓位复审结果",
+    "",
+    ...reviewLinesZh,
+    "",
+    "## 新开仓建议",
+    "",
+    ...entryLinesZh,
     "",
     "## 关键决策与原因",
     "",
@@ -137,6 +168,14 @@ function buildReviewMarkdown(input: {
     `- reduce: ${counts.reduce}`,
     `- hold: ${counts.hold}`,
     `- skip: ${counts.skip}`,
+    "",
+    "## Existing Position Review Results",
+    "",
+    ...reviewLinesEn,
+    "",
+    "## New Entry Suggestions",
+    "",
+    ...entryLinesEn,
     "",
     "## Key Decisions and Reasons",
     "",
@@ -317,6 +356,8 @@ export async function buildPortfolioReportArtifacts(input: {
   decisionSet: TradeDecisionSet;
   promptSummary: string;
   reasoningMd: string;
+  positionReviews?: PositionReviewResult[];
+  entryPlans?: PulseEntryPlan[];
 }) {
   const publishedAtUtc = input.decisionSet.generated_at_utc;
   return Promise.all([

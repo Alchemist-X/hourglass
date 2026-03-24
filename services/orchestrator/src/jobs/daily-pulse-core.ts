@@ -92,7 +92,9 @@ export async function runDailyPulseCore(input: DailyPulseCoreInput): Promise<Dai
     pulse,
     decisionSet: baseDecisionSet,
     promptSummary: runtimeResult.promptSummary,
-    reasoningMd: runtimeResult.reasoningMd
+    reasoningMd: runtimeResult.reasoningMd,
+    positionReviews: runtimeResult.positionReviews,
+    entryPlans: runtimeResult.entryPlans
   });
   const decisionSet = {
     ...baseDecisionSet,

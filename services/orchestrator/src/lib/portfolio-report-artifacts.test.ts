@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import type { OverviewResponse, PublicPosition, TradeDecisionSet } from "@autopoly/contracts";
 import type { PulseSnapshot } from "../pulse/market-pulse.js";
+import type { PositionReviewResult, PulseEntryPlan } from "../runtime/decision-metadata.js";
 import { buildEnglishMirrorRelativePath } from "./artifacts.js";
 import {
   buildBacktestReportArtifact,
@@ -101,6 +102,95 @@ function createDecisionSet(): TradeDecisionSet {
   };
 }
 
+function createPositionReviews(): PositionReviewResult[] {
+  return [
+    {
+      position: createPositions()[0]!,
+      action: "hold",
+      stillHasEdge: true,
+      edgeAssessment: "yes",
+      edgeValue: 0,
+      pulseCoverage: "none",
+      humanReviewFlag: true,
+      confidence: "low",
+      reason: "No contradictory pulse signal was found, but there was no fresh dedicated pulse support.",
+      reviewConclusion: "Keep the position unchanged for now, but require human review because no fresh Pulse edge refresh was produced.",
+      suggestedExitPct: 0,
+      basis: "no-fresh-signal",
+      decision: {
+        action: "hold",
+        event_slug: "demo-event",
+        market_slug: "demo-market",
+        token_id: "token-1",
+        side: "BUY",
+        notional_usd: 1.14,
+        order_type: "FOK",
+        ai_prob: 0.38,
+        market_prob: 0.38,
+        edge: 0,
+        confidence: "low",
+        thesis_md: "Keep for now.",
+        sources: [
+          {
+            title: "Position",
+            url: "runtime-context://positions/position-1",
+            retrieved_at_utc: "2026-03-17T00:00:00.000Z"
+          }
+        ],
+        stop_loss_pct: 0.3,
+        resolution_track_required: true
+      }
+    }
+  ];
+}
+
+function createEntryPlans(): PulseEntryPlan[] {
+  return [
+    {
+      eventSlug: "demo-event-2",
+      marketSlug: "demo-market-open",
+      tokenId: "token-open",
+      outcomeLabel: "No",
+      side: "BUY",
+      suggestedPct: 0.1,
+      aiProb: 0.63,
+      marketProb: 0.56,
+      confidence: "medium",
+      thesisMd: "Open because edge is positive.",
+      sources: [
+        {
+          title: "Pulse",
+          url: "https://example.com/open",
+          retrieved_at_utc: "2026-03-17T00:00:00.000Z"
+        }
+      ],
+      decision: {
+        action: "open",
+        event_slug: "demo-event-2",
+        market_slug: "demo-market-open",
+        token_id: "token-open",
+        side: "BUY",
+        notional_usd: 2,
+        order_type: "FOK",
+        ai_prob: 0.63,
+        market_prob: 0.56,
+        edge: 0.07,
+        confidence: "medium",
+        thesis_md: "Open because edge is positive.",
+        sources: [
+          {
+            title: "Pulse",
+            url: "https://example.com/open",
+            retrieved_at_utc: "2026-03-17T00:00:00.000Z"
+          }
+        ],
+        stop_loss_pct: 0.3,
+        resolution_track_required: true
+      }
+    }
+  ];
+}
+
 describe("portfolio report artifacts", () => {
   it("writes review, monitor, and rebalance artifacts with English mirrors", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "autopoly-portfolio-reports-"));
@@ -112,7 +202,9 @@ describe("portfolio report artifacts", () => {
         pulse: createPulse(),
         decisionSet: createDecisionSet(),
         promptSummary: "Prompt summary",
-        reasoningMd: "Reasoning summary"
+        reasoningMd: "Reasoning summary",
+        positionReviews: createPositionReviews(),
+        entryPlans: createEntryPlans()
       });
 
       expect(artifacts.map((artifact) => artifact.kind)).toEqual([
@@ -127,7 +219,14 @@ describe("portfolio report artifacts", () => {
       const reviewEnglishContent = await readFile(reviewEnglishPath, "utf8");
 
       expect(reviewContent).toContain("# 组合复盘报告");
+      expect(reviewContent).toContain("仍有 edge：是");
+      expect(reviewContent).toContain("Pulse 覆盖：none");
+      expect(reviewContent).toContain("归因：no-fresh-signal");
+      expect(reviewContent).toContain("人工复核：是");
+      expect(reviewContent).toContain("## 新开仓建议");
       expect(reviewEnglishContent).toContain("# Portfolio Review Report");
+      expect(reviewEnglishContent).toContain("still has edge: yes");
+      expect(reviewEnglishContent).toContain("pulse coverage: none");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

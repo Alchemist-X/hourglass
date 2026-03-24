@@ -8,7 +8,44 @@
 - 每次任务完成后，Rough Loop 都应立即提交本轮任务触碰到的文件。
 
 ## Queue（待执行）
-请在这里追加新的任务卡片。
+### RL-004 | 补齐 Hostinger 443 SSH 清单并写明阿里云独立账户要求 / Add the Hostinger 443 SSH checklist and record the Aliyun dedicated-user requirement
+
+#### Title（标题）
+补齐 Hostinger 443 SSH 清单并写明阿里云独立账户要求 / Add the Hostinger 443 SSH checklist and record the Aliyun dedicated-user requirement
+
+#### Status（状态）
+todo
+
+#### Priority（优先级）
+P1
+
+#### Depends On（依赖任务）
+- none
+
+#### Allowed Paths（允许改动路径）
+- Illustration/hostinger-root-access.md
+- Illustration/hostinger-root-access.en.md
+- Illustration/ssh-connectivity-postmortem-2026-03-23.md
+- Illustration/ssh-connectivity-postmortem-2026-03-23.en.md
+
+#### Definition of Done（完成定义）
+- 在 `Illustration/hostinger-root-access.md` 和 `Illustration/hostinger-root-access.en.md` 补一份最短可执行的 Hostinger `SSH over 443` 操作清单 / Add a shortest executable Hostinger `SSH over 443` checklist to `Illustration/hostinger-root-access.md` and `Illustration/hostinger-root-access.en.md`
+- 在 SSH 复盘文档里明确写出：Hostinger 走 `443` 在技术上可做，但必须单独实测，不应当作已验证结论 / Make the postmortem state explicitly that Hostinger over `443` is technically feasible but must be validated separately rather than treated as already proven
+- 在相关文档里明确记下：阿里云当前 `admin` 只用于 bootstrap，长期部署和日常运维必须切到独立账户 `AutoPulse` / Record explicitly in the relevant docs that Aliyun `admin` is bootstrap-only and long-term deployment plus daily ops must move to a dedicated `AutoPulse` user
+
+#### Verification（验证命令）
+- rg -n "Port 443|SSH over 443|AutoPulse|bootstrap-only|独立账户" Illustration/hostinger-root-access.md Illustration/hostinger-root-access.en.md Illustration/ssh-connectivity-postmortem-2026-03-23.md Illustration/ssh-connectivity-postmortem-2026-03-23.en.md
+
+#### Context（上下文）
+- 这轮排障已经证明当前本地网络 / VPN 路径下 `22` 不稳定，而阿里云 `443` 已可用 / This round of debugging already proved that `22` is unstable under the current local network / VPN path while Aliyun `443` is usable
+- 用户明确要求把 “如果需要，下一步给 Hostinger 补一份改 SSH 到 `443` 的最短操作清单” 写进 Rough Loop / The user explicitly asked to record “if needed, the next step is to add the shortest Hostinger SSH-to-443 checklist” into Rough Loop
+- 用户同时明确要求阿里云侧不要长期使用 `admin`，而要单独创建账户 / The user also explicitly required that Aliyun must not keep using `admin` long-term and needs a separate account
+
+#### Latest Result（最近结果）
+- 已记录待办，尚未开始。 / Task recorded, not started yet.
+
+#### Attempts（尝试次数）
+0
 
 ## Running（进行中）
 暂无任务。

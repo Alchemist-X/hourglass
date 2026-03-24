@@ -22,6 +22,7 @@
     "trial:approve": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/db build && pnpm --filter @autopoly/orchestrator trial:approve",
     "trial:reset-paper": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/db build && pnpm --filter @autopoly/orchestrator trial:reset-paper",
     "trial:run": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/db build && pnpm --filter @autopoly/orchestrator trial:run",
+    "daily:pulse": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/terminal-ui build && tsx scripts/daily-pulse.ts",
     "live:test": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/db build && pnpm --filter @autopoly/terminal-ui build && tsx scripts/live-test.ts",
     "live:test:stateless": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/terminal-ui build && tsx scripts/live-test-stateless.ts",
     "db:generate": "pnpm --filter @autopoly/db drizzle-kit generate",

@@ -33,6 +33,9 @@ export function ReportsList(props: { initialData: PublicArtifactListItem[]; endp
           <p className="panel-kicker">{props.kicker}</p>
           <h2>{props.title}</h2>
         </div>
+        <div className="table-meta">
+          <span>{data.length} artifacts</span>
+        </div>
       </div>
       <div className="report-list">
         {data.map((report) => (
@@ -43,6 +46,7 @@ export function ReportsList(props: { initialData: PublicArtifactListItem[]; endp
             <small>{formatDate(String(report.published_at_utc))}</small>
           </article>
         ))}
+        {data.length === 0 ? <p className="empty-state">No artifacts published yet.</p> : null}
       </div>
     </section>
   );

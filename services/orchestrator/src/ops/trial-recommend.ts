@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { OverviewResponse, PublicPosition } from "@autopoly/contracts";
 import {
   getConfiguredLocalStateFilePath,
   getExecutionMode,
@@ -14,15 +15,20 @@ import { getOverview, getPublicPositions } from "@autopoly/db";
 import path from "node:path";
 import { loadConfig } from "../config.js";
 import { ensureDailyPulseSnapshot, runDailyPulseCore } from "../jobs/daily-pulse-core.js";
-import { createTerminalProgressReporter } from "../lib/terminal-progress.js";
+import { createTerminalProgressReporter, type ProgressReporter } from "../lib/terminal-progress.js";
+import type { PulseSnapshot } from "../pulse/market-pulse.js";
 import { resumeRuntimeExecutionFromOutputFile } from "../runtime/provider-runtime.js";
 import { createAgentRuntime } from "../runtime/runtime-factory.js";
 import { guardDecisionSetForPaper, persistPaperRecommendation } from "./paper-trading.js";
 import {
   checkpointAbsolutePath,
+  errorArtifactAbsolutePath,
   loadTrialRecommendCheckpoint,
+  saveTrialRecommendErrorArtifact,
   saveTrialRecommendCheckpoint
 } from "./trial-recommend-checkpoint.js";
+
+const TRIAL_RECOMMEND_HEARTBEAT_INTERVAL_MS = 5000;
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -145,8 +151,12 @@ function printHumanSummary(output: {
 
 function printFailureGuidance(input: {
   runId: string;
-  checkpointPath: string;
+  checkpointPath: string | null;
+  errorArtifactPath: string;
   localStateFile: string | null;
+  pulseTempDir: string | null;
+  pulsePromptPath: string | null;
+  pulseOutputPath: string | null;
   providerTempDir: string | null;
   providerOutputPath: string | null;
   providerPromptPath: string | null;
@@ -157,17 +167,150 @@ function printFailureGuidance(input: {
   });
   printer.section("Failure Recovery", `run ${input.runId}`);
   printer.table([
-    ["Checkpoint", input.checkpointPath],
+    ["Checkpoint", input.checkpointPath ?? "-"],
+    ["Error Artifact", input.errorArtifactPath],
     ["Local State File", input.localStateFile ?? "-"],
+    ["Pulse Temp", input.pulseTempDir ?? "-"],
+    ["Pulse Prompt", input.pulsePromptPath ?? "-"],
+    ["Pulse Output", input.pulseOutputPath ?? "-"],
     ["Provider Temp", input.providerTempDir ?? "-"],
     ["Provider Output", input.providerOutputPath ?? "-"],
     ["Provider Prompt", input.providerPromptPath ?? "-"],
     ["Provider Schema", input.providerSchemaPath ?? "-"]
   ]);
-  printer.list([
-    `Resume this run: pnpm trial:recommend -- --resume-run-id ${input.runId}`,
-    "Resume latest failed run: pnpm trial:recommend -- --resume-latest"
-  ], "warn");
+  const commands = [
+    `Inspect error artifact: ${input.errorArtifactPath}`,
+    input.checkpointPath ? `Resume this run: pnpm trial:recommend -- --resume-run-id ${input.runId}` : null,
+    input.checkpointPath ? "Resume latest failed run: pnpm trial:recommend -- --resume-latest" : null
+  ].filter((value): value is string => Boolean(value));
+  printer.list(commands, "warn");
+}
+
+function parsePreservedTempDir(message: string, label: "Pulse render" | "Decision runtime"): string | null {
+  const match = message.match(new RegExp(`${label} temp preserved at (.+)$`, "m"));
+  return match?.[1]?.trim() ?? null;
+}
+
+function buildPulseFailurePaths(tempDir: string | null) {
+  return {
+    pulseTempDir: tempDir,
+    pulsePromptPath: tempDir ? path.join(tempDir, "full-pulse-prompt.txt") : null,
+    pulseOutputPath: tempDir ? path.join(tempDir, "full-pulse-report.md") : null
+  };
+}
+
+function buildProviderFailurePaths(tempDir: string | null) {
+  return {
+    providerTempDir: tempDir,
+    providerOutputPath: tempDir ? path.join(tempDir, "provider-output.json") : null,
+    providerPromptPath: tempDir ? path.join(tempDir, "provider-prompt.txt") : null,
+    providerSchemaPath: tempDir ? path.join(tempDir, "trade-decision-set.schema.json") : null
+  };
+}
+
+async function withStageHeartbeat<T>(input: {
+  reporter: ProgressReporter;
+  percent: number;
+  label: string;
+  detail: string;
+  timeoutMs?: number;
+  task: () => Promise<T>;
+}): Promise<T> {
+  const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    input.reporter.heartbeat({
+      percent: input.percent,
+      label: input.label,
+      detail: input.detail,
+      elapsedMs: Date.now() - startedAt,
+      timeoutMs: input.timeoutMs
+    });
+  }, TRIAL_RECOMMEND_HEARTBEAT_INTERVAL_MS);
+  try {
+    return await input.task();
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+async function recordTrialRecommendFailure(input: {
+  config: ReturnType<typeof loadConfig>;
+  reporter: ProgressReporter;
+  runId: string;
+  stage: string;
+  executionMode: string;
+  localStateFile: string | null;
+  overview: OverviewResponse;
+  positions: PublicPosition[];
+  pulse: PulseSnapshot | null;
+  providerTempDir: string | null;
+  jsonMode: boolean;
+  error: unknown;
+}) {
+  const message = input.error instanceof Error ? input.error.message : String(input.error);
+  const pulseFailurePaths = buildPulseFailurePaths(parsePreservedTempDir(message, "Pulse render"));
+  const providerFailurePaths = buildProviderFailurePaths(
+    parsePreservedTempDir(message, "Decision runtime") ?? input.providerTempDir
+  );
+
+  let checkpointPath: string | null = null;
+  if (input.pulse) {
+    checkpointPath = await saveTrialRecommendCheckpoint(input.config, {
+      runId: input.runId,
+      stage: providerFailurePaths.providerOutputPath ? "provider_output_captured" : "pulse_ready",
+      mode: "full",
+      provider: input.config.runtimeProvider,
+      executionMode: input.executionMode,
+      localStateFile: input.localStateFile,
+      overview: input.overview,
+      positions: input.positions,
+      pulse: input.pulse,
+      providerTempDir: providerFailurePaths.providerTempDir,
+      providerOutputPath: providerFailurePaths.providerOutputPath,
+      providerPromptPath: providerFailurePaths.providerPromptPath,
+      providerSchemaPath: providerFailurePaths.providerSchemaPath
+    });
+    input.reporter.fail(`Checkpoint updated after failure | ${checkpointPath}`);
+  }
+
+  const errorArtifactPath = await saveTrialRecommendErrorArtifact(input.config, {
+    runId: input.runId,
+    stage: input.stage,
+    executionMode: input.executionMode,
+    localStateFile: input.localStateFile,
+    message,
+    pulseTempDir: pulseFailurePaths.pulseTempDir,
+    pulsePromptPath: pulseFailurePaths.pulsePromptPath,
+    pulseOutputPath: pulseFailurePaths.pulseOutputPath,
+    providerTempDir: providerFailurePaths.providerTempDir,
+    providerOutputPath: providerFailurePaths.providerOutputPath,
+    providerPromptPath: providerFailurePaths.providerPromptPath,
+    providerSchemaPath: providerFailurePaths.providerSchemaPath
+  });
+  input.reporter.fail(`Error artifact saved | ${errorArtifactPath}`);
+
+  if (!input.jsonMode) {
+    printFailureGuidance({
+      runId: input.runId,
+      checkpointPath,
+      errorArtifactPath,
+      localStateFile: input.localStateFile,
+      pulseTempDir: pulseFailurePaths.pulseTempDir,
+      pulsePromptPath: pulseFailurePaths.pulsePromptPath,
+      pulseOutputPath: pulseFailurePaths.pulseOutputPath,
+      providerTempDir: providerFailurePaths.providerTempDir,
+      providerOutputPath: providerFailurePaths.providerOutputPath,
+      providerPromptPath: providerFailurePaths.providerPromptPath,
+      providerSchemaPath: providerFailurePaths.providerSchemaPath
+    });
+  }
+
+  return {
+    checkpointPath,
+    errorArtifactPath,
+    ...pulseFailurePaths,
+    ...providerFailurePaths
+  };
 }
 
 export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
@@ -218,12 +361,54 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     console.log(output.reason);
     return;
   }
-  const pulse = resumeCheckpoint?.pulse ?? await ensureDailyPulseSnapshot({
-    config,
-    runId,
-    mode: "full",
-    progress: reporter
-  });
+  let pulse = resumeCheckpoint?.pulse ?? null;
+  if (!pulse) {
+    reporter.stage({
+      percent: 18,
+      label: "Building pulse snapshot",
+      detail: `run ${runId} | mode full | provider ${config.runtimeProvider}`
+    });
+    try {
+      pulse = await withStageHeartbeat({
+        reporter,
+        percent: 18,
+        label: "Building pulse snapshot",
+        detail: `stage pulse_snapshot | run ${runId} | mode full | provider ${config.runtimeProvider}`,
+        timeoutMs: config.pulse.reportTimeoutSeconds > 0 ? config.pulse.reportTimeoutSeconds * 1000 : undefined,
+        task: () => ensureDailyPulseSnapshot({
+          config,
+          runId,
+          mode: "full",
+          progress: reporter
+        })
+      });
+    } catch (error) {
+      const failure = await recordTrialRecommendFailure({
+        config,
+        reporter,
+        runId,
+        stage: "pulse_snapshot",
+        executionMode,
+        localStateFile,
+        overview,
+        positions,
+        pulse: null,
+        providerTempDir: resumeCheckpoint?.providerTempDir ?? null,
+        jsonMode: options?.forceJson || args.json,
+        error
+      });
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\n\nTrial recommend error artifact: ${failure.errorArtifactPath}`,
+        { cause: error }
+      );
+    }
+  }
+  if (!pulse) {
+    throw new Error(
+      `Pulse snapshot missing after recovery. Inspect ${checkpointAbsolutePath(config, runId)} or ${errorArtifactAbsolutePath(config, runId)}.`
+    );
+  }
+  const resolvedPulse = pulse;
   if (!resumeCheckpoint) {
     const checkpointPath = await saveTrialRecommendCheckpoint(config, {
       runId,
@@ -234,7 +419,7 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
       localStateFile,
       overview,
       positions,
-      pulse,
+      pulse: resolvedPulse,
       providerTempDir: null,
       providerOutputPath: null,
       providerPromptPath: null,
@@ -249,83 +434,107 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
   reporter.stage({
     percent: 70,
     label: "Pulse snapshot ready",
-    detail: `${pulse.selectedCandidates} candidates | risk flags ${pulse.riskFlags.length}`
+    detail: `${resolvedPulse.selectedCandidates} candidates | risk flags ${resolvedPulse.riskFlags.length}`
   });
   let runtimeResult;
   try {
     runtimeResult = resumeCheckpoint?.stage === "provider_output_captured" && resumeCheckpoint.providerOutputPath
-      ? await resumeRuntimeExecutionFromOutputFile({
-          config,
-          provider: config.runtimeProvider,
-          context: {
-            runId,
-            mode: "full",
-            overview,
-            positions,
-            pulse,
-            progress: reporter
-          },
-          outputPath: resumeCheckpoint.providerOutputPath
+      ? await withStageHeartbeat({
+          reporter,
+          percent: 76,
+          label: "Resuming captured provider output",
+          detail: `stage provider_output_resume | run ${runId} | output ${resumeCheckpoint.providerOutputPath}`,
+          task: () => resumeRuntimeExecutionFromOutputFile({
+            config,
+            provider: config.runtimeProvider,
+            context: {
+              runId,
+              mode: "full",
+              overview,
+              positions,
+              pulse: resolvedPulse,
+              progress: reporter
+            },
+            outputPath: resumeCheckpoint.providerOutputPath!
+          })
         })
       : undefined;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const tempDirMatch = message.match(/temp preserved at (.+)$/m);
-    const providerTempDir = tempDirMatch?.[1]?.trim() ?? null;
-    const providerOutputPath = providerTempDir ? `${providerTempDir}/provider-output.json` : null;
-    const providerPromptPath = providerTempDir ? `${providerTempDir}/provider-prompt.txt` : null;
-    const providerSchemaPath = providerTempDir ? `${providerTempDir}/trade-decision-set.schema.json` : null;
-    const checkpointPath = await saveTrialRecommendCheckpoint(config, {
+    const failure = await recordTrialRecommendFailure({
+      config,
+      reporter,
       runId,
-      stage: providerOutputPath ? "provider_output_captured" : "pulse_ready",
-      mode: "full",
-      provider: config.runtimeProvider,
+      stage: "provider_output_resume",
       executionMode,
       localStateFile,
       overview,
       positions,
-      pulse,
-      providerTempDir,
-      providerOutputPath,
-      providerPromptPath,
-      providerSchemaPath
+      pulse: resolvedPulse,
+      providerTempDir: resumeCheckpoint?.providerTempDir ?? null,
+      jsonMode: options?.forceJson || args.json,
+      error
     });
-    reporter.fail(`Checkpoint updated after failure | ${checkpointPath}`);
-    if (!(options?.forceJson || args.json)) {
-      printFailureGuidance({
-        runId,
-        checkpointPath,
-        localStateFile,
-        providerTempDir,
-        providerOutputPath,
-        providerPromptPath,
-        providerSchemaPath
-      });
-    }
-    throw error;
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}\n\nTrial recommend error artifact: ${failure.errorArtifactPath}`,
+      { cause: error }
+    );
   }
-  const coreResult = runtimeResult == null
-    ? await runDailyPulseCore({
-        config,
-        runtime,
-        runId,
-        mode: "full",
-        overview,
-        positions,
-        progress: reporter,
-        pulse
-      })
-    : await runDailyPulseCore({
-        config,
-        runtime,
-        runId,
-        mode: "full",
-        overview,
-        positions,
-        progress: reporter,
-        pulse,
-        runtimeResult
-      });
+  reporter.stage({
+    percent: 78,
+    label: runtimeResult == null ? "Running decision runtime" : "Finalizing from captured provider output",
+    detail: `run ${runId} | provider ${config.runtimeProvider} | pulse candidates ${resolvedPulse.selectedCandidates}`
+  });
+  let coreResult;
+  try {
+    coreResult = await withStageHeartbeat({
+      reporter,
+      percent: 78,
+      label: runtimeResult == null ? "Running decision runtime" : "Finalizing from captured provider output",
+      detail: `stage ${runtimeResult == null ? "decision_runtime" : "provider_output_finalize"} | run ${runId} | provider ${config.runtimeProvider} | pulse candidates ${resolvedPulse.selectedCandidates}`,
+      timeoutMs: config.providerTimeoutSeconds > 0 ? config.providerTimeoutSeconds * 1000 : undefined,
+      task: () => runtimeResult == null
+        ? runDailyPulseCore({
+            config,
+            runtime,
+            runId,
+            mode: "full",
+            overview,
+            positions,
+            progress: reporter,
+            pulse: resolvedPulse
+          })
+        : runDailyPulseCore({
+            config,
+            runtime,
+            runId,
+            mode: "full",
+            overview,
+            positions,
+            progress: reporter,
+            pulse: resolvedPulse,
+            runtimeResult
+          })
+    });
+  } catch (error) {
+    const failure = await recordTrialRecommendFailure({
+      config,
+      reporter,
+      runId,
+      stage: runtimeResult == null ? "decision_runtime" : "provider_output_finalize",
+      executionMode,
+      localStateFile,
+      overview,
+      positions,
+      pulse: resolvedPulse,
+      providerTempDir: resumeCheckpoint?.providerTempDir ?? null,
+      jsonMode: options?.forceJson || args.json,
+      error
+    });
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}\n\nTrial recommend error artifact: ${failure.errorArtifactPath}`,
+      { cause: error }
+    );
+  }
   reporter.stage({
     percent: 92,
     label: "Decision runtime finished",
@@ -366,7 +575,7 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     localStateFile,
     overview,
     positions,
-    pulse,
+    pulse: resolvedPulse,
     providerTempDir: resumeCheckpoint?.providerTempDir ?? null,
     providerOutputPath: resumeCheckpoint?.providerOutputPath ?? null,
     providerPromptPath: resumeCheckpoint?.providerPromptPath ?? null,
@@ -379,8 +588,8 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     status: executionMode === "paper" ? "awaiting-approval" : "preview",
     runId: guarded.decisionSet.run_id,
     checkpointPath: completedCheckpointPath,
-    pulseMarkdownPath: path.join(config.artifactStorageRoot, pulse.relativeMarkdownPath),
-    pulseJsonPath: path.join(config.artifactStorageRoot, pulse.relativeJsonPath),
+    pulseMarkdownPath: path.join(config.artifactStorageRoot, resolvedPulse.relativeMarkdownPath),
+    pulseJsonPath: path.join(config.artifactStorageRoot, resolvedPulse.relativeJsonPath),
     runtimeLogPath: guarded.decisionSet.artifacts.find((artifact) => artifact.kind === "runtime-log")
       ? path.join(
           config.artifactStorageRoot,
@@ -391,11 +600,11 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     providerOutputPath: resumeCheckpoint?.providerOutputPath ?? null,
     droppedDecisionCount: guarded.droppedDecisionCount,
     pulse: {
-      title: pulse.title,
-      tradeable: pulse.tradeable,
-      riskFlags: pulse.riskFlags,
-      relativeMarkdownPath: pulse.relativeMarkdownPath,
-      relativeJsonPath: pulse.relativeJsonPath
+      title: resolvedPulse.title,
+      tradeable: resolvedPulse.tradeable,
+      riskFlags: resolvedPulse.riskFlags,
+      relativeMarkdownPath: resolvedPulse.relativeMarkdownPath,
+      relativeJsonPath: resolvedPulse.relativeJsonPath
     },
     promptSummary: coreResult.result.promptSummary,
     reasoningMd: coreResult.result.reasoningMd,

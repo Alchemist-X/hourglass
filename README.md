@@ -27,8 +27,9 @@
 1. 读完本 README
 2. 查看 [.env.example](.env.example) 了解运行模式和依赖
 3. 查看 [risk-controls.md](risk-controls.md) 了解硬风控
-4. 查看 [Illustration/trading-modes-flowchart.md](Illustration/trading-modes-flowchart.md) 了解执行路径
-5. 需要更细设计时，再看 [progress.md](progress.md) 和 `Illustration/` 下的说明文档
+4. 查看 [Illustration/onboarding-architecture.md](Illustration/onboarding-architecture.md) 先理解模块边界、状态源和默认主路径
+5. 查看 [Illustration/trading-modes-flowchart.md](Illustration/trading-modes-flowchart.md) 了解执行路径分叉
+6. 需要更细设计时，再看 [progress.md](progress.md) 和 `Illustration/` 下的说明文档
 
 如果目标只是“远程把项目 build 起来”，并不需要先理解全部 skill 细节。
 
@@ -77,6 +78,8 @@
   - `zod@4.1.12`
 
 ## 整体架构
+
+如果你是第一次进入代码，建议先看 [Illustration/onboarding-architecture.md](Illustration/onboarding-architecture.md)，再回来看下面这四层。
 
 建议把当前系统理解成四层：
 
