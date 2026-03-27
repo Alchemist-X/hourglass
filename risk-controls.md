@@ -2,7 +2,7 @@
 
 英文版见 [risk-controls.en.md](risk-controls.en.md)。
 
-最后更新：2026-03-14
+最后更新：2026-03-27
 
 ## 目标
 
@@ -33,6 +33,8 @@
 - 任何候选缺少 `clobTokenIds` 时，视为风险状态
 - 只要 pulse 上存在风险标记，本轮禁止任何新的 `open`
 - `open` 动作的 `token_id` 必须来自 pulse candidates
+- `pulse-direct` 主流程里的 `open` 金额必须由程序按 `ai_prob / market_prob` 重新计算 `1/4 Kelly`，Markdown 里的“建议仓位”只作为人工审计字段，不能直接信任为最终下注额
+- `open` 决策里的 `notional_usd` 统一表示原始 `1/4 Kelly` 目标额，`liquidity_cap_usd` 单独表示流动性上限，执行层再统一裁剪
 
 ## 四、执行级额度约束
 
@@ -41,8 +43,10 @@
 - 最大总敞口默认不超过资金的 `50%`
 - 最大并发持仓默认不超过 `10`
 - 单笔最大下单默认不超过资金的 `5%`
-- `applyTradeGuards()` 会再按 edge、持仓数和敞口做二次裁剪
-- 小于最小有效额度的开仓请求会被直接丢弃
+- `applyTradeGuards()` 只负责把 Kelly 目标金额按 `maxTradePct / maxTotalExposurePct / maxEventExposurePct / maxPositions / liquidity_cap_usd` 向下裁剪到当前允许的最大值，不再额外按 edge 再做第二套缩放
+- 被风控裁剪后的开仓金额如果低于内部最小下单额，必须直接丢弃，不能为了凑够门槛再反向加仓
+- 被风控裁剪后的开仓金额如果低于 Polymarket 最小可执行门槛，必须直接丢弃，不能为了凑够交易所门槛而上调超过 Kelly
+- `close` / `reduce` 的 `notional_usd` 口径代表仓位价值影响；`position_value_usd` 记录当前整仓市值，`execution_amount` + `execution_unit=shares` 记录真实卖出股数，并单独校验交易所最小 shares 门槛
 
 ## 五、Provider 输出约束
 

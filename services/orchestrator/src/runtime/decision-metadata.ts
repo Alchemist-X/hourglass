@@ -38,6 +38,10 @@ export interface PulseEntryPlan {
   outcomeLabel: string;
   side: "BUY";
   suggestedPct: number;
+  fullKellyPct: number;
+  quarterKellyPct: number;
+  reportedSuggestedPct: number | null;
+  liquidityCapUsd: number | null;
   aiProb: number;
   marketProb: number;
   confidence: TradeDecision["confidence"];

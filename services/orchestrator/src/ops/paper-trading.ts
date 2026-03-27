@@ -15,7 +15,8 @@ import {
 } from "@autopoly/contracts";
 import type { LocalAppState } from "@autopoly/db";
 import type { OrchestratorConfig } from "../config.js";
-import { applyTradeGuards, calculateDrawdownPct, shouldHaltForDrawdown } from "../lib/risk.js";
+import type { PlannedExecution, SkippedDecision } from "../lib/execution-planning.js";
+import { calculateDrawdownPct, shouldHaltForDrawdown } from "../lib/risk.js";
 
 function roundCurrency(value: number): number {
   return Number(value.toFixed(2));
@@ -82,59 +83,45 @@ function mergeArtifactLists(
   return next;
 }
 
-export function guardDecisionSetForPaper(input: {
-  decisionSet: TradeDecisionSet;
-  overview: { total_equity_usd: number; open_positions: number };
-  positions: PublicPosition[];
-  config: Pick<OrchestratorConfig, "maxTradePct" | "maxTotalExposurePct" | "maxEventExposurePct" | "maxPositions" | "minTradeUsd">;
-}) {
-  let projectedExposureUsd = input.positions.reduce((sum, position) => sum + position.current_value_usd, 0);
-  let projectedOpenPositions = input.overview.open_positions;
-  let droppedDecisionCount = 0;
-  const projectedEventExposureUsd = new Map<string, number>();
+function buildExecutableDecisionKey(input: Pick<TradeDecision, "action" | "market_slug" | "event_slug" | "token_id" | "side">) {
+  return [input.action, input.market_slug, input.event_slug, input.token_id, input.side].join("::");
+}
 
-  for (const position of input.positions) {
-    projectedEventExposureUsd.set(
-      position.event_slug,
-      (projectedEventExposureUsd.get(position.event_slug) ?? 0) + position.current_value_usd
-    );
+export function finalizePaperDecisionSet(input: {
+  decisionSet: TradeDecisionSet;
+  plans: PlannedExecution[];
+  skippedDecisions: SkippedDecision[];
+}) {
+  const executablePlansByKey = new Map<string, PlannedExecution[]>();
+  for (const plan of input.plans) {
+    const key = buildExecutableDecisionKey({
+      action: plan.action,
+      market_slug: plan.marketSlug,
+      event_slug: plan.eventSlug,
+      token_id: plan.tokenId,
+      side: plan.side
+    });
+    const existing = executablePlansByKey.get(key) ?? [];
+    existing.push(plan);
+    executablePlansByKey.set(key, existing);
   }
 
   const decisions = input.decisionSet.decisions.flatMap((decision) => {
-    if (decision.action !== "open") {
+    if (!["open", "close", "reduce"].includes(decision.action)) {
       return [decision];
     }
 
-    const guardedNotionalUsd = applyTradeGuards({
-      requestedUsd: decision.notional_usd,
-      bankrollUsd: input.overview.total_equity_usd,
-      minTradeUsd: input.config.minTradeUsd,
-      maxTradePct: input.config.maxTradePct,
-      liquidityCapUsd: decision.notional_usd,
-      totalExposureUsd: projectedExposureUsd,
-      maxTotalExposurePct: input.config.maxTotalExposurePct,
-      eventExposureUsd: projectedEventExposureUsd.get(decision.event_slug) ?? 0,
-      maxEventExposurePct: input.config.maxEventExposurePct,
-      openPositions: projectedOpenPositions,
-      maxPositions: input.config.maxPositions,
-      edge: decision.edge
-    });
-
-    if (guardedNotionalUsd <= 0) {
-      droppedDecisionCount += 1;
+    const key = buildExecutableDecisionKey(decision);
+    const queue = executablePlansByKey.get(key);
+    const plan = queue?.shift();
+    if (!plan) {
       return [];
     }
 
-    projectedExposureUsd += guardedNotionalUsd;
-    projectedEventExposureUsd.set(
-      decision.event_slug,
-      (projectedEventExposureUsd.get(decision.event_slug) ?? 0) + guardedNotionalUsd
-    );
-    projectedOpenPositions += 1;
     return [
       {
         ...decision,
-        notional_usd: guardedNotionalUsd
+        notional_usd: plan.notionalUsd
       }
     ];
   });
@@ -144,7 +131,8 @@ export function guardDecisionSetForPaper(input: {
       ...input.decisionSet,
       decisions
     },
-    droppedDecisionCount
+    blockedDecisionCount: input.skippedDecisions.length,
+    skippedDecisions: input.skippedDecisions
   };
 }
 

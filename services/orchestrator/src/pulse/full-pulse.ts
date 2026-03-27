@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AgentRuntimeProvider, OrchestratorConfig, SkillLocale } from "../config.js";
 import { writeStoredArtifact } from "../lib/artifacts.js";
+import { calculateQuarterKelly } from "../lib/risk.js";
 import { combineTextMetrics, formatTextMetrics, measureText, readTextMetrics } from "../lib/text-metrics.js";
 import type { ProgressReporter } from "../lib/terminal-progress.js";
 import { resolveProviderSkillSettings } from "../runtime/skill-settings.js";
@@ -341,10 +342,18 @@ function buildFallbackTradePlan(candidate: PulseResearchCandidate) {
   const preferredAiProb = clampProbability(preferredMarketProb + 0.1);
   const yesAiProb = preferredOutcome === "Yes" ? preferredAiProb : clampProbability(1 - preferredAiProb);
   const noAiProb = preferredOutcome === "No" ? preferredAiProb : clampProbability(1 - preferredAiProb);
+  const preferredKelly = calculateQuarterKelly({
+    aiProb: preferredAiProb,
+    marketProb: preferredMarketProb,
+    bankrollUsd: 1
+  });
+  if (!(preferredKelly.quarterKellyPct > 0)) {
+    return null;
+  }
 
   return {
     preferredOutcome,
-    suggestedPct: 0.1,
+    suggestedPct: preferredKelly.quarterKellyPct,
     confidence: candidate.market.spread <= 0.02 ? "medium" as const : "low" as const,
     yesMarketProb,
     noMarketProb,

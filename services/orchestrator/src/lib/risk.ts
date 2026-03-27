@@ -57,7 +57,6 @@ export interface TradeGuardInput {
   maxEventExposurePct?: number;
   openPositions: number;
   maxPositions: number;
-  edge: number;
 }
 
 export function applyTradeGuards(input: TradeGuardInput): number {
@@ -75,17 +74,7 @@ export function applyTradeGuards(input: TradeGuardInput): number {
     typeof input.maxEventExposurePct === "number"
       ? Math.max(0, input.bankrollUsd * input.maxEventExposurePct - (input.eventExposureUsd ?? 0))
       : Number.POSITIVE_INFINITY;
-
-  let edgeMultiplier = 0;
-  if (input.edge > 0.2) {
-    edgeMultiplier = 1;
-  } else if (input.edge >= 0.1) {
-    edgeMultiplier = 0.6;
-  } else if (input.edge >= 0.05) {
-    edgeMultiplier = 0.3;
-  }
-
-  const amount = Math.min(hardCap * edgeMultiplier, exposureHeadroom, eventExposureHeadroom);
+  const amount = Math.min(hardCap, exposureHeadroom, eventExposureHeadroom);
   const minTradeUsd = input.minTradeUsd ?? 10;
   return amount >= minTradeUsd ? amount : 0;
 }

@@ -10,6 +10,16 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./config": {
+      "types": "./src/config.ts",
+      "import": "./dist/config.js",
+      "default": "./dist/config.js"
+    },
+    "./polymarket": {
+      "types": "./src/lib/polymarket.ts",
+      "import": "./dist/lib/polymarket.js",
+      "default": "./dist/lib/polymarket.js"
+    },
     "./risk": {
       "types": "./src/risk.ts",
       "import": "./dist/risk.js",

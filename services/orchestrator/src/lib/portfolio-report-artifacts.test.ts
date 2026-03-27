@@ -161,6 +161,10 @@ function createEntryPlans(): PulseEntryPlan[] {
       outcomeLabel: "No",
       side: "BUY",
       suggestedPct: 0.1,
+      fullKellyPct: 0.4,
+      quarterKellyPct: 0.1,
+      reportedSuggestedPct: 0.1,
+      liquidityCapUsd: null,
       aiProb: 0.63,
       marketProb: 0.56,
       confidence: "medium",
@@ -192,6 +196,10 @@ function createEntryPlans(): PulseEntryPlan[] {
             retrieved_at_utc: "2026-03-17T00:00:00.000Z"
           }
         ],
+        full_kelly_pct: 0.4,
+        quarter_kelly_pct: 0.1,
+        reported_suggested_pct: 0.1,
+        liquidity_cap_usd: null,
         stop_loss_pct: 0.3,
         resolution_track_required: true
       }
@@ -236,11 +244,15 @@ describe("portfolio report artifacts", () => {
       expect(reviewContent).toContain("归因：no-fresh-signal");
       expect(reviewContent).toContain("人工复核：是");
       expect(reviewContent).toContain("## 新开仓建议");
+      expect(reviewContent).toContain("1/4 Kelly 10.00% -> $2.00");
       expect(reviewEnglishContent).toContain("# Portfolio Review Report");
       expect(reviewEnglishContent).toContain("still has edge: yes");
       expect(reviewEnglishContent).toContain("pulse coverage: none");
+      expect(reviewEnglishContent).toContain("Quarter Kelly 10.00% -> $2.00");
       expect(rebalanceContent).toContain("口径：基于当前持仓 + 本轮决策提案估算结构变化");
+      expect(rebalanceContent).toContain("按 1/4 Kelly 目标与 liquidity_cap_usd 取更小值");
       expect(rebalanceEnglishContent).toContain("proposal-based structure view");
+      expect(rebalanceEnglishContent).toContain("the smaller of quarter-Kelly target and liquidity_cap_usd");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

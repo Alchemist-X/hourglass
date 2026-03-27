@@ -2,7 +2,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import type { OverviewResponse, PublicPosition, TradeDecision } from "@autopoly/contracts";
-import { inferPaperSellAmount } from "@autopoly/contracts";
 import {
   createTerminalPrinter,
   formatRatioPercent,
@@ -25,7 +24,12 @@ import {
   ensureDailyPulseSnapshot,
   runDailyPulseCore
 } from "../services/orchestrator/src/jobs/daily-pulse-core.ts";
-import { applyTradeGuards } from "../services/orchestrator/src/lib/risk.ts";
+import {
+  buildExecutionPlan,
+  shouldWarnSkippedDecision,
+  type PlannedExecution,
+  type SkippedDecision
+} from "../services/orchestrator/src/lib/execution-planning.ts";
 import { createTerminalProgressReporter } from "../services/orchestrator/src/lib/terminal-progress.ts";
 import { createAgentRuntime } from "../services/orchestrator/src/runtime/runtime-factory.ts";
 import { loadPulseSnapshotFromArtifacts } from "./live-test-stateless-pulse.ts";
@@ -33,11 +37,7 @@ import {
   buildStatelessRunIdentityRows,
   buildStatelessOverview,
   calculatePositionPnlPct,
-  calculatePositionValueUsd,
-  computeExchangeBuyMinNotionalUsd,
-  isBelowExchangeBuyMinimum,
-  isBelowExchangeSellMinimum,
-  resolveOpenExecutionSizing
+  calculatePositionValueUsd
 } from "./live-test-stateless-helpers.ts";
 import {
   mapOverviewToSummarySnapshot,
@@ -98,30 +98,6 @@ interface PreflightReport {
   }>;
 }
 
-interface PlannedExecution {
-  action: TradeDecision["action"];
-  marketSlug: string;
-  eventSlug: string;
-  tokenId: string;
-  side: TradeDecision["side"];
-  notionalUsd: number;
-  bankrollRatio: number;
-  executionAmount: number;
-  unit: "usd" | "shares";
-  thesisMd: string;
-  bestAsk: number | null;
-  bestBid: number | null;
-  minOrderSize: number | null;
-  exchangeMinNotionalUsd: number | null;
-}
-
-interface SkippedDecision {
-  action: TradeDecision["action"] | null;
-  marketSlug: string;
-  tokenId: string | null;
-  reason: string;
-}
-
 interface ExecutedOrderSummary extends PlannedExecution {
   orderId: string | null;
   ok: boolean;
@@ -158,26 +134,6 @@ function parseArgs(argv = process.argv.slice(2)): Args {
 
 function roundCurrency(value: number): number {
   return Number(value.toFixed(4));
-}
-
-function buildOpenExecutionFloorLabel(input: {
-  configuredMinTradeUsd: number;
-  exchangeMinNotionalUsd: number | null;
-}) {
-  const labels: string[] = [];
-  if (input.configuredMinTradeUsd > 0) {
-    labels.push(`internal minimum ${formatUsd(input.configuredMinTradeUsd)}`);
-  }
-  if (input.exchangeMinNotionalUsd != null && input.exchangeMinNotionalUsd > 0) {
-    labels.push(`Polymarket minimum ${formatUsd(input.exchangeMinNotionalUsd)}`);
-  }
-  return labels.join(" + ");
-}
-
-function shouldWarnSkippedDecision(reason: string) {
-  return reason.startsWith("blocked_by_risk_cap:")
-    || reason.startsWith("blocked_by_strategy_min_trade:")
-    || reason.startsWith("blocked_by_exchange_min:");
 }
 
 function getErrorCause(error: unknown): unknown {
@@ -406,182 +362,6 @@ async function runPreflight(input: {
     remotePositions,
     collateralBalanceUsd: effectiveCollateralBalanceUsd
   };
-}
-
-async function buildExecutionPlan(input: {
-  decisions: TradeDecision[];
-  positions: PublicPosition[];
-  overview: OverviewResponse;
-  orchestratorConfig: ReturnType<typeof loadOrchestratorConfig>;
-  executorConfig: ReturnType<typeof loadExecutorConfig>;
-  minTradeUsd: number;
-}) {
-  const plans: PlannedExecution[] = [];
-  const skipped: SkippedDecision[] = [];
-  const usePulseDirectEmptyPortfolioGuards =
-    input.orchestratorConfig.decisionStrategy === "pulse-direct" && input.positions.length === 0;
-  let projectedTotalExposureUsd = input.positions.reduce((sum, position) => sum + position.current_value_usd, 0);
-  let projectedOpenPositions = input.overview.open_positions;
-  const eventExposureUsd = new Map<string, number>();
-  for (const position of input.positions) {
-    eventExposureUsd.set(
-      position.event_slug,
-      (eventExposureUsd.get(position.event_slug) ?? 0) + position.current_value_usd
-    );
-  }
-
-  for (const decision of input.decisions) {
-    if (!["open", "close", "reduce"].includes(decision.action)) {
-      continue;
-    }
-
-    if (decision.action === "open") {
-      const book = await readBook(input.executorConfig, decision.token_id);
-      if (!(book?.bestAsk != null && book.bestAsk > 0)) {
-        skipped.push({
-          action: decision.action,
-          marketSlug: decision.market_slug,
-          tokenId: decision.token_id,
-          reason: "blocked_by_orderbook_unavailable: no executable ask book is available from Polymarket"
-        });
-        continue;
-      }
-      const exchangeMinNotionalUsd = computeExchangeBuyMinNotionalUsd({
-        bestAsk: book.bestAsk,
-        minOrderSize: book.minOrderSize ?? null
-      });
-      const openSizing = resolveOpenExecutionSizing({
-        decisionNotionalUsd: decision.notional_usd,
-        configuredMinTradeUsd: input.minTradeUsd,
-        exchangeMinNotionalUsd
-      });
-      const openExecutionFloorLabel = buildOpenExecutionFloorLabel({
-        configuredMinTradeUsd: input.minTradeUsd,
-        exchangeMinNotionalUsd
-      });
-      const rawGuardedNotionalUsd = applyTradeGuards({
-        requestedUsd: openSizing.requestedForGuardsUsd,
-        bankrollUsd: input.overview.total_equity_usd,
-        minTradeUsd: 0,
-        maxTradePct: input.orchestratorConfig.maxTradePct,
-        liquidityCapUsd: openSizing.requestedForGuardsUsd,
-        totalExposureUsd: usePulseDirectEmptyPortfolioGuards ? 0 : projectedTotalExposureUsd,
-        maxTotalExposurePct: usePulseDirectEmptyPortfolioGuards ? 1 : input.orchestratorConfig.maxTotalExposurePct,
-        eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
-        maxEventExposurePct: input.orchestratorConfig.maxEventExposurePct,
-        openPositions: usePulseDirectEmptyPortfolioGuards ? 0 : projectedOpenPositions,
-        maxPositions: usePulseDirectEmptyPortfolioGuards ? Number.MAX_SAFE_INTEGER : input.orchestratorConfig.maxPositions,
-        edge: decision.edge
-      });
-      if (!(rawGuardedNotionalUsd > 0)) {
-        skipped.push({
-          action: decision.action,
-          marketSlug: decision.market_slug,
-          tokenId: decision.token_id,
-          reason: "blocked_by_risk_cap: total exposure, event exposure, max positions, bankroll cap, or edge scaling reduced the maximum executable notional to zero"
-        });
-        continue;
-      }
-      const plannedNotionalUsd = roundCurrency(rawGuardedNotionalUsd);
-
-      if (openSizing.executableFloorUsd > 0 && rawGuardedNotionalUsd + 1e-9 < openSizing.executableFloorUsd) {
-        skipped.push({
-          action: decision.action,
-          marketSlug: decision.market_slug,
-          tokenId: decision.token_id,
-          reason: `blocked_by_risk_cap: internal risk limits cap this order at ${formatUsd(plannedNotionalUsd)}, but ${openExecutionFloorLabel || "the executable minimum"} is ${formatUsd(openSizing.executableFloorUsd)} so the Polymarket order would fail`
-        });
-        continue;
-      }
-
-      if (isBelowExchangeBuyMinimum({
-        notionalUsd: plannedNotionalUsd,
-        bestAsk: book.bestAsk,
-        minOrderSize: book.minOrderSize ?? null
-      })) {
-        skipped.push({
-          action: decision.action,
-          marketSlug: decision.market_slug,
-          tokenId: decision.token_id,
-          reason: `blocked_by_exchange_min: below Polymarket minimum order size (${book.minOrderSize} shares @ ${formatUsd(book.bestAsk)} ask => ${formatUsd(exchangeMinNotionalUsd ?? 0)} minimum)`
-        });
-        continue;
-      }
-
-      plans.push({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        eventSlug: decision.event_slug,
-        tokenId: decision.token_id,
-        side: decision.side,
-        notionalUsd: plannedNotionalUsd,
-        bankrollRatio: input.overview.total_equity_usd > 0
-          ? plannedNotionalUsd / input.overview.total_equity_usd
-          : 0,
-        executionAmount: plannedNotionalUsd,
-        unit: "usd",
-        thesisMd: decision.thesis_md,
-        bestAsk: book?.bestAsk ?? null,
-        bestBid: book?.bestBid ?? null,
-        minOrderSize: book?.minOrderSize ?? null,
-        exchangeMinNotionalUsd
-      });
-
-      projectedTotalExposureUsd += plannedNotionalUsd;
-      projectedOpenPositions += 1;
-      eventExposureUsd.set(
-        decision.event_slug,
-        (eventExposureUsd.get(decision.event_slug) ?? 0) + plannedNotionalUsd
-      );
-      continue;
-    }
-
-    const currentPosition = input.positions.find((position) => position.token_id === decision.token_id) ?? null;
-    const executionAmount = inferPaperSellAmount(currentPosition, decision);
-    if (!(executionAmount > 0)) {
-      skipped.push({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        tokenId: decision.token_id,
-        reason: "blocked_by_position_unavailable: no matching remote position is available to sell"
-      });
-      continue;
-    }
-
-    const book = await readBook(input.executorConfig, decision.token_id);
-    if (isBelowExchangeSellMinimum({
-      size: executionAmount,
-      minOrderSize: book?.minOrderSize ?? null
-    })) {
-      skipped.push({
-        action: decision.action,
-        marketSlug: decision.market_slug,
-        tokenId: decision.token_id,
-        reason: `blocked_by_exchange_min: below Polymarket minimum order size (${book?.minOrderSize ?? 0} shares)`
-      });
-      continue;
-    }
-    plans.push({
-      action: decision.action,
-      marketSlug: decision.market_slug,
-      eventSlug: decision.event_slug,
-      tokenId: decision.token_id,
-      side: decision.side,
-      notionalUsd: roundCurrency(decision.notional_usd),
-      bankrollRatio: input.overview.total_equity_usd > 0
-        ? decision.notional_usd / input.overview.total_equity_usd
-        : 0,
-      executionAmount,
-      unit: "shares",
-      thesisMd: decision.thesis_md,
-      bestAsk: book?.bestAsk ?? null,
-      bestBid: book?.bestBid ?? null,
-      minOrderSize: book?.minOrderSize ?? null,
-      exchangeMinNotionalUsd: null
-    });
-  }
-
-  return { plans, skipped };
 }
 
 async function executePlans(input: {
@@ -909,9 +689,19 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       decisions: coreResult.decisionSet.decisions,
       positions,
       overview,
-      orchestratorConfig,
-      executorConfig,
-      minTradeUsd: configuredMinTradeUsd
+      config: orchestratorConfig,
+      minTradeUsd: configuredMinTradeUsd,
+      readBook: async (tokenId) => {
+        const book = await readBook(executorConfig, tokenId);
+        if (!book) {
+          return null;
+        }
+        return {
+          bestAsk: book.bestAsk ?? null,
+          bestBid: book.bestBid ?? null,
+          minOrderSize: book.minOrderSize ?? null
+        };
+      }
     });
     plansForSummary = plans;
     skippedForSummary = skipped;

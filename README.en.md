@@ -146,7 +146,7 @@ Preflight (+DB/Redis/Queue) → Pulse generation → Agent cycle (decisions + pe
 **paper**:
 
 ```
-Load portfolio context → Pulse generation → Decision runtime → Risk guards → awaiting-approval → trial:approve → Paper state update
+Load portfolio context → Pulse generation → Decision runtime → shared buildExecutionPlan (same risk + exchange-threshold rules as live:test:stateless) → awaiting-approval → trial:approve → Paper state update
 ```
 
 ## Decision Engine
@@ -252,6 +252,7 @@ AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
 ```
 
 State defaults to `runtime-artifacts/local/paper-state.json`.
+`trial:recommend` now uses the same pre-execution rule set as `live:test:stateless`: it reads the order book, applies the same risk clipping, minimum trade size, and Polymarket executable minimum checks. The difference is only the landing step: paper stops at `awaiting-approval` instead of sending a live order immediately.
 
 ## Environment Variables
 

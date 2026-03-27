@@ -206,26 +206,25 @@ export async function runAgentCycle(deps: {
       continue;
     }
 
-    const guardedAmount = applyTradeGuards({
-      requestedUsd: decision.notional_usd,
-      bankrollUsd: overview.total_equity_usd,
-      minTradeUsd: deps.config.minTradeUsd,
-      maxTradePct: deps.config.maxTradePct,
-      liquidityCapUsd: decision.notional_usd,
-      totalExposureUsd: projectedTotalExposureUsd,
-      maxTotalExposurePct: deps.config.maxTotalExposurePct,
-      eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
-      maxEventExposurePct: deps.config.maxEventExposurePct,
-      openPositions: projectedOpenPositions,
-      maxPositions: deps.config.maxPositions,
-      edge: decision.edge
-    });
+    const queuedNotional = decision.action === "open"
+      ? applyTradeGuards({
+          requestedUsd: decision.notional_usd,
+          bankrollUsd: overview.total_equity_usd,
+          minTradeUsd: deps.config.minTradeUsd,
+          maxTradePct: deps.config.maxTradePct,
+          liquidityCapUsd: decision.liquidity_cap_usd ?? decision.notional_usd,
+          totalExposureUsd: projectedTotalExposureUsd,
+          maxTotalExposurePct: deps.config.maxTotalExposurePct,
+          eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
+          maxEventExposurePct: deps.config.maxEventExposurePct,
+          openPositions: projectedOpenPositions,
+          maxPositions: deps.config.maxPositions
+        })
+      : decision.notional_usd;
 
-    if (guardedAmount <= 0 && decision.action === "open") {
+    if (queuedNotional <= 0 && decision.action === "open") {
       continue;
     }
-
-    const queuedNotional = decision.action === "open" ? guardedAmount : decision.notional_usd;
     const executableTrade = {
       decisionId: decisionIdMap.get(`${decision.market_slug}:${decision.action}`) ?? null,
       decision: {

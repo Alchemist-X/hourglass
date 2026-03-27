@@ -6,8 +6,7 @@ import {
   calculatePositionPnlPct,
   calculatePositionValueUsd,
   isBelowExchangeBuyMinimum,
-  isBelowExchangeSellMinimum,
-  resolveOpenExecutionSizing
+  isBelowExchangeSellMinimum
 } from "./live-test-stateless-helpers.ts";
 
 describe("stateless live test helpers", () => {
@@ -91,44 +90,5 @@ describe("stateless live test helpers", () => {
   it("computes position value and pnl from market price", () => {
     expect(calculatePositionValueUsd(2, 0.37)).toBeCloseTo(0.74);
     expect(calculatePositionPnlPct(0.4, 0.5)).toBeCloseTo(0.25);
-  });
-
-  it("raises opens to the highest executable floor before applying guards", () => {
-    expect(resolveOpenExecutionSizing({
-      decisionNotionalUsd: 1.5,
-      configuredMinTradeUsd: 10,
-      exchangeMinNotionalUsd: 2.15
-    })).toEqual({
-      requestedForGuardsUsd: 10,
-      executableFloorUsd: 10,
-      raisedToConfiguredMinTrade: true,
-      raisedToExchangeMinimum: false
-    });
-  });
-
-  it("raises opens to the exchange minimum when it exceeds the configured minimum", () => {
-    expect(resolveOpenExecutionSizing({
-      decisionNotionalUsd: 1.5,
-      configuredMinTradeUsd: 1,
-      exchangeMinNotionalUsd: 2.15
-    })).toEqual({
-      requestedForGuardsUsd: 2.15,
-      executableFloorUsd: 2.15,
-      raisedToConfiguredMinTrade: false,
-      raisedToExchangeMinimum: true
-    });
-  });
-
-  it("keeps the model amount when it already clears both floors", () => {
-    expect(resolveOpenExecutionSizing({
-      decisionNotionalUsd: 4,
-      configuredMinTradeUsd: 1,
-      exchangeMinNotionalUsd: 2.15
-    })).toEqual({
-      requestedForGuardsUsd: 4,
-      executableFloorUsd: 2.15,
-      raisedToConfiguredMinTrade: false,
-      raisedToExchangeMinimum: false
-    });
   });
 });

@@ -1,4 +1,9 @@
 import type { OverviewResponse, PublicPosition } from "@autopoly/contracts";
+export {
+  computeExchangeBuyMinNotionalUsd,
+  isBelowExchangeBuyMinimum,
+  isBelowExchangeSellMinimum
+} from "../services/orchestrator/src/lib/execution-planning.ts";
 
 export function buildStatelessRunIdentityRows(input: {
   executionMode: string;
@@ -10,67 +15,12 @@ export function buildStatelessRunIdentityRows(input: {
   ];
 }
 
-export function resolveOpenExecutionSizing(input: {
-  decisionNotionalUsd: number;
-  configuredMinTradeUsd: number;
-  exchangeMinNotionalUsd: number | null;
-}) {
-  const configuredFloorUsd = input.configuredMinTradeUsd > 0 ? input.configuredMinTradeUsd : 0;
-  const exchangeFloorUsd = input.exchangeMinNotionalUsd != null && input.exchangeMinNotionalUsd > 0
-    ? input.exchangeMinNotionalUsd
-    : 0;
-  const executableFloorUsd = Math.max(configuredFloorUsd, exchangeFloorUsd);
-  return {
-    requestedForGuardsUsd: Math.max(input.decisionNotionalUsd, executableFloorUsd),
-    executableFloorUsd,
-    raisedToConfiguredMinTrade: configuredFloorUsd > input.decisionNotionalUsd
-      && configuredFloorUsd >= exchangeFloorUsd,
-    raisedToExchangeMinimum: exchangeFloorUsd > input.decisionNotionalUsd
-      && exchangeFloorUsd >= configuredFloorUsd
-  };
-}
-
-function roundCurrency(value: number): number {
-  return Number(value.toFixed(2));
-}
-
 function roundMetric(value: number): number {
   return Number(value.toFixed(6));
 }
 
-export function computeExchangeBuyMinNotionalUsd(input: {
-  bestAsk: number | null;
-  minOrderSize: number | null;
-}) {
-  if (!(input.bestAsk != null && input.bestAsk > 0) || !(input.minOrderSize != null && input.minOrderSize > 0)) {
-    return null;
-  }
-  return roundCurrency(input.bestAsk * input.minOrderSize);
-}
-
-export function isBelowExchangeBuyMinimum(input: {
-  notionalUsd: number;
-  bestAsk: number | null;
-  minOrderSize: number | null;
-}) {
-  const minNotionalUsd = computeExchangeBuyMinNotionalUsd({
-    bestAsk: input.bestAsk,
-    minOrderSize: input.minOrderSize
-  });
-  if (!(minNotionalUsd != null && minNotionalUsd > 0)) {
-    return false;
-  }
-  return input.notionalUsd < minNotionalUsd;
-}
-
-export function isBelowExchangeSellMinimum(input: {
-  size: number;
-  minOrderSize: number | null;
-}) {
-  if (!(input.minOrderSize != null && input.minOrderSize > 0)) {
-    return false;
-  }
-  return input.size < input.minOrderSize;
+function roundCurrency(value: number): number {
+  return Number(value.toFixed(2));
 }
 
 export function buildStatelessOverview(input: {

@@ -9,6 +9,7 @@ export const actionSchema = z.enum(["open", "close", "reduce", "hold", "skip"]);
 export const sideSchema = z.enum(["BUY", "SELL"]);
 export const orderTypeSchema = z.literal("FOK");
 export const confidenceSchema = z.enum(["low", "medium", "medium-high", "high"]);
+export const executionUnitSchema = z.enum(["usd", "shares"]);
 
 export const sourceSchema = z.object({
   title: z.string(),
@@ -47,6 +48,13 @@ export const decisionSchema = z.object({
   confidence: confidenceSchema,
   thesis_md: z.string().min(1),
   sources: z.array(sourceSchema).min(1),
+  full_kelly_pct: z.number().min(0).max(1).optional(),
+  quarter_kelly_pct: z.number().min(0).max(1).optional(),
+  reported_suggested_pct: z.number().min(0).max(1).nullable().optional(),
+  liquidity_cap_usd: z.number().positive().nullable().optional(),
+  position_value_usd: z.number().nonnegative().optional(),
+  execution_amount: z.number().positive().optional(),
+  execution_unit: executionUnitSchema.optional(),
   stop_loss_pct: z.number().min(0).max(1).default(0.3),
   resolution_track_required: z.boolean().default(true)
 });

@@ -65,6 +65,10 @@ function createEntry(tokenId: string): PulseEntryPlan {
     outcomeLabel: tokenId === "token-no" ? "No" : "Yes",
     side: "BUY",
     suggestedPct: 0.1,
+    fullKellyPct: 0.4,
+    quarterKellyPct: 0.1,
+    reportedSuggestedPct: 0.1,
+    liquidityCapUsd: null,
     aiProb: 0.62,
     marketProb: 0.55,
     confidence: "medium",
@@ -96,6 +100,10 @@ function createEntry(tokenId: string): PulseEntryPlan {
           retrieved_at_utc: "2026-03-17T00:00:00.000Z"
         }
       ],
+      full_kelly_pct: 0.4,
+      quarter_kelly_pct: 0.1,
+      reported_suggested_pct: 0.1,
+      liquidity_cap_usd: null,
       stop_loss_pct: 0.3,
       resolution_track_required: true
     }

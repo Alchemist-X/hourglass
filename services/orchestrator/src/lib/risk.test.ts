@@ -36,11 +36,10 @@ describe("orchestrator risk helpers", () => {
       totalExposureUsd: 100,
       maxTotalExposurePct: 0.5,
       openPositions: 1,
-      maxPositions: 10,
-      edge: 0.18
+      maxPositions: 10
     });
 
-    expect(amount).toBeCloseTo(30);
+    expect(amount).toBeCloseTo(50);
   });
 
   it("clips trade size by per-event exposure headroom", () => {
@@ -55,11 +54,26 @@ describe("orchestrator risk helpers", () => {
       eventExposureUsd: 280,
       maxEventExposurePct: 0.3,
       openPositions: 1,
-      maxPositions: 10,
-      edge: 0.3
+      maxPositions: 10
     });
 
     expect(amount).toBeCloseTo(20);
+  });
+
+  it("clips the Kelly target by liquidity cap before returning the executable amount", () => {
+    const amount = applyTradeGuards({
+      requestedUsd: 80,
+      bankrollUsd: 1000,
+      minTradeUsd: 10,
+      maxTradePct: 0.2,
+      liquidityCapUsd: 35,
+      totalExposureUsd: 0,
+      maxTotalExposurePct: 1,
+      openPositions: 0,
+      maxPositions: 10
+    });
+
+    expect(amount).toBeCloseTo(35);
   });
 
   it("allows tiny trades when the configured minimum ticket size is lowered", () => {
@@ -72,8 +86,7 @@ describe("orchestrator risk helpers", () => {
       totalExposureUsd: 0,
       maxTotalExposurePct: 1,
       openPositions: 0,
-      maxPositions: 10,
-      edge: 0.3
+      maxPositions: 10
     });
 
     expect(amount).toBeCloseTo(0.42);

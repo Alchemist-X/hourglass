@@ -2,7 +2,7 @@
 
 Chinese version: [risk-controls.md](risk-controls.md)
 
-Last updated: 2026-03-14
+Last updated: 2026-03-27
 
 ## Goal
 
@@ -33,6 +33,8 @@ Whether the upper runtime uses `codex` or `openclaw`, the orchestrator and execu
 - A pulse is considered risky when any candidate is missing `clobTokenIds`
 - If any pulse risk flag is present, no new `open` actions are allowed
 - Any `open` decision must use a `token_id` from the pulse candidate set
+- On the `pulse-direct` main path, every `open` amount must be recomputed in code from `ai_prob / market_prob` via quarter Kelly; the Markdown “Suggested Size” is audit-only and must not be trusted as the final execution amount
+- For `open` decisions, `notional_usd` is the raw quarter-Kelly target and `liquidity_cap_usd` is a separate liquidity limit; the execution layer performs the unified clipping step
 
 ## 4. Execution-level sizing constraints
 
@@ -41,8 +43,10 @@ Whether the upper runtime uses `codex` or `openclaw`, the orchestrator and execu
 - Default max total exposure is `50%` of bankroll
 - Default max concurrent positions is `10`
 - Default max single trade size is `5%` of bankroll
-- `applyTradeGuards()` applies a second pass based on edge, open positions, and exposure
-- Open requests below the minimum effective size are dropped
+- `applyTradeGuards()` only clips the Kelly-sized target down through `maxTradePct / maxTotalExposurePct / maxEventExposurePct / maxPositions / liquidity_cap_usd`; it no longer applies a second edge-based sizing multiplier
+- If a clipped open amount falls below the internal minimum trade size, it must be dropped instead of being raised back up
+- If a clipped open amount falls below the Polymarket minimum executable threshold, it must be dropped instead of being raised above Kelly
+- For `close` / `reduce`, `notional_usd` is the portfolio-value impact; `position_value_usd` records the full marked position value, while `execution_amount` with `execution_unit=shares` records the actual sell size and must separately satisfy the exchange minimum-share check
 
 ## 5. Provider output constraints
 

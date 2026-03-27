@@ -91,7 +91,9 @@ describe("pulse entry planner", () => {
     expect(plans).toHaveLength(1);
     expect(plans[0]?.marketSlug).toBe("demo-market");
     expect(plans[0]?.decision.action).toBe("open");
-    expect(plans[0]?.decision.notional_usd).toBe(2);
+    expect(plans[0]?.decision.notional_usd).toBeCloseTo(0.5952, 4);
+    expect(plans[0]?.quarterKellyPct).toBeCloseTo(0.029762, 6);
+    expect(plans[0]?.decision.reported_suggested_pct).toBe(0.1);
   });
 
   it("accepts english labels and unnumbered sections", () => {
@@ -117,7 +119,7 @@ describe("pulse entry planner", () => {
 
     expect(plans).toHaveLength(1);
     expect(plans[0]?.outcomeLabel).toBe("Yes");
-    expect(plans[0]?.decision.notional_usd).toBe(1);
+    expect(plans[0]?.decision.notional_usd).toBeCloseTo(0.5172, 4);
     expect(plans[0]?.confidence).toBe("medium-high");
     expect(plans[0]?.sources[0]?.url).toBe("https://example.com/demo-market");
   });
@@ -150,7 +152,37 @@ describe("pulse entry planner", () => {
     expect(plans).toHaveLength(1);
     expect(plans[0]?.outcomeLabel).toBe("No");
     expect(plans[0]?.decision.edge).toBeCloseTo(0.1);
-    expect(plans[0]?.decision.notional_usd).toBe(2);
+    expect(plans[0]?.decision.notional_usd).toBeCloseTo(1.1905, 4);
     expect(plans[0]?.sources[0]?.url).toBe("https://example.com/demo-market");
+  });
+
+  it("keeps raw quarter Kelly as the decision target and stores liquidity cap separately", () => {
+    const markdown = [
+      "## 1. Demo market question",
+      "",
+      "**链接：** https://example.com/demo-market",
+      "| 方向 | 买入 No |",
+      "| 建议仓位 | 4% |",
+      "| 流动性上限 | $0.80 |",
+      "| 置信度 | 中 |",
+      "",
+      "| No | 58% | 68% |",
+      "",
+      "### 推理逻辑",
+      "Raw Kelly stays in the decision, while liquidity is stored as a separate cap."
+    ].join("\n");
+
+    const plans = buildPulseEntryPlans({
+      context: createContext(markdown),
+      positionStopLossPct: 0.3
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.quarterKellyPct).toBeCloseTo(0.059524, 6);
+    expect(plans[0]?.suggestedPct).toBeCloseTo(0.059524, 6);
+    expect(plans[0]?.liquidityCapUsd).toBe(0.8);
+    expect(plans[0]?.decision.notional_usd).toBeCloseTo(1.1905, 4);
+    expect(plans[0]?.decision.liquidity_cap_usd).toBe(0.8);
+    expect(plans[0]?.decision.execution_amount).toBeUndefined();
   });
 });

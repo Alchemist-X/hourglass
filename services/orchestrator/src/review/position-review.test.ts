@@ -93,6 +93,10 @@ function createEntryPlan(input: {
     outcomeLabel: input.outcomeLabel,
     side: "BUY",
     suggestedPct: 0.1,
+    fullKellyPct: 0.4,
+    quarterKellyPct: 0.1,
+    reportedSuggestedPct: 0.1,
+    liquidityCapUsd: null,
     aiProb: input.aiProb,
     marketProb: input.marketProb,
     confidence: input.confidence ?? "medium",
@@ -124,6 +128,10 @@ function createEntryPlan(input: {
           retrieved_at_utc: "2026-03-17T00:00:00.000Z"
         }
       ],
+      full_kelly_pct: 0.4,
+      quarter_kelly_pct: 0.1,
+      reported_suggested_pct: 0.1,
+      liquidity_cap_usd: null,
       stop_loss_pct: 0.3,
       resolution_track_required: true
     }
@@ -165,6 +173,9 @@ describe("position review", () => {
     expect(result?.stillHasEdge).toBe(false);
     expect(result?.decision.side).toBe("SELL");
     expect(result?.decision.notional_usd).toBe(6);
+    expect(result?.decision.position_value_usd).toBe(12);
+    expect(result?.decision.execution_unit).toBe("shares");
+    expect(result?.decision.execution_amount).toBe(2);
     expect(result?.basis).toBe("pulse-supports-current-negative-edge");
   });
 
@@ -177,6 +188,9 @@ describe("position review", () => {
     expect(result?.action).toBe("close");
     expect(result?.stillHasEdge).toBe(false);
     expect(result?.decision.side).toBe("SELL");
+    expect(result?.decision.position_value_usd).toBe(1.76);
+    expect(result?.decision.execution_unit).toBe("shares");
+    expect(result?.decision.execution_amount).toBe(4);
   });
 
   it("keeps the position but flags human review when there is no fresh pulse coverage", () => {
@@ -200,5 +214,8 @@ describe("position review", () => {
     expect(result?.basis).toBe("near-stop-loss-without-fresh-signal");
     expect(result?.humanReviewFlag).toBe(true);
     expect(result?.decision.notional_usd).toBe(6);
+    expect(result?.decision.position_value_usd).toBe(12);
+    expect(result?.decision.execution_unit).toBe("shares");
+    expect(result?.decision.execution_amount).toBe(2);
   });
 });

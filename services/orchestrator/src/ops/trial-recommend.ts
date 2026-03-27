@@ -13,13 +13,16 @@ import {
 } from "@autopoly/terminal-ui";
 import { getOverview, getPublicPositions } from "@autopoly/db";
 import path from "node:path";
+import { loadConfig as loadExecutorConfig } from "../../../executor/src/config.js";
+import { readBook } from "../../../executor/src/lib/polymarket.js";
 import { loadConfig } from "../config.js";
 import { ensureDailyPulseSnapshot, runDailyPulseCore } from "../jobs/daily-pulse-core.js";
+import { buildExecutionPlan, shouldWarnSkippedDecision } from "../lib/execution-planning.js";
 import { createTerminalProgressReporter, type ProgressReporter } from "../lib/terminal-progress.js";
 import type { PulseSnapshot } from "../pulse/market-pulse.js";
 import { resumeRuntimeExecutionFromOutputFile } from "../runtime/provider-runtime.js";
 import { createAgentRuntime } from "../runtime/runtime-factory.js";
-import { guardDecisionSetForPaper, persistPaperRecommendation } from "./paper-trading.js";
+import { finalizePaperDecisionSet, persistPaperRecommendation } from "./paper-trading.js";
 import {
   checkpointAbsolutePath,
   errorArtifactAbsolutePath,
@@ -87,13 +90,17 @@ function printHumanSummary(output: {
   providerOutputPath?: string | null;
   promptSummary?: string;
   reasoningMd?: string;
-  droppedDecisionCount?: number;
+  blockedDecisionCount?: number;
   decisions: Array<{
     action: string;
     market_slug: string;
     notional_usd: number;
     bankroll_ratio: number;
     thesis_md: string;
+  }>;
+  blockedItems?: Array<{
+    market_slug: string;
+    reason: string;
   }>;
 }) {
   const printer = createTerminalPrinter();
@@ -102,7 +109,7 @@ function printHumanSummary(output: {
     ["Status", output.status],
     ["Run ID", output.runId ?? "-"],
     ["Local State File", output.localStateFile ?? "-"],
-    ["Dropped Opens", String(output.droppedDecisionCount ?? 0)]
+    ["Blocked Decisions", String(output.blockedDecisionCount ?? 0)]
   ]);
   if (output.promptSummary) {
     printer.keyValue("Prompt Summary", output.promptSummary, "info");
@@ -124,6 +131,13 @@ function printHumanSummary(output: {
       `${formatUsd(decision.notional_usd)} | ${formatRatioPercent(decision.bankroll_ratio)} bankroll`
     );
     printer.line(`    ${decision.thesis_md}`);
+  }
+
+  if ((output.blockedItems?.length ?? 0) > 0) {
+    printer.section("Blocked Decisions", `${output.blockedItems!.length} blocked item(s)`);
+    for (const item of output.blockedItems!) {
+      printer.note(shouldWarnSkippedDecision(item.reason) ? "warn" : "muted", item.market_slug, item.reason);
+    }
   }
 
   printer.section("Verify", output.runId ? `run ${output.runId}` : undefined);
@@ -316,12 +330,13 @@ async function recordTrialRecommendFailure(input: {
 export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
   const args = parseArgs();
   const config = loadConfig();
+  const executorConfig = loadExecutorConfig();
   const reporter = createTerminalProgressReporter({
     enabled: !(options?.forceJson || args.json),
     stream: options?.forceJson || args.json ? process.stderr : process.stdout
   });
   const runtime = createAgentRuntime(config);
-  reporter.info("Flow: 1) load portfolio 2) fetch pulse markets 3) enrich candidates 4) render full pulse 5) run decision runtime 6) apply guards 7) persist paper recommendation");
+  reporter.info("Flow: 1) load portfolio 2) fetch pulse markets 3) enrich candidates 4) render full pulse 5) run decision runtime 6) apply shared execution planning 7) persist paper recommendation");
   const executionMode = getExecutionMode();
   const localStateFile = getConfiguredLocalStateFilePath();
   const requestedCheckpoint = await loadTrialRecommendCheckpoint({
@@ -540,24 +555,50 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
     label: "Decision runtime finished",
     detail: `${coreResult.decisionSet.decisions.length} raw decisions returned`
   });
-  const guarded = guardDecisionSetForPaper({
-    decisionSet: coreResult.decisionSet,
-    overview,
+  const planning = await buildExecutionPlan({
+    decisions: coreResult.decisionSet.decisions,
     positions,
-    config
+    overview,
+    config,
+    minTradeUsd: config.minTradeUsd,
+    readBook: async (tokenId) => {
+      const book = await readBook(executorConfig, tokenId);
+      if (!book) {
+        return null;
+      }
+      return {
+        bestAsk: book.bestAsk ?? null,
+        bestBid: book.bestBid ?? null,
+        minOrderSize: book.minOrderSize ?? null
+      };
+    }
+  });
+  const guarded = finalizePaperDecisionSet({
+    decisionSet: coreResult.decisionSet,
+    plans: planning.plans,
+    skippedDecisions: planning.skipped
   });
   reporter.stage({
     percent: 96,
-    label: "Applied paper guardrails",
-    detail: `${guarded.decisionSet.decisions.length} executable decisions | dropped ${guarded.droppedDecisionCount}`
+    label: "Applied shared execution planning",
+    detail: `${planning.plans.length} executable decisions | blocked ${guarded.blockedDecisionCount}`
   });
 
   if (executionMode === "paper") {
+    const planningLogsMd = [
+      coreResult.result.logsMd,
+      "",
+      "paper_execution_planning",
+      JSON.stringify({
+        executablePlans: planning.plans,
+        blockedDecisions: planning.skipped
+      }, null, 2)
+    ].join("\n");
     await updateLocalAppState((state) => persistPaperRecommendation({
       state,
       promptSummary: coreResult.result.promptSummary,
       reasoningMd: coreResult.result.reasoningMd,
-      logsMd: coreResult.result.logsMd,
+      logsMd: planningLogsMd,
       decisionSet: guarded.decisionSet
     }));
     reporter.stage({
@@ -598,7 +639,7 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
       : null,
     providerTempDir: resumeCheckpoint?.providerTempDir ?? null,
     providerOutputPath: resumeCheckpoint?.providerOutputPath ?? null,
-    droppedDecisionCount: guarded.droppedDecisionCount,
+    blockedDecisionCount: guarded.blockedDecisionCount,
     pulse: {
       title: resolvedPulse.title,
       tradeable: resolvedPulse.tradeable,
@@ -614,6 +655,10 @@ export async function runTrialRecommendCli(options?: { forceJson?: boolean }) {
       notional_usd: decision.notional_usd,
       bankroll_ratio: guarded.decisionSet.bankroll_usd > 0 ? decision.notional_usd / guarded.decisionSet.bankroll_usd : 0,
       thesis_md: decision.thesis_md
+    })),
+    blockedItems: guarded.skippedDecisions.map((decision) => ({
+      market_slug: decision.marketSlug,
+      reason: decision.reason
     })),
     artifacts: guarded.decisionSet.artifacts.map((artifact) => ({
       kind: artifact.kind,

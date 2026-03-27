@@ -2,7 +2,7 @@
 
 Chinese version: [AGENTS.md](AGENTS.md)
 
-Last updated: 2026-03-24
+Last updated: 2026-03-28
 
 ## 1. Language and Documentation
 
@@ -51,6 +51,8 @@ Last updated: 2026-03-24
 - The agent should make low-value decisions autonomously and keep trying and testing until the issue is actually resolved; do not keep pushing obviously decidable choices back to the user.
 - When something is blocked, first determine whether the issue comes from code, environment, external services, permission boundaries, or overly conservative judgment before deciding what to do next.
 - Stop and ask the user only when the task requires external permission, carries irreversible risk, affects fund safety, or the product goal itself is genuinely unclear.
+- Save progress periodically by default instead of waiting until the entire task is finished; every key save point must include a clear timestamp so the latest recoverable progress is traceable.
+- If more than `12h` has passed since the last saved or pushed meaningful progress point, prioritize packaging the current usable update and pushing it to the remote before continuing long-running work.
 
 ## 5. Trading and Execution Preferences
 

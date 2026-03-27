@@ -1,4 +1,5 @@
 import type { TradeDecision } from "@autopoly/contracts";
+import { calculateQuarterKelly } from "../lib/risk.js";
 import type { RuntimeExecutionContext } from "./agent-runtime.js";
 import type { PulseEntryPlan } from "./decision-metadata.js";
 
@@ -12,6 +13,10 @@ function escapeRegExp(text: string) {
 
 function roundCurrency(value: number): number {
   return Number(value.toFixed(4));
+}
+
+function roundPct(value: number): number {
+  return Number(value.toFixed(6));
 }
 
 function normalizeConfidence(raw: string) {
@@ -99,6 +104,27 @@ function extractReasoning(body: string) {
   return match?.[1]?.trim() ?? null;
 }
 
+function extractPercentValue(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const match = value.match(/([0-9.]+)%/);
+  return match?.[1] ? Number(match[1]) / 100 : null;
+}
+
+function extractCurrencyValue(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const match = value.match(/\$([0-9][0-9,]*(?:\.[0-9]+)?)/);
+  if (!match?.[1]) {
+    return null;
+  }
+  const normalized = match[1].replace(/,/g, "");
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
 function extractProbabilities(body: string) {
   const result = new Map<string, { marketProb: number; aiProb: number }>();
   const regex = /^\|\s*(Yes|No)\s*\|\s*([0-9.]+)%\s*\|\s*([0-9.]+)%\s*(?:\|.*)?$/gim;
@@ -123,13 +149,16 @@ function inferOutcomeLabel(direction: string) {
 }
 
 function buildOpenDecision(input: {
-  context: RuntimeExecutionContext;
   positionStopLossPct: number;
   eventSlug: string;
   marketSlug: string;
   tokenId: string;
   side: "BUY";
-  suggestedPct: number;
+  quarterKellyUsd: number;
+  fullKellyPct: number;
+  quarterKellyPct: number;
+  reportedSuggestedPct: number | null;
+  liquidityCapUsd: number | null;
   aiProb: number;
   marketProb: number;
   confidence: TradeDecision["confidence"];
@@ -142,7 +171,7 @@ function buildOpenDecision(input: {
     market_slug: input.marketSlug,
     token_id: input.tokenId,
     side: input.side,
-    notional_usd: roundCurrency(input.context.overview.total_equity_usd * input.suggestedPct),
+    notional_usd: roundCurrency(input.quarterKellyUsd),
     order_type: "FOK",
     ai_prob: input.aiProb,
     market_prob: input.marketProb,
@@ -150,6 +179,10 @@ function buildOpenDecision(input: {
     confidence: input.confidence,
     thesis_md: input.thesisMd,
     sources: input.sources,
+    full_kelly_pct: roundPct(input.fullKellyPct),
+    quarter_kelly_pct: roundPct(input.quarterKellyPct),
+    reported_suggested_pct: input.reportedSuggestedPct,
+    liquidity_cap_usd: input.liquidityCapUsd,
     stop_loss_pct: input.positionStopLossPct,
     resolution_track_required: true
   } satisfies TradeDecision;
@@ -178,14 +211,15 @@ export function buildPulseEntryPlans(input: {
       ?? extractLabeledValue(section.body, ["方向", "Direction"]);
     const suggestedRow = extractTableValue(section.body, ["建议仓位", "仓位建议", "Suggested Size", "Position Size", "Sizing"])
       ?? extractLabeledValue(section.body, ["建议仓位", "仓位建议", "Suggested Size", "Position Size", "Sizing"]);
+    const liquidityCapRow = extractTableValue(section.body, ["流动性上限", "Liquidity Cap"])
+      ?? extractLabeledValue(section.body, ["流动性上限", "Liquidity Cap"]);
     const confidenceRaw = extractTableValue(section.body, ["置信度", "Confidence"])
       ?? extractLabeledValue(section.body, ["置信度", "Confidence"]);
     const thesisMd = extractReasoning(section.body)
-      ?? "Pulse entry planner reused the pulse recommendation without an additional model pass.";
+      ?? "Pulse entry planner reused the pulse probabilities and recomputed quarter Kelly in code without an additional model pass.";
     const resolvedLink = link ?? candidate.url;
-    const suggestedPctRaw = suggestedRow?.match(/([0-9.]+)%/)?.[1] ?? null;
 
-    if (!direction || !suggestedPctRaw) {
+    if (!direction) {
       continue;
     }
 
@@ -202,7 +236,17 @@ export function buildPulseEntryPlans(input: {
     const chosenProbabilities = probabilities.get(outcomeLabel.toLowerCase());
     const marketProb = chosenProbabilities?.marketProb ?? candidate.outcomePrices[outcomeIndex] ?? 0.5;
     const aiProb = chosenProbabilities?.aiProb ?? marketProb;
-    const suggestedPct = Number(suggestedPctRaw) / 100;
+    const reportedSuggestedPct = extractPercentValue(suggestedRow);
+    const liquidityCapUsd = extractCurrencyValue(liquidityCapRow);
+    const kellySizing = calculateQuarterKelly({
+      aiProb,
+      marketProb,
+      bankrollUsd: context.overview.total_equity_usd
+    });
+    if (!(kellySizing.quarterKellyUsd > 0)) {
+      continue;
+    }
+    const suggestedPct = roundPct(kellySizing.quarterKellyPct);
     const sources: TradeDecision["sources"] = [
       {
         title: "Pulse market source",
@@ -218,19 +262,26 @@ export function buildPulseEntryPlans(input: {
       outcomeLabel,
       side: "BUY",
       suggestedPct,
+      fullKellyPct: kellySizing.fullKellyPct,
+      quarterKellyPct: kellySizing.quarterKellyPct,
+      reportedSuggestedPct,
+      liquidityCapUsd,
       aiProb,
       marketProb,
       confidence: normalizeConfidence(confidenceRaw ?? "low"),
       thesisMd,
       sources,
       decision: buildOpenDecision({
-        context,
         positionStopLossPct: input.positionStopLossPct,
         eventSlug: candidate.eventSlug,
         marketSlug: candidate.marketSlug,
         tokenId: candidate.clobTokenIds[outcomeIndex]!,
         side: "BUY",
-        suggestedPct,
+        quarterKellyUsd: kellySizing.quarterKellyUsd,
+        fullKellyPct: kellySizing.fullKellyPct,
+        quarterKellyPct: kellySizing.quarterKellyPct,
+        reportedSuggestedPct,
+        liquidityCapUsd,
         aiProb,
         marketProb,
         confidence: normalizeConfidence(confidenceRaw ?? "low"),

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultLocalAppState } from "@autopoly/db";
 import type { TradeDecisionSet } from "@autopoly/contracts";
-import { approvePaperRun, guardDecisionSetForPaper, persistPaperRecommendation } from "./paper-trading.js";
+import type { PlannedExecution, SkippedDecision } from "../lib/execution-planning.js";
+import { approvePaperRun, finalizePaperDecisionSet, persistPaperRecommendation } from "./paper-trading.js";
 
 function createDecisionSet(): TradeDecisionSet {
   return {
@@ -47,19 +48,29 @@ function createDecisionSet(): TradeDecisionSet {
 }
 
 describe("paper trading helpers", () => {
-  it("persists a guarded recommendation as awaiting approval without changing positions", () => {
+  it("persists a finalized executable recommendation as awaiting approval without changing positions", () => {
     const state = createDefaultLocalAppState();
-    const guarded = guardDecisionSetForPaper({
+    const guarded = finalizePaperDecisionSet({
       decisionSet: createDecisionSet(),
-      overview: state.overview,
-      positions: state.positions,
-      config: {
-        maxTradePct: 0.05,
-        maxTotalExposurePct: 0.5,
-        maxEventExposurePct: 0.3,
-        maxPositions: 10,
-        minTradeUsd: 10
-      }
+      plans: [
+        {
+          action: "open",
+          marketSlug: "local-paper-run",
+          eventSlug: "local-paper-run",
+          tokenId: "token-local-paper-open",
+          side: "BUY",
+          notionalUsd: 120,
+          bankrollRatio: 0.010132,
+          executionAmount: 120,
+          unit: "usd",
+          thesisMd: "Open a guarded paper position.",
+          bestAsk: 0.43,
+          bestBid: 0.42,
+          minOrderSize: 5,
+          exchangeMinNotionalUsd: 2.15
+        } satisfies PlannedExecution
+      ],
+      skippedDecisions: []
     });
 
     const nextState = persistPaperRecommendation({
@@ -110,46 +121,56 @@ describe("paper trading helpers", () => {
     expect(approved.state.positions.some((position) => position.token_id === "token-local-paper-open")).toBe(true);
   });
 
-  it("caps total new exposure per event", () => {
-    const state = createDefaultLocalAppState();
-    const guarded = guardDecisionSetForPaper({
+  it("drops blocked executable actions while preserving non-executable review entries", () => {
+    const guarded = finalizePaperDecisionSet({
       decisionSet: {
         ...createDecisionSet(),
         decisions: [
           {
             ...createDecisionSet().decisions[0]!,
-            event_slug: "shared-event",
-            market_slug: "shared-event-market-a",
-            token_id: "shared-event-market-a",
-            notional_usd: 200,
-            edge: 0.3
+            market_slug: "blocked-open",
+            token_id: "blocked-open"
           },
           {
-            ...createDecisionSet().decisions[0]!,
-            event_slug: "shared-event",
-            market_slug: "shared-event-market-b",
-            token_id: "shared-event-market-b",
-            notional_usd: 200,
-            edge: 0.3
+            action: "hold",
+            event_slug: "held-event",
+            market_slug: "held-market",
+            token_id: "held-token",
+            side: "BUY",
+            notional_usd: 25,
+            order_type: "FOK",
+            ai_prob: 0.5,
+            market_prob: 0.5,
+            edge: 0,
+            confidence: "low",
+            thesis_md: "Keep holding.",
+            sources: [
+              {
+                title: "Held Source",
+                url: "https://example.com/hold",
+                retrieved_at_utc: "2026-03-16T10:00:00.000Z"
+              }
+            ],
+            stop_loss_pct: 0.3,
+            resolution_track_required: true
           }
         ]
       },
-      overview: {
-        ...state.overview,
-        total_equity_usd: 200
-      },
-      positions: [],
-      config: {
-        maxTradePct: 0.1,
-        maxTotalExposurePct: 0.8,
-        maxEventExposurePct: 0.3,
-        maxPositions: 10,
-        minTradeUsd: 10
-      }
+      plans: [],
+      skippedDecisions: [
+        {
+          action: "open",
+          marketSlug: "blocked-open",
+          tokenId: "blocked-open",
+          reason: "blocked_by_exchange_min: below Polymarket minimum order size"
+        } satisfies SkippedDecision
+      ]
     });
 
-    expect(guarded.decisionSet.decisions[0]?.notional_usd).toBe(20);
-    expect(guarded.decisionSet.decisions[1]?.notional_usd).toBe(20);
+    expect(guarded.decisionSet.decisions).toHaveLength(1);
+    expect(guarded.decisionSet.decisions[0]?.action).toBe("hold");
+    expect(guarded.blockedDecisionCount).toBe(1);
+    expect(guarded.skippedDecisions[0]?.marketSlug).toBe("blocked-open");
   });
 
   it("rejects repeated approvals for the same run", () => {

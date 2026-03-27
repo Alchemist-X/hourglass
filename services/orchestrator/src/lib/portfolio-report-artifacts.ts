@@ -21,6 +21,97 @@ function formatPct(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
 }
 
+function formatExecutionAmount(value: number): string {
+  return value.toFixed(6).replace(/\.?0+$/, "");
+}
+
+function estimatePreRiskOpenUsd(decision: TradeDecision): number {
+  if (decision.action !== "open") {
+    return decision.notional_usd;
+  }
+  return decision.liquidity_cap_usd != null
+    ? Math.min(decision.notional_usd, decision.liquidity_cap_usd)
+    : decision.notional_usd;
+}
+
+function buildEntryLineZh(plan: PulseEntryPlan) {
+  const liquidityCappedUsd = plan.liquidityCapUsd != null
+    ? Math.min(plan.decision.notional_usd, plan.liquidityCapUsd)
+    : plan.decision.notional_usd;
+  const parts = [
+    `- ${plan.marketSlug}`,
+    `1/4 Kelly ${formatPct(plan.quarterKellyPct)} -> ${formatUsd(plan.decision.notional_usd)}`
+  ];
+  if (plan.liquidityCapUsd != null) {
+    parts.push(`流动性上限 ${formatUsd(plan.liquidityCapUsd)}`);
+    if (liquidityCappedUsd + 1e-9 < plan.decision.notional_usd) {
+      parts.push(`流动性裁剪后 ${formatUsd(liquidityCappedUsd)}`);
+    }
+  }
+  if (plan.reportedSuggestedPct != null) {
+    parts.push(`Pulse 报告仓位 ${formatPct(plan.reportedSuggestedPct)}`);
+  }
+  parts.push(`理由：${plan.thesisMd}`);
+  return parts.join(" | ");
+}
+
+function buildEntryLineEn(plan: PulseEntryPlan) {
+  const liquidityCappedUsd = plan.liquidityCapUsd != null
+    ? Math.min(plan.decision.notional_usd, plan.liquidityCapUsd)
+    : plan.decision.notional_usd;
+  const parts = [
+    `- ${plan.marketSlug}`,
+    `Quarter Kelly ${formatPct(plan.quarterKellyPct)} -> ${formatUsd(plan.decision.notional_usd)}`
+  ];
+  if (plan.liquidityCapUsd != null) {
+    parts.push(`liquidity cap ${formatUsd(plan.liquidityCapUsd)}`);
+    if (liquidityCappedUsd + 1e-9 < plan.decision.notional_usd) {
+      parts.push(`after liquidity clip ${formatUsd(liquidityCappedUsd)}`);
+    }
+  }
+  if (plan.reportedSuggestedPct != null) {
+    parts.push(`Pulse markdown size ${formatPct(plan.reportedSuggestedPct)}`);
+  }
+  parts.push(`reason: ${plan.thesisMd}`);
+  return parts.join(" | ");
+}
+
+function describeDecisionAmountZh(decision: TradeDecision) {
+  if (decision.action === "open") {
+    const preRiskOpenUsd = estimatePreRiskOpenUsd(decision);
+    return preRiskOpenUsd + 1e-9 < decision.notional_usd
+      ? `1/4 Kelly ${formatUsd(decision.notional_usd)} -> 流动性裁剪后 ${formatUsd(preRiskOpenUsd)}`
+      : `1/4 Kelly ${formatUsd(decision.notional_usd)}`;
+  }
+  if (decision.execution_unit === "shares" && decision.execution_amount != null) {
+    const parts = [`影响 ${formatUsd(decision.notional_usd)}`];
+    if (decision.position_value_usd != null) {
+      parts.push(`当前仓位 ${formatUsd(decision.position_value_usd)}`);
+    }
+    parts.push(`执行 ${formatExecutionAmount(decision.execution_amount)} shares`);
+    return parts.join(" | ");
+  }
+  return formatUsd(decision.notional_usd);
+}
+
+function describeDecisionAmountEn(decision: TradeDecision) {
+  if (decision.action === "open") {
+    const preRiskOpenUsd = estimatePreRiskOpenUsd(decision);
+    return preRiskOpenUsd + 1e-9 < decision.notional_usd
+      ? `Quarter Kelly ${formatUsd(decision.notional_usd)} -> after liquidity clip ${formatUsd(preRiskOpenUsd)}`
+      : `Quarter Kelly ${formatUsd(decision.notional_usd)}`;
+  }
+  if (decision.execution_unit === "shares" && decision.execution_amount != null) {
+    const parts = [`impact ${formatUsd(decision.notional_usd)}`];
+    if (decision.position_value_usd != null) {
+      parts.push(`current position ${formatUsd(decision.position_value_usd)}`);
+    }
+    parts.push(`execute ${formatExecutionAmount(decision.execution_amount)} shares`);
+    return parts.join(" | ");
+  }
+  return formatUsd(decision.notional_usd);
+}
+
 function summarizeActions(decisions: TradeDecision[]) {
   const counts = {
     open: 0,
@@ -58,7 +149,7 @@ function applyDecisionExposureDelta(
   };
   for (const decision of decisions) {
     if (decision.action === "open") {
-      setExposure(decision.event_slug, (after.get(decision.event_slug) ?? 0) + decision.notional_usd);
+      setExposure(decision.event_slug, (after.get(decision.event_slug) ?? 0) + estimatePreRiskOpenUsd(decision));
       continue;
     }
     if (decision.action === "close") {
@@ -105,14 +196,10 @@ function buildReviewMarkdown(input: {
       );
   const entryLinesZh = entryPlans.length === 0
     ? ["- 本轮没有新的开仓建议。"]
-    : entryPlans.slice(0, 6).map((plan) =>
-        `- ${plan.marketSlug} | 建议开仓 ${formatUsd(plan.decision.notional_usd)} | 理由：${plan.thesisMd}`
-      );
+    : entryPlans.slice(0, 6).map(buildEntryLineZh);
   const entryLinesEn = entryPlans.length === 0
     ? ["- No new entry suggestions were produced in this run."]
-    : entryPlans.slice(0, 6).map((plan) =>
-        `- ${plan.marketSlug} | suggested open ${formatUsd(plan.decision.notional_usd)} | reason: ${plan.thesisMd}`
-      );
+    : entryPlans.slice(0, 6).map(buildEntryLineEn);
 
   const zh = [
     "# 组合复盘报告",
@@ -140,13 +227,15 @@ function buildReviewMarkdown(input: {
     "",
     "## 新开仓建议",
     "",
+    "> 口径：这里先展示程序内重算的 1/4 Kelly 目标，并单列流动性上限；live 执行时仍会继续套用仓位上限、事件敞口、最小交易额和交易所门槛。",
+    "",
     ...entryLinesZh,
     "",
     "## 关键决策与原因",
     "",
     ...(keyDecisions.length === 0
       ? ["- 本轮没有非 hold 决策。"]
-      : keyDecisions.map((decision) => `- ${decision.action} ${decision.market_slug} | ${formatUsd(decision.notional_usd)} | ${decision.thesis_md}`)),
+      : keyDecisions.map((decision) => `- ${decision.action} ${decision.market_slug} | ${describeDecisionAmountZh(decision)} | ${decision.thesis_md}`)),
     "",
     "## 模型反思",
     "",
@@ -182,13 +271,15 @@ function buildReviewMarkdown(input: {
     "",
     "## New Entry Suggestions",
     "",
+    "> Basis: this section shows the programmatic quarter-Kelly target first and lists any liquidity cap separately. Live execution may still clip further for bankroll, exposure, minimum trade size, and exchange thresholds.",
+    "",
     ...entryLinesEn,
     "",
     "## Key Decisions and Reasons",
     "",
     ...(keyDecisions.length === 0
       ? ["- No non-hold decisions were produced in this run."]
-      : keyDecisions.map((decision) => `- ${decision.action} ${decision.market_slug} | ${formatUsd(decision.notional_usd)} | ${decision.thesis_md}`)),
+      : keyDecisions.map((decision) => `- ${decision.action} ${decision.market_slug} | ${describeDecisionAmountEn(decision)} | ${decision.thesis_md}`)),
     "",
     "## Model Reflection",
     "",
@@ -287,7 +378,7 @@ function buildRebalanceMarkdown(input: {
     "",
     "- 运行前事件敞口数：按当前持仓里的 event_slug 去重后计数。",
     "- 运行后事件敞口数：在运行前的事件敞口基础上，按本轮决策做一遍假设增减后的去重计数。",
-    "- open：把 decision.notional_usd 加到对应 event_slug。",
+    "- open：按 1/4 Kelly 目标与 liquidity_cap_usd 取更小值后，加到对应 event_slug；还未扣除后续 live 风控裁剪。",
     "- close：按该 token 当前持仓市值，从对应 event_slug 扣减。",
     "- reduce：按 decision.notional_usd 从对应 event_slug 扣减。",
     "- 当前净值基准：直接使用 overview.total_equity_usd。",
@@ -322,7 +413,7 @@ function buildRebalanceMarkdown(input: {
     "",
     "- Event exposures before run: count distinct event_slug values in the current positions.",
     "- Event exposures after run: count distinct event_slug values after applying the proposed decision deltas to the before-run map.",
-    "- open: add decision.notional_usd to the target event_slug.",
+    "- open: add the smaller of quarter-Kelly target and liquidity_cap_usd to the target event_slug; later live risk clipping is still excluded here.",
     "- close: subtract the current marked value of the matching token from the target event_slug.",
     "- reduce: subtract decision.notional_usd from the target event_slug.",
     "- Equity baseline: copied directly from overview.total_equity_usd.",

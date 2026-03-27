@@ -2,6 +2,7 @@ import type {
   PublicPosition,
   TradeDecision
 } from "@autopoly/contracts";
+import { inferPaperSellAmount } from "@autopoly/contracts";
 import type { RuntimeExecutionContext } from "../runtime/agent-runtime.js";
 import type {
   PositionReviewResult,
@@ -14,6 +15,10 @@ const NEAR_STOP_LOSS_RATIO = 0.7;
 
 function roundCurrency(value: number): number {
   return Number(value.toFixed(4));
+}
+
+function roundExecutionAmount(value: number): number {
+  return Number(value.toFixed(6));
 }
 
 function clampNotional(value: number, max: number): number {
@@ -59,13 +64,21 @@ function buildDecision(input: {
   sources: TradeDecision["sources"];
   notionalUsd?: number;
 }): TradeDecision {
+  const positionValueUsd = roundCurrency(input.position.current_value_usd);
+  const notionalUsd = clampNotional(input.notionalUsd ?? input.position.current_value_usd, input.position.current_value_usd);
+  const executionAmount = inferPaperSellAmount(input.position, {
+    action: input.action,
+    notional_usd: notionalUsd
+  });
+  const shouldDescribeExecution = input.side === "SELL" && input.action !== "hold";
+
   return {
     action: input.action,
     event_slug: input.position.event_slug,
     market_slug: input.position.market_slug,
     token_id: input.position.token_id,
     side: input.side,
-    notional_usd: clampNotional(input.notionalUsd ?? input.position.current_value_usd, input.position.current_value_usd),
+    notional_usd: notionalUsd,
     order_type: "FOK",
     ai_prob: input.aiProb,
     market_prob: input.marketProb,
@@ -73,6 +86,9 @@ function buildDecision(input: {
     confidence: input.confidence,
     thesis_md: input.thesisMd,
     sources: input.sources,
+    position_value_usd: shouldDescribeExecution ? positionValueUsd : undefined,
+    execution_amount: shouldDescribeExecution && executionAmount > 0 ? roundExecutionAmount(executionAmount) : undefined,
+    execution_unit: shouldDescribeExecution && executionAmount > 0 ? "shares" : undefined,
     stop_loss_pct: input.position.stop_loss_pct,
     resolution_track_required: true
   };
