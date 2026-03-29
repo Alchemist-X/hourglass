@@ -161,6 +161,9 @@ importers:
       '@autopoly/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@autopoly/executor':
+        specifier: workspace:*
+        version: link:../executor
       '@autopoly/terminal-ui':
         specifier: workspace:*
         version: link:../../packages/terminal-ui
