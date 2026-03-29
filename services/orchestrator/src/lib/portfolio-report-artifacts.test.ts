@@ -2,7 +2,13 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import type { OverviewResponse, PublicPosition, TradeDecisionSet } from "@autopoly/contracts";
+import type {
+  OverviewResponse,
+  PublicPosition,
+  PublicRunDetail,
+  PublicTrade,
+  TradeDecisionSet
+} from "@autopoly/contracts";
 import type { PulseSnapshot } from "../pulse/market-pulse.js";
 import type { PositionReviewResult, PulseEntryPlan } from "../runtime/decision-metadata.js";
 import { buildEnglishMirrorRelativePath } from "./artifacts.js";
@@ -167,6 +173,9 @@ function createEntryPlans(): PulseEntryPlan[] {
       liquidityCapUsd: null,
       aiProb: 0.63,
       marketProb: 0.56,
+      monthlyReturn: 0.007,
+      daysToResolution: 90,
+      resolutionSource: "market" as const,
       confidence: "medium",
       thesisMd: "Open because edge is positive.",
       sources: [
@@ -207,6 +216,80 @@ function createEntryPlans(): PulseEntryPlan[] {
   ];
 }
 
+function createRunDetails(): PublicRunDetail[] {
+  return [
+    {
+      id: "run-1",
+      mode: "full",
+      runtime: "pulse-direct-runtime",
+      status: "completed",
+      bankroll_usd: 20,
+      decision_count: 1,
+      generated_at_utc: "2026-03-17T00:00:00.000Z",
+      prompt_summary: "Prompt summary",
+      reasoning_md: "Reasoning summary",
+      logs_md: "- log line",
+      decisions: createDecisionSet().decisions,
+      artifacts: [],
+      tracked_sources: [],
+      resolution_checks: []
+    },
+    {
+      id: "run-2",
+      mode: "review",
+      runtime: "pulse-direct-runtime",
+      status: "completed",
+      bankroll_usd: 20,
+      decision_count: 1,
+      generated_at_utc: "2026-03-16T12:00:00.000Z",
+      prompt_summary: "Prompt summary 2",
+      reasoning_md: "Reasoning summary 2",
+      logs_md: "- log line 2",
+      decisions: [
+        {
+          ...createDecisionSet().decisions[0]!,
+          market_slug: "second-open-market",
+          token_id: "token-open-2",
+          edge: 0.12,
+          notional_usd: 3
+        }
+      ],
+      artifacts: [],
+      tracked_sources: [],
+      resolution_checks: []
+    }
+  ];
+}
+
+function createTrades(): PublicTrade[] {
+  return [
+    {
+      id: "trade-1",
+      market_slug: "open-market",
+      token_id: "token-open",
+      status: "filled",
+      side: "BUY",
+      requested_notional_usd: 2,
+      filled_notional_usd: 2,
+      avg_price: 0.52,
+      order_id: "order-1",
+      timestamp_utc: "2026-03-17T00:05:00.000Z"
+    },
+    {
+      id: "trade-2",
+      market_slug: "second-open-market",
+      token_id: "token-open-2",
+      status: "submitted",
+      side: "BUY",
+      requested_notional_usd: 3,
+      filled_notional_usd: 0,
+      avg_price: null,
+      order_id: "order-2",
+      timestamp_utc: "2026-03-16T12:05:00.000Z"
+    }
+  ];
+}
+
 describe("portfolio report artifacts", () => {
   it("writes review, monitor, and rebalance artifacts with English mirrors", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "autopoly-portfolio-reports-"));
@@ -239,6 +322,7 @@ describe("portfolio report artifacts", () => {
       const rebalanceEnglishContent = await readFile(rebalanceEnglishPath, "utf8");
 
       expect(reviewContent).toContain("# 组合复盘报告");
+      expect(reviewContent).toContain("## 人工优先核对");
       expect(reviewContent).toContain("仍有 edge：是");
       expect(reviewContent).toContain("Pulse 覆盖：none");
       expect(reviewContent).toContain("归因：no-fresh-signal");
@@ -304,13 +388,19 @@ describe("portfolio report artifacts", () => {
         generatedAtUtc: "2026-03-17T00:00:00.000Z",
         runId: "22222222-2222-4222-8222-222222222222",
         overview: createOverview(),
-        positions: createPositions()
+        positions: createPositions(),
+        runDetails: createRunDetails(),
+        trades: createTrades(),
+        lookbackDays: 21
       });
 
       const zhPath = path.join(tempDir, artifact.path);
       const enPath = path.join(tempDir, buildEnglishMirrorRelativePath(artifact.path));
-      expect(await readFile(zhPath, "utf8")).toContain("# 回测报告");
-      expect(await readFile(enPath, "utf8")).toContain("# Backtest Report");
+      expect(await readFile(zhPath, "utf8")).toContain("# 推荐回测报告");
+      expect(await readFile(zhPath, "utf8")).toContain("## 数据充足度总览");
+      expect(await readFile(zhPath, "utf8")).toContain("已实现 / 未实现盈亏拆分");
+      expect(await readFile(enPath, "utf8")).toContain("# Recommendation Backtest Report");
+      expect(await readFile(enPath, "utf8")).toContain("## Data Sufficiency Overview");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

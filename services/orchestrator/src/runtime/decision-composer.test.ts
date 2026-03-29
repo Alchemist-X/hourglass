@@ -71,6 +71,9 @@ function createEntry(tokenId: string): PulseEntryPlan {
     liquidityCapUsd: null,
     aiProb: 0.62,
     marketProb: 0.55,
+    monthlyReturn: 0.007,
+    daysToResolution: 90,
+    resolutionSource: "market" as const,
     confidence: "medium",
     thesisMd: "Open it.",
     sources: [
@@ -111,14 +114,31 @@ function createEntry(tokenId: string): PulseEntryPlan {
 }
 
 describe("decision composer", () => {
-  it("skips duplicate opens for already-held tokens and keeps opposite-token entries", () => {
+  it("merges same-token add-ons into an executable open and keeps opposite-token entries", () => {
     const result = composePulseDirectDecisions({
       reviewResults: [createReview()],
       entryPlans: [createEntry("token-no"), createEntry("token-yes")]
     });
 
     expect(result.decisions).toHaveLength(2);
+    expect(result.decisions.some((decision) => decision.token_id === "token-no" && decision.action === "open")).toBe(true);
     expect(result.decisions.some((decision) => decision.token_id === "token-yes" && decision.action === "open")).toBe(true);
+    expect(result.skippedEntries).toHaveLength(0);
+  });
+
+  it("keeps reduce or close review decisions ahead of same-token add-ons", () => {
+    const review = createReview();
+    review.action = "close";
+    review.decision.action = "close";
+    review.decision.side = "SELL";
+
+    const result = composePulseDirectDecisions({
+      reviewResults: [review],
+      entryPlans: [createEntry("token-no")]
+    });
+
+    expect(result.decisions).toHaveLength(1);
+    expect(result.decisions[0]?.action).toBe("close");
     expect(result.skippedEntries).toHaveLength(1);
   });
 });

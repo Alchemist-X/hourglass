@@ -6,5 +6,10 @@ export const revalidate = 0;
 
 export default async function TradesPage() {
   const trades = await getPublicTradesData();
-  return <LiveTrades initialData={trades} />;
+
+  return (
+    <div className="dash-page">
+      <LiveTrades initialData={trades} />
+    </div>
+  );
 }

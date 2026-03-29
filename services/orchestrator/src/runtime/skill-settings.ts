@@ -77,17 +77,33 @@ function resolveSkillDescriptors(config: SkillProviderConfig): ResolvedSkillDesc
   });
 }
 
+export function resolveEffectiveProvider(config: OrchestratorConfig, provider: AgentRuntimeProvider): string {
+  if (provider !== "none") {
+    return provider;
+  }
+  return Object.keys(config.providers)[0] ?? "none";
+}
+
 export function getProviderSkillConfig(config: OrchestratorConfig, provider: AgentRuntimeProvider): SkillProviderConfig {
-  return provider === "codex" ? config.codex : config.openclaw;
+  const effectiveProvider = resolveEffectiveProvider(config, provider);
+  const providerConfig = config.providers[effectiveProvider];
+  if (!providerConfig) {
+    throw new Error(
+      `No skill configuration found for provider "${provider}". ` +
+      `Available providers: ${Object.keys(config.providers).join(", ") || "(none)"}.`
+    );
+  }
+  return providerConfig;
 }
 
 export function resolveProviderSkillSettings(
   config: OrchestratorConfig,
   provider: AgentRuntimeProvider
 ): ResolvedProviderSkillSettings {
-  const providerConfig = getProviderSkillConfig(config, provider);
+  const effectiveProvider = resolveEffectiveProvider(config, provider);
+  const providerConfig = getProviderSkillConfig(config, effectiveProvider);
   return {
-    provider,
+    provider: effectiveProvider,
     command: providerConfig.command,
     model: providerConfig.model,
     locale: providerConfig.skillLocale,

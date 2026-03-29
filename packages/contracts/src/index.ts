@@ -323,7 +323,7 @@ export type RoughLoopTaskStatus = z.infer<typeof roughLoopTaskStatusSchema>;
 export const roughLoopPrioritySchema = z.enum(["P0", "P1", "P2"]);
 export type RoughLoopPriority = z.infer<typeof roughLoopPrioritySchema>;
 
-export const roughLoopProviderSchema = z.enum(["codex", "openclaw"]);
+export const roughLoopProviderSchema = z.string().min(1);
 export type RoughLoopProvider = z.infer<typeof roughLoopProviderSchema>;
 
 export const roughLoopDocumentSectionSchema = z.enum(["queue", "running", "blocked", "done"]);

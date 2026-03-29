@@ -52,19 +52,21 @@ function createConfig(repoRoot: string, artifactStorageRoot: string): Orchestrat
       maxAgeMinutes: 30,
       maxMarkdownChars: 24000
     },
-    codex: {
-      command: "",
-      model: "",
-      skillRootDir: path.join(repoRoot, "vendor", "repos", "all-polymarket-skill"),
-      skillLocale: "zh",
-      skills: "polymarket-market-pulse,portfolio-review-polymarket,poly-position-monitor,poly-resolution-tracking,api-trade-polymarket"
-    },
-    openclaw: {
-      command: "",
-      model: "",
-      skillRootDir: path.join(repoRoot, "vendor", "repos", "all-polymarket-skill"),
-      skillLocale: "zh",
-      skills: "polymarket-market-pulse"
+    providers: {
+      codex: {
+        command: "",
+        model: "",
+        skillRootDir: path.join(repoRoot, "vendor", "repos", "all-polymarket-skill"),
+        skillLocale: "zh",
+        skills: "polymarket-market-pulse,portfolio-review-polymarket,poly-position-monitor,poly-resolution-tracking,api-trade-polymarket"
+      },
+      openclaw: {
+        command: "",
+        model: "",
+        skillRootDir: path.join(repoRoot, "vendor", "repos", "all-polymarket-skill"),
+        skillLocale: "zh",
+        skills: "polymarket-market-pulse"
+      }
     }
   };
 }

@@ -44,6 +44,9 @@ export interface PulseEntryPlan {
   liquidityCapUsd: number | null;
   aiProb: number;
   marketProb: number;
+  monthlyReturn: number;
+  daysToResolution: number;
+  resolutionSource: "market" | "estimated";
   confidence: TradeDecision["confidence"];
   thesisMd: string;
   sources: TradeDecision["sources"];

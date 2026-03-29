@@ -85,6 +85,7 @@ autonomous-poly-trading/
 ├── deploy/hostinger/                 # VPS deployment scripts and env templates
 ├── Illustration/                     # Architecture diagrams, flow charts (bilingual)
 ├── Plan/                             # Phase planning documents
+├── Wasted/                           # Archived legacy handoffs, exploration notes, history
 ├── E2E Test Driven Development/      # Playwright + Vitest E2E suite
 ├── runtime-artifacts/                # Run artifacts (.gitignored, only .gitkeep tracked)
 ├── docker-compose.yml                # Local Postgres 17 + Redis 8
@@ -488,6 +489,8 @@ As of 2026-03-24.
 | [rough-loop.md](rough-loop.md) | Rough Loop main documentation |
 | [AGENTS.en.md](AGENTS.en.md) | Project collaboration conventions |
 
+Note: historical handoff docs, exploration notes, and one-off progress records now live under [Wasted/README.en.md](Wasted/README.en.md) instead of the repo root.
+
 ### Illustration/
 
 | Document | Contents |
@@ -504,6 +507,12 @@ As of 2026-03-24.
 | --- | --- |
 | [2026-03-17-rough-loop-8h-run-plan.en.md](Plan/2026-03-17-rough-loop-8h-run-plan.en.md) | Rough Loop 8-hour continuous run plan |
 | [2026-03-17-position-review-module-plan.en.md](Plan/2026-03-17-position-review-module-plan.en.md) | Position Review module design |
+
+### Wasted/
+
+| Document | Contents |
+| --- | --- |
+| [README.en.md](Wasted/README.en.md) | Guide to archived legacy docs and historical leftovers |
 
 ## Onboarding Path for New Contributors
 

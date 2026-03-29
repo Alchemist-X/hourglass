@@ -43,19 +43,21 @@ const baseConfig: OrchestratorConfig = {
     maxAgeMinutes: 30,
     maxMarkdownChars: 24000
   },
-  codex: {
-    command: "",
-    model: "",
-    skillRootDir: "vendor/repos/all-polymarket-skill",
-    skillLocale: "zh",
-    skills: "polymarket-market-pulse,portfolio-review-polymarket"
-  },
-  openclaw: {
-    command: "openclaw --prompt-file {{prompt_file}} --output-file {{output_file}}",
-    model: "",
-    skillRootDir: "vendor/repos/all-polymarket-skill",
-    skillLocale: "zh",
-    skills: "polymarket-market-pulse"
+  providers: {
+    codex: {
+      command: "",
+      model: "",
+      skillRootDir: "vendor/repos/all-polymarket-skill",
+      skillLocale: "zh",
+      skills: "polymarket-market-pulse,portfolio-review-polymarket"
+    },
+    openclaw: {
+      command: "openclaw --prompt-file {{prompt_file}} --output-file {{output_file}}",
+      model: "",
+      skillRootDir: "vendor/repos/all-polymarket-skill",
+      skillLocale: "zh",
+      skills: "polymarket-market-pulse"
+    }
   }
 };
 

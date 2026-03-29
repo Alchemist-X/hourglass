@@ -51,19 +51,21 @@ function createConfig(artifactStorageRoot: string): OrchestratorConfig {
       maxAgeMinutes: 30,
       maxMarkdownChars: 24000
     },
-    codex: {
-      command: "",
-      model: "",
-      skillRootDir: "vendor/repos/all-polymarket-skill",
-      skillLocale: "zh",
-      skills: "polymarket-market-pulse"
-    },
-    openclaw: {
-      command: "",
-      model: "",
-      skillRootDir: "vendor/repos/all-polymarket-skill",
-      skillLocale: "zh",
-      skills: "polymarket-market-pulse"
+    providers: {
+      codex: {
+        command: "",
+        model: "",
+        skillRootDir: "vendor/repos/all-polymarket-skill",
+        skillLocale: "zh",
+        skills: "polymarket-market-pulse"
+      },
+      openclaw: {
+        command: "",
+        model: "",
+        skillRootDir: "vendor/repos/all-polymarket-skill",
+        skillLocale: "zh",
+        skills: "polymarket-market-pulse"
+      }
     }
   };
 }

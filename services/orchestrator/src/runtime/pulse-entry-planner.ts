@@ -148,6 +148,67 @@ function inferOutcomeLabel(direction: string) {
   return null;
 }
 
+const MS_PER_DAY = 86_400_000;
+const FALLBACK_DAYS = 180;
+const DEFAULT_MAX_PLANS = 4;
+const DEFAULT_BATCH_CAP_PCT = 0.2;
+
+export function calculateMonthlyReturn(input: {
+  aiProb: number;
+  marketProb: number;
+  endDate: string;
+  nowMs?: number;
+}): { monthlyReturn: number; daysToResolution: number; resolutionSource: "market" | "estimated" } {
+  const edge = input.aiProb - input.marketProb;
+  const nowMs = input.nowMs ?? Date.now();
+  const endMs = new Date(input.endDate).getTime();
+  const hasValidEndDate = Number.isFinite(endMs) && endMs > 0;
+  const daysToResolution = hasValidEndDate
+    ? Math.max((endMs - nowMs) / MS_PER_DAY, 1)
+    : FALLBACK_DAYS;
+  const monthsToResolution = daysToResolution / 30;
+  return {
+    monthlyReturn: edge / monthsToResolution,
+    daysToResolution: Number(daysToResolution.toFixed(4)),
+    resolutionSource: hasValidEndDate ? "market" : "estimated"
+  };
+}
+
+export function rankByMonthlyReturn(
+  plans: readonly PulseEntryPlan[],
+  maxPlans: number = DEFAULT_MAX_PLANS
+): PulseEntryPlan[] {
+  return [...plans]
+    .sort((a, b) => b.monthlyReturn - a.monthlyReturn)
+    .slice(0, maxPlans);
+}
+
+export function applyBatchCap(
+  plans: readonly PulseEntryPlan[],
+  bankrollUsd: number,
+  batchCapPct: number = DEFAULT_BATCH_CAP_PCT
+): PulseEntryPlan[] {
+  const cap = bankrollUsd * batchCapPct;
+  const totalNotional = plans.reduce(
+    (sum, plan) => sum + plan.decision.notional_usd,
+    0
+  );
+  if (totalNotional <= cap) {
+    return [...plans];
+  }
+  const scaleFactor = cap / totalNotional;
+  return plans.map((plan) => {
+    const scaledNotional = roundCurrency(plan.decision.notional_usd * scaleFactor);
+    return {
+      ...plan,
+      decision: {
+        ...plan.decision,
+        notional_usd: scaledNotional
+      }
+    };
+  });
+}
+
 function buildOpenDecision(input: {
   positionStopLossPct: number;
   eventSlug: string;
@@ -191,6 +252,9 @@ function buildOpenDecision(input: {
 export function buildPulseEntryPlans(input: {
   context: RuntimeExecutionContext;
   positionStopLossPct: number;
+  maxPlans?: number;
+  batchCapPct?: number;
+  nowMs?: number;
 }): PulseEntryPlan[] {
   const context = input.context;
   const sections = parseRecommendationSections(context.pulse.markdown);
@@ -255,6 +319,13 @@ export function buildPulseEntryPlans(input: {
       }
     ];
 
+    const { monthlyReturn, daysToResolution, resolutionSource } = calculateMonthlyReturn({
+      aiProb,
+      marketProb,
+      endDate: candidate.endDate,
+      nowMs: input.nowMs
+    });
+
     plans.push({
       eventSlug: candidate.eventSlug,
       marketSlug: candidate.marketSlug,
@@ -268,6 +339,9 @@ export function buildPulseEntryPlans(input: {
       liquidityCapUsd,
       aiProb,
       marketProb,
+      monthlyReturn,
+      daysToResolution,
+      resolutionSource,
       confidence: normalizeConfidence(confidenceRaw ?? "low"),
       thesisMd,
       sources,
@@ -291,5 +365,10 @@ export function buildPulseEntryPlans(input: {
     });
   }
 
-  return plans;
+  const ranked = rankByMonthlyReturn(plans, input.maxPlans);
+  return applyBatchCap(
+    ranked,
+    context.overview.total_equity_usd,
+    input.batchCapPct
+  );
 }

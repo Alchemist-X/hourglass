@@ -836,8 +836,8 @@ function buildFullPulsePrompt(input: {
       "2. 全文必须使用中文。",
       "3. 报告必须尽量遵循输出模板的章节顺序和字段结构。",
       "4. 必须产出完整文档，而不是候选表摘要。",
-      "5. 在正式 Top 3 推荐之前，必须增加“候选池与筛选思路”章节，说明本轮候选从哪里来、筛掉了什么、为什么最终进入 Top 3。",
-      "6. 必须包含：报告头部、候选池与筛选思路、前 3 个推荐市场、概率评估、证据链、四维分析、结算规则、推理逻辑、仓位建议、评论区校验、信息源、元数据。",
+      "5. 在正式 Top 3 推荐之前，必须增加“候选池与筛选思路”和“推荐摘要”章节，说明本轮候选从哪里来、筛掉了什么、为什么最终进入 Top 3，并先给出一张可快速浏览的摘要表。",
+      "6. 必须包含：报告头部、候选池与筛选思路、推荐摘要、前 3 个推荐市场、概率评估、证据链、四维分析、结算规则、推理逻辑、仓位建议、评论区校验、信息源、元数据。",
       "7. 研究上下文 JSON 中没有的数据，必须明确写“未获取”或“数据不足”，不能编造。",
       "8. 默认只使用已提供的研究上下文完成报告；只有在完成报告所必需且上下文明显缺失时，才允许做极少量定向补充核验。",
       "9. 如果无法补齐外部证据，也必须完成完整模板，并在置信度和结论中反映证据缺口。",
@@ -862,8 +862,8 @@ function buildFullPulsePrompt(input: {
     "1. Output final Markdown only.",
     "2. Follow the output template as closely as possible.",
     "3. Produce a complete document, not a candidate summary.",
-    "4. Add a candidate-pool and selection-rationale section before the Top 3 recommendations, explaining where the candidates came from, what was filtered out, and why the final Top 3 survived.",
-    "5. Include: header, candidate-pool rationale, top 3 recommendations, probability evaluation, evidence chain, four-dimensional analysis, resolution rules, reasoning logic, sizing guidance, comment review, source list, metadata.",
+    "4. Add both a candidate-pool/selection-rationale section and a recommendation-summary table before the Top 3 recommendations, explaining where the candidates came from, what was filtered out, and why the final Top 3 survived.",
+    "5. Include: header, candidate-pool rationale, recommendation summary, top 3 recommendations, probability evaluation, evidence chain, four-dimensional analysis, resolution rules, reasoning logic, sizing guidance, comment review, source list, metadata.",
     "6. If data is missing, explicitly mark it as unavailable instead of inventing it.",
     "7. Default to the provided research context. Only do very limited additional verification if the report would otherwise be incomplete.",
     "8. Top 3 recommendations must include direction, edge, probabilities, sizing guidance, and why each beats the remaining candidates.",
@@ -871,6 +871,25 @@ function buildFullPulsePrompt(input: {
     `Active provider: ${input.provider}`,
     "Output the final Markdown."
   ].join("\n");
+}
+
+/**
+ * Default command templates for well-known providers.
+ * Each template can use {{repo_root}}, {{prompt_file}}, {{output_file}},
+ * {{model}}, {{skill_root}}, and any other replacement keys.
+ * Returns null for unknown providers — they must set COMMAND explicitly.
+ */
+function resolveDefaultProviderCommand(provider: string): string | null {
+  switch (provider) {
+    case "codex":
+      return 'cat {{prompt_file}} | codex exec --skip-git-repo-check -C {{repo_root}} -s read-only --color never -c \'model_reasoning_effort="low"\' -o {{output_file}} -';
+    case "claude-code":
+      return 'cat {{prompt_file}} | claude --print --output-file {{output_file}} -';
+    case "openclaw":
+      return 'cat {{prompt_file}} | openclaw run --output {{output_file}} -';
+    default:
+      return null;
+  }
 }
 
 async function runCodexMarkdown(input: {
@@ -1052,38 +1071,30 @@ async function renderFullPulseMarkdown(input: {
       `Pulse render timeout | ${renderTimeoutMs > 0 ? `${Math.round(renderTimeoutMs / 1000)}s` : "disabled"}`
     );
 
-    if (input.provider === "codex") {
-      await runCodexMarkdown({
-        prompt,
-        repoRoot: input.config.repoRoot,
-        outputPath,
-        tempDir,
-        timeoutMs: renderTimeoutMs,
-        model: settings.model,
-        skillRootDir: settings.skillRootDir,
-        progress: input.progress
-      });
-    } else {
-      if (!settings.command) {
-        throw new Error(`No pulse report command configured for provider ${input.provider}.`);
-      }
-      await runTemplateMarkdown({
-        commandTemplate: settings.command,
-        repoRoot: input.config.repoRoot,
-        promptFile: promptPath,
-        outputPath,
-        tempDir,
-        timeoutMs: renderTimeoutMs,
-        replacements: {
-          skill_root: settings.skillRootDir,
-          pulse_skill_file: input.paths.pulseSkillFile,
-          output_template: input.paths.outputTemplateFile,
-          analysis_framework: input.paths.analysisFrameworkFile,
-          context_json: input.contextJsonPath
-        },
-        progress: input.progress
-      });
+    const effectiveCommand = settings.command || resolveDefaultProviderCommand(input.provider);
+    if (!effectiveCommand) {
+      throw new Error(
+        `No pulse report command configured for provider "${input.provider}". ` +
+        `Set ${input.provider.toUpperCase()}_COMMAND in your .env file, or use a well-known provider (codex, claude-code, openclaw).`
+      );
     }
+    await runTemplateMarkdown({
+      commandTemplate: effectiveCommand,
+      repoRoot: input.config.repoRoot,
+      promptFile: promptPath,
+      outputPath,
+      tempDir,
+      timeoutMs: renderTimeoutMs,
+      replacements: {
+        skill_root: settings.skillRootDir,
+        model: settings.model,
+        pulse_skill_file: input.paths.pulseSkillFile,
+        output_template: input.paths.outputTemplateFile,
+        analysis_framework: input.paths.analysisFrameworkFile,
+        context_json: input.contextJsonPath
+      },
+      progress: input.progress
+    });
 
     const content = stripCodeFences(await readFile(outputPath, "utf8"));
     if (!content.trim()) {

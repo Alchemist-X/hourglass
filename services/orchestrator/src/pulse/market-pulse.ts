@@ -276,14 +276,6 @@ export function evaluatePulseRiskFlags(snapshot: {
     );
   }
 
-  if (snapshot.candidates.some((candidate) => candidate.clobTokenIds.length === 0)) {
-    flags.push(
-      zh
-        ? "一个或多个市场脉冲候选缺少 CLOB token id"
-        : "one or more pulse candidates are missing CLOB token ids"
-    );
-  }
-
   return flags;
 }
 

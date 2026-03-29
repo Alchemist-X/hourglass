@@ -99,6 +99,9 @@ function createEntryPlan(input: {
     liquidityCapUsd: null,
     aiProb: input.aiProb,
     marketProb: input.marketProb,
+    monthlyReturn: 0.007,
+    daysToResolution: 90,
+    resolutionSource: "market" as const,
     confidence: input.confidence ?? "medium",
     thesisMd: "Pulse thesis",
     sources: [

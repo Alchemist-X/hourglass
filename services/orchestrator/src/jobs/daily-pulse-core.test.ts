@@ -54,19 +54,21 @@ function createConfig(tempDir: string): OrchestratorConfig {
       maxAgeMinutes: 30,
       maxMarkdownChars: 24000
     },
-    codex: {
-      command: "codex",
-      model: "gpt-5",
-      skillRootDir: tempDir,
-      skillLocale: "zh",
-      skills: ""
-    },
-    openclaw: {
-      command: "openclaw",
-      model: "openclaw",
-      skillRootDir: tempDir,
-      skillLocale: "zh",
-      skills: ""
+    providers: {
+      codex: {
+        command: "codex",
+        model: "gpt-5",
+        skillRootDir: tempDir,
+        skillLocale: "zh",
+        skills: ""
+      },
+      openclaw: {
+        command: "openclaw",
+        model: "openclaw",
+        skillRootDir: tempDir,
+        skillLocale: "zh",
+        skills: ""
+      }
     }
   };
 }

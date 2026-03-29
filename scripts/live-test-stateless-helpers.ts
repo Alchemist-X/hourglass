@@ -26,22 +26,15 @@ function roundCurrency(value: number): number {
 export function buildStatelessOverview(input: {
   collateralBalanceUsd: number;
   positions: PublicPosition[];
-  bankrollCapUsd: number;
 }): OverviewResponse {
   const openExposureUsd = input.positions.reduce((sum, position) => sum + position.current_value_usd, 0);
-  const actualTotalEquityUsd = roundCurrency(input.collateralBalanceUsd + openExposureUsd);
-  const effectiveBankrollUsd = roundCurrency(
-    Math.min(
-      input.bankrollCapUsd,
-      actualTotalEquityUsd > 0 ? actualTotalEquityUsd : input.bankrollCapUsd
-    )
-  );
+  const totalEquityUsd = roundCurrency(input.collateralBalanceUsd + openExposureUsd);
 
   return {
     status: "running",
     cash_balance_usd: roundCurrency(input.collateralBalanceUsd),
-    total_equity_usd: effectiveBankrollUsd,
-    high_water_mark_usd: effectiveBankrollUsd,
+    total_equity_usd: totalEquityUsd,
+    high_water_mark_usd: totalEquityUsd,
     drawdown_pct: 0,
     open_positions: input.positions.length,
     last_run_at: null,
@@ -49,7 +42,7 @@ export function buildStatelessOverview(input: {
     equity_curve: [
       {
         timestamp: new Date().toISOString(),
-        total_equity_usd: effectiveBankrollUsd,
+        total_equity_usd: totalEquityUsd,
         drawdown_pct: 0
       }
     ]

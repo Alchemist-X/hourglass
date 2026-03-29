@@ -1,16 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { RuntimeExecutionContext } from "./agent-runtime.js";
-import { buildPulseEntryPlans } from "./pulse-entry-planner.js";
+import type { PulseEntryPlan } from "./decision-metadata.js";
+import {
+  applyBatchCap,
+  buildPulseEntryPlans,
+  calculateMonthlyReturn,
+  rankByMonthlyReturn
+} from "./pulse-entry-planner.js";
 
-function createContext(markdown: string): RuntimeExecutionContext {
+const FIXED_NOW_MS = new Date("2026-03-17T00:00:00.000Z").getTime();
+
+function createContext(markdown: string, overrides?: {
+  candidates?: RuntimeExecutionContext["pulse"]["candidates"];
+  totalEquityUsd?: number;
+}): RuntimeExecutionContext {
   return {
     runId: "11111111-1111-4111-8111-111111111111",
     mode: "full",
     overview: {
       status: "running",
-      cash_balance_usd: 20,
-      total_equity_usd: 20,
-      high_water_mark_usd: 20,
+      cash_balance_usd: overrides?.totalEquityUsd ?? 20,
+      total_equity_usd: overrides?.totalEquityUsd ?? 20,
+      high_water_mark_usd: overrides?.totalEquityUsd ?? 20,
       drawdown_pct: 0,
       open_positions: 0,
       last_run_at: null,
@@ -29,7 +40,7 @@ function createContext(markdown: string): RuntimeExecutionContext {
       markdown,
       totalFetched: 10,
       totalFiltered: 5,
-      selectedCandidates: 1,
+      selectedCandidates: overrides?.candidates?.length ?? 1,
       minLiquidityUsd: 5000,
       fetchConfig: {
         pagesPerDimension: 5,
@@ -39,7 +50,7 @@ function createContext(markdown: string): RuntimeExecutionContext {
       },
       categoryStats: { fetched: [], filtered: [] },
       tagStats: { fetched: [], filtered: [] },
-      candidates: [
+      candidates: overrides?.candidates ?? [
         {
           question: "Demo market question",
           eventSlug: "demo-event",
@@ -71,21 +82,22 @@ describe("pulse entry planner", () => {
     const markdown = [
       "## 1. Demo market question",
       "",
-      "**链接：** https://example.com/demo-market",
+      "**\u94FE\u63A5\uFF1A** https://example.com/demo-market",
       "",
-      "| 方向 | 买入 No |",
-      "| 建议仓位 | 10% |",
-      "| **置信度：** 中 |",
+      "| \u65B9\u5411 | \u4E70\u5165 No |",
+      "| \u5EFA\u8BAE\u4ED3\u4F4D | 10% |",
+      "| **\u7F6E\u4FE1\u5EA6\uFF1A** \u4E2D |",
       "",
       "| No | 58% | 63% |",
       "",
-      "### 推理逻辑",
+      "### \u63A8\u7406\u903B\u8F91",
       "Because the No side still has edge."
     ].join("\n");
 
     const plans = buildPulseEntryPlans({
       context: createContext(markdown),
-      positionStopLossPct: 0.3
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
     });
 
     expect(plans).toHaveLength(1);
@@ -94,6 +106,8 @@ describe("pulse entry planner", () => {
     expect(plans[0]?.decision.notional_usd).toBeCloseTo(0.5952, 4);
     expect(plans[0]?.quarterKellyPct).toBeCloseTo(0.029762, 6);
     expect(plans[0]?.decision.reported_suggested_pct).toBe(0.1);
+    expect(plans[0]?.daysToResolution).toBe(289);
+    expect(plans[0]?.monthlyReturn).toBeCloseTo(0.005190, 4);
   });
 
   it("accepts english labels and unnumbered sections", () => {
@@ -114,7 +128,8 @@ describe("pulse entry planner", () => {
 
     const plans = buildPulseEntryPlans({
       context: createContext(markdown),
-      positionStopLossPct: 0.3
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
     });
 
     expect(plans).toHaveLength(1);
@@ -122,31 +137,34 @@ describe("pulse entry planner", () => {
     expect(plans[0]?.decision.notional_usd).toBeCloseTo(0.5172, 4);
     expect(plans[0]?.confidence).toBe("medium-high");
     expect(plans[0]?.sources[0]?.url).toBe("https://example.com/demo-market");
+    expect(plans[0]?.daysToResolution).toBe(289);
+    expect(plans[0]?.monthlyReturn).toBeCloseTo(0.006228, 4);
   });
 
   it("parses deterministic fallback-style open tables", () => {
     const markdown = [
       "## 1. Demo market question",
       "",
-      "**链接：** https://example.com/demo-market",
-      "**Fallback 状态：** 本地 provisional 开仓候选",
-      "**置信度：** 中",
+      "**\u94FE\u63A5\uFF1A** https://example.com/demo-market",
+      "**Fallback \u72B6\u6001\uFF1A** \u672C\u5730 provisional \u5F00\u4ED3\u5019\u9009",
+      "**\u7F6E\u4FE1\u5EA6\uFF1A** \u4E2D",
       "",
-      "| 方向 | 买入 No |",
-      "| 建议仓位 | 10% |",
+      "| \u65B9\u5411 | \u4E70\u5165 No |",
+      "| \u5EFA\u8BAE\u4ED3\u4F4D | 10% |",
       "",
       "| Outcome | Market | AI |",
       "| --- | --- | --- |",
       "| Yes | 42.0% | 32.0% |",
       "| No | 58.0% | 68.0% |",
       "",
-      "### 推理逻辑",
+      "### \u63A8\u7406\u903B\u8F91",
       "Fallback generated one provisional open candidate."
     ].join("\n");
 
     const plans = buildPulseEntryPlans({
       context: createContext(markdown),
-      positionStopLossPct: 0.3
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
     });
 
     expect(plans).toHaveLength(1);
@@ -154,27 +172,30 @@ describe("pulse entry planner", () => {
     expect(plans[0]?.decision.edge).toBeCloseTo(0.1);
     expect(plans[0]?.decision.notional_usd).toBeCloseTo(1.1905, 4);
     expect(plans[0]?.sources[0]?.url).toBe("https://example.com/demo-market");
+    expect(plans[0]?.daysToResolution).toBe(289);
+    expect(plans[0]?.monthlyReturn).toBeCloseTo(0.010381, 4);
   });
 
   it("keeps raw quarter Kelly as the decision target and stores liquidity cap separately", () => {
     const markdown = [
       "## 1. Demo market question",
       "",
-      "**链接：** https://example.com/demo-market",
-      "| 方向 | 买入 No |",
-      "| 建议仓位 | 4% |",
-      "| 流动性上限 | $0.80 |",
-      "| 置信度 | 中 |",
+      "**\u94FE\u63A5\uFF1A** https://example.com/demo-market",
+      "| \u65B9\u5411 | \u4E70\u5165 No |",
+      "| \u5EFA\u8BAE\u4ED3\u4F4D | 4% |",
+      "| \u6D41\u52A8\u6027\u4E0A\u9650 | $0.80 |",
+      "| \u7F6E\u4FE1\u5EA6 | \u4E2D |",
       "",
       "| No | 58% | 68% |",
       "",
-      "### 推理逻辑",
+      "### \u63A8\u7406\u903B\u8F91",
       "Raw Kelly stays in the decision, while liquidity is stored as a separate cap."
     ].join("\n");
 
     const plans = buildPulseEntryPlans({
       context: createContext(markdown),
-      positionStopLossPct: 0.3
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
     });
 
     expect(plans).toHaveLength(1);
@@ -184,5 +205,239 @@ describe("pulse entry planner", () => {
     expect(plans[0]?.decision.notional_usd).toBeCloseTo(1.1905, 4);
     expect(plans[0]?.decision.liquidity_cap_usd).toBe(0.8);
     expect(plans[0]?.decision.execution_amount).toBeUndefined();
+  });
+});
+
+describe("calculateMonthlyReturn", () => {
+  it("computes monthly return from edge and days to resolution", () => {
+    const result = calculateMonthlyReturn({
+      aiProb: 0.63,
+      marketProb: 0.58,
+      endDate: "2026-12-31T00:00:00Z",
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(result.daysToResolution).toBe(289);
+    expect(result.monthlyReturn).toBeCloseTo(0.005190, 4);
+  });
+
+  it("clamps daysToResolution to at least 1 for markets ending today", () => {
+    const result = calculateMonthlyReturn({
+      aiProb: 0.60,
+      marketProb: 0.50,
+      endDate: "2026-03-17T00:00:00.000Z",
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(result.daysToResolution).toBe(1);
+    expect(result.monthlyReturn).toBeCloseTo(0.10 / (1 / 30), 4);
+  });
+
+  it("uses 180-day fallback for invalid endDate", () => {
+    const result = calculateMonthlyReturn({
+      aiProb: 0.60,
+      marketProb: 0.50,
+      endDate: "invalid-date",
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(result.daysToResolution).toBe(180);
+    expect(result.monthlyReturn).toBeCloseTo(0.10 / (180 / 30), 4);
+  });
+});
+
+describe("rankByMonthlyReturn", () => {
+  function makePlan(slug: string, monthlyReturn: number): PulseEntryPlan {
+    return {
+      eventSlug: "event",
+      marketSlug: slug,
+      tokenId: `token-${slug}`,
+      outcomeLabel: "Yes",
+      side: "BUY",
+      suggestedPct: 0.05,
+      fullKellyPct: 0.2,
+      quarterKellyPct: 0.05,
+      reportedSuggestedPct: null,
+      liquidityCapUsd: null,
+      aiProb: 0.6,
+      marketProb: 0.5,
+      monthlyReturn,
+      daysToResolution: 90,
+      resolutionSource: "market" as const,
+      confidence: "medium",
+      thesisMd: "Thesis",
+      sources: [],
+      decision: {
+        action: "open",
+        event_slug: "event",
+        market_slug: slug,
+        token_id: `token-${slug}`,
+        side: "BUY",
+        notional_usd: 10,
+        order_type: "FOK",
+        ai_prob: 0.6,
+        market_prob: 0.5,
+        edge: 0.1,
+        confidence: "medium",
+        thesis_md: "Thesis",
+        sources: [],
+        stop_loss_pct: 0.3,
+        resolution_track_required: true
+      }
+    };
+  }
+
+  it("sorts by monthlyReturn descending and takes top N", () => {
+    const plans = [
+      makePlan("low", 0.01),
+      makePlan("high", 0.05),
+      makePlan("mid", 0.03),
+      makePlan("very-high", 0.08),
+      makePlan("medium", 0.02),
+      makePlan("decent", 0.04)
+    ];
+
+    const ranked = rankByMonthlyReturn(plans, 4);
+
+    expect(ranked).toHaveLength(4);
+    expect(ranked.map((p) => p.marketSlug)).toEqual([
+      "very-high",
+      "high",
+      "decent",
+      "mid"
+    ]);
+  });
+
+  it("returns all plans when fewer than maxPlans", () => {
+    const plans = [makePlan("a", 0.05), makePlan("b", 0.03)];
+    const ranked = rankByMonthlyReturn(plans, 4);
+    expect(ranked).toHaveLength(2);
+  });
+
+  it("does not mutate the original array", () => {
+    const plans = [makePlan("b", 0.01), makePlan("a", 0.05)];
+    rankByMonthlyReturn(plans, 4);
+    expect(plans[0]?.marketSlug).toBe("b");
+  });
+});
+
+describe("applyBatchCap", () => {
+  function makePlan(slug: string, notionalUsd: number): PulseEntryPlan {
+    return {
+      eventSlug: "event",
+      marketSlug: slug,
+      tokenId: `token-${slug}`,
+      outcomeLabel: "Yes",
+      side: "BUY",
+      suggestedPct: 0.05,
+      fullKellyPct: 0.2,
+      quarterKellyPct: 0.05,
+      reportedSuggestedPct: null,
+      liquidityCapUsd: null,
+      aiProb: 0.6,
+      marketProb: 0.5,
+      monthlyReturn: 0.01,
+      daysToResolution: 90,
+      resolutionSource: "market" as const,
+      confidence: "medium",
+      thesisMd: "Thesis",
+      sources: [],
+      decision: {
+        action: "open",
+        event_slug: "event",
+        market_slug: slug,
+        token_id: `token-${slug}`,
+        side: "BUY",
+        notional_usd: notionalUsd,
+        order_type: "FOK",
+        ai_prob: 0.6,
+        market_prob: 0.5,
+        edge: 0.1,
+        confidence: "medium",
+        thesis_md: "Thesis",
+        sources: [],
+        stop_loss_pct: 0.3,
+        resolution_track_required: true
+      }
+    };
+  }
+
+  it("does not scale when total notional is within cap", () => {
+    const plans = [makePlan("a", 5), makePlan("b", 5)];
+    const result = applyBatchCap(plans, 100, 0.2);
+
+    expect(result[0]?.decision.notional_usd).toBe(5);
+    expect(result[1]?.decision.notional_usd).toBe(5);
+  });
+
+  it("scales proportionally when total notional exceeds cap", () => {
+    const plans = [makePlan("a", 15), makePlan("b", 15)];
+    // bankroll 100, cap 20% = $20, total = $30, scaleFactor = 20/30 = 0.6667
+    const result = applyBatchCap(plans, 100, 0.2);
+    const totalScaled = result.reduce((sum, p) => sum + p.decision.notional_usd, 0);
+
+    expect(totalScaled).toBeCloseTo(20, 2);
+    expect(result[0]?.decision.notional_usd).toBeCloseTo(10, 4);
+    expect(result[1]?.decision.notional_usd).toBeCloseTo(10, 4);
+  });
+
+  it("does not mutate the original plans", () => {
+    const plans = [makePlan("a", 15), makePlan("b", 15)];
+    applyBatchCap(plans, 100, 0.2);
+
+    expect(plans[0]?.decision.notional_usd).toBe(15);
+    expect(plans[1]?.decision.notional_usd).toBe(15);
+  });
+});
+
+describe("buildPulseEntryPlans top-4 selection", () => {
+  it("selects at most 4 plans ranked by monthly return", () => {
+    const candidates = Array.from({ length: 6 }, (_, i) => ({
+      question: `Market ${i}`,
+      eventSlug: `event-${i}`,
+      marketSlug: `market-${i}`,
+      url: `https://example.com/market-${i}`,
+      liquidityUsd: 10000,
+      volume24hUsd: 1000,
+      outcomes: ["Yes", "No"],
+      outcomePrices: [0.40, 0.60],
+      clobTokenIds: [`token-yes-${i}`, `token-no-${i}`],
+      // Stagger end dates: sooner end = higher monthly return for same edge
+      endDate: new Date(FIXED_NOW_MS + (30 + i * 60) * 86_400_000).toISOString(),
+      bestBid: 0.39,
+      bestAsk: 0.41,
+      spread: 0.02,
+      categorySlug: null,
+      categoryLabel: null,
+      categorySource: null,
+      tags: [] as Array<{ slug: string; label: string }>
+    }));
+
+    const sections = candidates.map((c, i) => [
+      `## ${i + 1}. ${c.question}`,
+      "",
+      `**Link:** ${c.url}`,
+      "| Direction | Buy No |",
+      "| Suggested Size | 5% |",
+      "| Confidence | medium |",
+      "",
+      "| No | 60% | 70% |",
+      "",
+      "### Reasoning",
+      `Edge on market ${i}.`
+    ].join("\n"));
+
+    const markdown = sections.join("\n\n");
+
+    const plans = buildPulseEntryPlans({
+      context: createContext(markdown, { candidates, totalEquityUsd: 1000 }),
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(plans).toHaveLength(4);
+    // First plan should be the one with the soonest end date (highest monthly return)
+    expect(plans[0]?.marketSlug).toBe("market-0");
+    expect(plans[1]?.marketSlug).toBe("market-1");
   });
 });

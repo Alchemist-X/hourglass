@@ -156,7 +156,7 @@ none
 - rg -n "ROUGH_LOOP_AUTO_PUSH|\.rough-loop\.lock|smoke" rough-loop-guide.md rough-loop-guide.en.md
 
 #### Context
-- `260316-handoff.md` 已明确建议先用最小任务卡验证 daemon 自动拾取、归档和单任务提交闭环 / `260316-handoff.md` already recommends validating daemon pickup, artifact generation, and single-task commits with a minimal task card
+- `Wasted/legacy-docs/260316-handoff.md` 已明确建议先用最小任务卡验证 daemon 自动拾取、归档和单任务提交闭环 / `Wasted/legacy-docs/260316-handoff.md` already recommends validating daemon pickup, artifact generation, and single-task commits with a minimal task card
 
 #### Latest Result
 - 已采纳第 1 次尝试生成的指南更新，并手动清理 provider 留下的 blocked 占位结果 / Accepted the guide updates from attempt 1 and manually cleared the provider's blocked placeholder result

@@ -4,14 +4,16 @@ import { ReportsList } from "../../components/reports-list";
 export default async function ReportsPage() {
   const reports = await getReports();
   return (
-    <ReportsList
-      initialData={reports.map((report) => ({
-        ...report,
-        published_at_utc: String(report.published_at_utc)
-      }))}
-      endpoint="/api/public/reports"
-      title="每日脉冲、组合复盘、监控、再平衡与结算跟踪产物"
-      kicker="报告"
-    />
+    <div className="dash-page">
+      <ReportsList
+        initialData={reports.map((report) => ({
+          ...report,
+          published_at_utc: String(report.published_at_utc)
+        }))}
+        endpoint="/api/public/reports"
+        title="Pulse, review, monitor, rebalance and resolution artifacts"
+        kicker="Reports"
+      />
+    </div>
   );
 }

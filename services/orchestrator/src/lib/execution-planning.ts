@@ -5,7 +5,7 @@ import type {
 } from "@autopoly/contracts";
 import { inferPaperSellAmount } from "@autopoly/contracts";
 import type { OrchestratorConfig } from "../config.js";
-import { applyTradeGuards } from "./risk.js";
+import { applyTradeGuardsDetailed, type TradeGuardResult } from "./risk.js";
 
 export interface PlanningOrderBookSnapshot {
   bestAsk: number | null;
@@ -98,6 +98,46 @@ export function buildOpenExecutionFloorLabel(input: {
   return labels.join(" + ");
 }
 
+export function formatRiskCapReason(input: {
+  guardResult: TradeGuardResult;
+  requestedUsd: number;
+  bankrollUsd: number;
+  totalExposureUsd: number;
+  eventExposureUsd: number;
+  openPositions: number;
+  maxPositions: number;
+}): string {
+  const { guardResult } = input;
+  const binding = guardResult.bindingConstraint;
+
+  switch (binding) {
+    case "max_positions":
+      return `blocked_by_risk_cap:max_positions: already at ${input.openPositions}/${input.maxPositions} positions`;
+    case "total_exposure": {
+      const detail = guardResult.constraints.find((c) => c.label === "total_exposure");
+      return `blocked_by_risk_cap:total_exposure: requested ${formatUsd(input.requestedUsd)} but total exposure headroom is ${formatUsd(detail?.headroom ?? 0)} (current ${formatUsd(input.totalExposureUsd)} / max ${formatUsd(detail?.limit ?? 0)})`;
+    }
+    case "event_exposure": {
+      const detail = guardResult.constraints.find((c) => c.label === "event_exposure");
+      return `blocked_by_risk_cap:event_exposure: event already at ${formatUsd(input.eventExposureUsd)} / max ${formatUsd(detail?.limit ?? 0)}`;
+    }
+    case "max_trade_pct": {
+      const detail = guardResult.constraints.find((c) => c.label === "max_trade_pct");
+      return `blocked_by_risk_cap:max_trade_pct: bankroll cap is ${formatUsd(detail?.limit ?? 0)} per trade (${((detail?.limit ?? 0) / Math.max(input.bankrollUsd, 1) * 100).toFixed(0)}% of ${formatUsd(input.bankrollUsd)})`;
+    }
+    case "liquidity_cap": {
+      const detail = guardResult.constraints.find((c) => c.label === "liquidity_cap");
+      return `blocked_by_risk_cap:liquidity_cap: market liquidity caps executable amount at ${formatUsd(detail?.headroom ?? 0)}`;
+    }
+    case "min_trade": {
+      const detail = guardResult.constraints.find((c) => c.label === "min_trade");
+      return `blocked_by_risk_cap:min_trade: post-guard amount is below minimum trade size ${formatUsd(detail?.limit ?? 0)}`;
+    }
+    default:
+      return "blocked_by_risk_cap: reduced the maximum executable notional to zero";
+  }
+}
+
 export function shouldWarnSkippedDecision(reason: string) {
   return reason.startsWith("blocked_by_risk_cap:")
     || reason.startsWith("blocked_by_strategy_min_trade:")
@@ -153,19 +193,23 @@ export async function buildExecutionPlan(input: {
         configuredMinTradeUsd: input.minTradeUsd,
         exchangeMinNotionalUsd
       });
-      const rawGuardedNotionalUsd = applyTradeGuards({
+      const currentEventExposureUsd = eventExposureUsd.get(decision.event_slug) ?? 0;
+      const currentOpenPositions = usePulseDirectEmptyPortfolioGuards ? 0 : projectedOpenPositions;
+      const currentTotalExposureUsd = usePulseDirectEmptyPortfolioGuards ? 0 : projectedTotalExposureUsd;
+      const guardResult = applyTradeGuardsDetailed({
         requestedUsd: decision.notional_usd,
         bankrollUsd: input.overview.total_equity_usd,
         minTradeUsd: input.minTradeUsd,
         maxTradePct: input.config.maxTradePct,
         liquidityCapUsd: decision.liquidity_cap_usd ?? decision.notional_usd,
-        totalExposureUsd: usePulseDirectEmptyPortfolioGuards ? 0 : projectedTotalExposureUsd,
+        totalExposureUsd: currentTotalExposureUsd,
         maxTotalExposurePct: usePulseDirectEmptyPortfolioGuards ? 1 : input.config.maxTotalExposurePct,
-        eventExposureUsd: eventExposureUsd.get(decision.event_slug) ?? 0,
+        eventExposureUsd: currentEventExposureUsd,
         maxEventExposurePct: input.config.maxEventExposurePct,
-        openPositions: usePulseDirectEmptyPortfolioGuards ? 0 : projectedOpenPositions,
+        openPositions: currentOpenPositions,
         maxPositions: usePulseDirectEmptyPortfolioGuards ? Number.MAX_SAFE_INTEGER : input.config.maxPositions
       });
+      const rawGuardedNotionalUsd = guardResult.amount;
       if (!(rawGuardedNotionalUsd > 0)) {
         const belowConfiguredMinTrade = input.minTradeUsd > 0 && decision.notional_usd + 1e-9 < input.minTradeUsd;
         skipped.push({
@@ -174,7 +218,15 @@ export async function buildExecutionPlan(input: {
           tokenId: decision.token_id,
           reason: belowConfiguredMinTrade
             ? `blocked_by_strategy_min_trade: Kelly-sized order is ${formatUsd(roundNotional(decision.notional_usd))}, below internal minimum ${formatUsd(input.minTradeUsd)}`
-            : "blocked_by_risk_cap: total exposure, event exposure, max positions, bankroll cap, liquidity cap, or minimum trade size reduced the maximum executable notional to zero"
+            : formatRiskCapReason({
+                guardResult,
+                requestedUsd: decision.notional_usd,
+                bankrollUsd: input.overview.total_equity_usd,
+                totalExposureUsd: currentTotalExposureUsd,
+                eventExposureUsd: currentEventExposureUsd,
+                openPositions: currentOpenPositions,
+                maxPositions: usePulseDirectEmptyPortfolioGuards ? Number.MAX_SAFE_INTEGER : input.config.maxPositions
+              })
         });
         continue;
       }
@@ -191,7 +243,7 @@ export async function buildExecutionPlan(input: {
           marketSlug: decision.market_slug,
           tokenId: decision.token_id,
           reason: wasCappedByRisk
-            ? `blocked_by_risk_cap: internal risk limits cap this order at ${formatUsd(plannedNotionalUsd)}, but ${openExecutionFloorLabel || "the executable minimum"} is ${formatUsd(exchangeMinNotionalUsd ?? 0)} so the Polymarket order would fail`
+            ? `blocked_by_risk_cap:${guardResult.bindingConstraint}: risk limit (${guardResult.bindingConstraint}) caps this order at ${formatUsd(plannedNotionalUsd)}, but ${openExecutionFloorLabel || "the executable minimum"} is ${formatUsd(exchangeMinNotionalUsd ?? 0)} so the Polymarket order would fail`
             : `blocked_by_exchange_min: Kelly-sized order ${formatUsd(plannedNotionalUsd)} is below Polymarket minimum order size (${book.minOrderSize} shares @ ${formatUsd(book.bestAsk)} ask => ${formatUsd(exchangeMinNotionalUsd ?? 0)} minimum)`
         });
         continue;

@@ -30,8 +30,13 @@ function readEnum<T extends readonly string[]>(
   return allowed.includes(raw) ? raw : fallback;
 }
 
-export const agentRuntimeProviders = ["codex", "openclaw"] as const;
-export type AgentRuntimeProvider = (typeof agentRuntimeProviders)[number];
+/**
+ * Well-known providers kept for backward-compatible env var reading.
+ * Any string is now accepted as a valid runtime provider.
+ * When using pulse-direct (the default strategy), no provider is required.
+ */
+export const wellKnownProviders = ["codex", "claude-code", "openclaw"] as const;
+export type AgentRuntimeProvider = string;
 
 export const agentDecisionStrategies = ["provider-runtime", "pulse-direct"] as const;
 export type AgentDecisionStrategy = (typeof agentDecisionStrategies)[number];
@@ -95,12 +100,11 @@ export interface OrchestratorConfig {
   pulseFetchTimeoutSeconds: number;
   pulseTimeoutMode: PulseTimeoutMode;
   pulse: PulseConfig;
-  codex: SkillProviderConfig;
-  openclaw: SkillProviderConfig;
+  providers: Record<string, SkillProviderConfig>;
 }
 
 function readSkillProviderConfig(input: {
-  prefix: "CODEX" | "OPENCLAW";
+  prefix: string;
   defaultSkillRootDir: string;
   defaultSkillLocale: SkillLocale;
   defaultSkills: string;
@@ -141,15 +145,15 @@ export function loadConfig(): OrchestratorConfig {
     backtestCron: process.env.BACKTEST_CRON ?? "10 0 * * *",
     resolutionBaseIntervalMinutes: readNumber("RESOLUTION_BASE_INTERVAL_MINUTES", 60),
     resolutionUrgentIntervalMinutes: readNumber("RESOLUTION_URGENT_INTERVAL_MINUTES", 15),
-    drawdownStopPct: readNumber("DRAWDOWN_STOP_PCT", 0.2),
+    drawdownStopPct: readNumber("DRAWDOWN_STOP_PCT", 0.3),
     positionStopLossPct: readNumber("POSITION_STOP_LOSS_PCT", 0.3),
-    maxTotalExposurePct: readNumber("MAX_TOTAL_EXPOSURE_PCT", 0.5),
+    maxTotalExposurePct: readNumber("MAX_TOTAL_EXPOSURE_PCT", 0.8),
     maxEventExposurePct: readNumber("MAX_EVENT_EXPOSURE_PCT", 0.3),
-    maxPositions: readNumber("MAX_POSITIONS", 10),
-    maxTradePct: readNumber("MAX_TRADE_PCT", 0.05),
-    minTradeUsd: readNumber("MIN_TRADE_USD", 10),
+    maxPositions: readNumber("MAX_POSITIONS", 22),
+    maxTradePct: readNumber("MAX_TRADE_PCT", 0.15),
+    minTradeUsd: readNumber("MIN_TRADE_USD", 5),
     initialBankrollUsd: readNumber("INITIAL_BANKROLL_USD", 10000),
-    runtimeProvider: readEnum("AGENT_RUNTIME_PROVIDER", "codex", agentRuntimeProviders),
+    runtimeProvider: readString("AGENT_RUNTIME_PROVIDER", "none"),
     decisionStrategy: readEnum("AGENT_DECISION_STRATEGY", "pulse-direct", agentDecisionStrategies),
     artifactStorageRoot: path.resolve(readString("ARTIFACT_STORAGE_ROOT", path.join(repoRoot, "runtime-artifacts"))),
     providerTimeoutSeconds: readNumber("PROVIDER_TIMEOUT_SECONDS", 0),
@@ -167,21 +171,29 @@ export function loadConfig(): OrchestratorConfig {
       reportCommentLimit: readNumber("PULSE_REPORT_COMMENT_LIMIT", 20),
       reportTimeoutSeconds: readNumber("PULSE_REPORT_TIMEOUT_SECONDS", 0),
       directRenderTimeoutSeconds: readNumber("PULSE_DIRECT_RENDER_TIMEOUT_SECONDS", 1200),
-      minTradeableCandidates: readNumber("PULSE_MIN_TRADEABLE_CANDIDATES", 5),
-      maxAgeMinutes: readNumber("PULSE_MAX_AGE_MINUTES", 30),
+      minTradeableCandidates: readNumber("PULSE_MIN_TRADEABLE_CANDIDATES", 1),
+      maxAgeMinutes: readNumber("PULSE_MAX_AGE_MINUTES", 120),
       maxMarkdownChars: readNumber("PULSE_MAX_MARKDOWN_CHARS", 24000)
     },
-    codex: readSkillProviderConfig({
-      prefix: "CODEX",
-      defaultSkillRootDir,
-      defaultSkillLocale: "zh",
-      defaultSkills
-    }),
-    openclaw: readSkillProviderConfig({
-      prefix: "OPENCLAW",
-      defaultSkillRootDir,
-      defaultSkillLocale: "zh",
-      defaultSkills
-    })
+    providers: {
+      codex: readSkillProviderConfig({
+        prefix: "CODEX",
+        defaultSkillRootDir,
+        defaultSkillLocale: "zh",
+        defaultSkills
+      }),
+      "claude-code": readSkillProviderConfig({
+        prefix: "CLAUDE_CODE",
+        defaultSkillRootDir,
+        defaultSkillLocale: "zh",
+        defaultSkills
+      }),
+      openclaw: readSkillProviderConfig({
+        prefix: "OPENCLAW",
+        defaultSkillRootDir,
+        defaultSkillLocale: "zh",
+        defaultSkills
+      })
+    }
   };
 }

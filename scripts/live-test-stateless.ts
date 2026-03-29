@@ -80,7 +80,7 @@ interface PreflightReport {
   signerMatchesFunder: boolean | null;
   effectiveCollateralUsd: number;
   remotePositionCount: number;
-  bankrollCapUsd: number;
+  fallbackBankrollUsd: number;
   configuredMinTradeUsd: number;
   maxTradePct: number;
   maxEventExposurePct: number;
@@ -204,7 +204,7 @@ function buildArchivedPreflightReport(report: PreflightReport) {
       envFilePath: report.envFilePath
     },
     tradingConstraints: {
-      bankrollCapUsd: report.bankrollCapUsd,
+      fallbackBankrollUsd: report.fallbackBankrollUsd,
       configuredMinTradeUsd: report.configuredMinTradeUsd,
       maxTradePct: report.maxTradePct,
       maxEventExposurePct: report.maxEventExposurePct,
@@ -320,7 +320,7 @@ async function runPreflight(input: {
       summary: input.recommendOnly && !(collateralProbe.balanceUsd == null || collateralProbe.balanceUsd > 0 || remotePositions.length > 0)
         ? "Recommend-only mode ignores zero collateral and continues without sending live orders."
         : collateralProbe.balanceUsd == null
-          ? `Collateral probe unavailable; falling back to bankroll cap ${input.orchestratorConfig.initialBankrollUsd.toFixed(2)} USD. ${collateralProbe.errorMessage ?? ""}`.trim()
+          ? `Collateral probe unavailable; falling back to configured INITIAL_BANKROLL_USD ${input.orchestratorConfig.initialBankrollUsd.toFixed(2)} USD. ${collateralProbe.errorMessage ?? ""}`.trim()
         : collateralProbe.balanceUsd > 0 || remotePositions.length > 0
           ? `Collateral ${collateralProbe.balanceUsd.toFixed(2)} USD (${collateralProbe.source}) | reported ${(collateralProbe.reportedBalanceUsd ?? 0).toFixed(2)} USD | onchain ${(collateralProbe.onchainBalanceUsd ?? 0).toFixed(2)} USD | remote positions ${remotePositions.length}.`
           : `No tradable collateral and no remote positions are available. reported ${(collateralProbe.reportedBalanceUsd ?? 0).toFixed(2)} USD | onchain ${(collateralProbe.onchainBalanceUsd ?? 0).toFixed(2)} USD.`
@@ -347,7 +347,7 @@ async function runPreflight(input: {
         : null,
       effectiveCollateralUsd: effectiveCollateralBalanceUsd,
       remotePositionCount: remotePositions.length,
-      bankrollCapUsd: input.orchestratorConfig.initialBankrollUsd,
+      fallbackBankrollUsd: input.orchestratorConfig.initialBankrollUsd,
       configuredMinTradeUsd: input.orchestratorConfig.minTradeUsd,
       maxTradePct: input.orchestratorConfig.maxTradePct,
       maxEventExposurePct: input.orchestratorConfig.maxEventExposurePct,
@@ -427,8 +427,7 @@ async function buildFinalPortfolioState(input: {
   );
   const overview = buildStatelessOverview({
     collateralBalanceUsd: roundCurrency(collateralBalanceUsd.balanceUsd ?? input.orchestratorConfig.initialBankrollUsd),
-    positions,
-    bankrollCapUsd: input.orchestratorConfig.initialBankrollUsd
+    positions
   });
   return {
     remotePositions,
@@ -581,7 +580,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         ["Env File", preflight.report.envFilePath ?? "-"],
         ["Effective Collateral", formatUsd(preflight.report.effectiveCollateralUsd)],
         ["Remote Positions", String(preflight.report.remotePositionCount)],
-        ["Bankroll Cap", formatUsd(preflight.report.bankrollCapUsd)],
+        ["Fallback Bankroll", formatUsd(preflight.report.fallbackBankrollUsd)],
         ["Configured Min Trade", formatUsd(preflight.report.configuredMinTradeUsd)],
         ["Max Trade", formatRatioPercent(preflight.report.maxTradePct)],
         ["Max Event Exposure", formatRatioPercent(preflight.report.maxEventExposurePct)],
@@ -633,8 +632,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     );
     const overview = buildStatelessOverview({
       collateralBalanceUsd: preflight.collateralBalanceUsd,
-      positions,
-      bankrollCapUsd: orchestratorConfig.initialBankrollUsd
+      positions
     });
     overviewBefore = overview;
     const pulseRunId = randomUUID();

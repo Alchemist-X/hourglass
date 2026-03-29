@@ -16,18 +16,21 @@ const placeholderOnlyPattern = /^(?:<[^>\n]+>|＜[^＞\n]+＞|\[[^\]\n]+\])(?:[.
 const genericPlaceholderValues = new Set(["reason", "summary", "原因", "一句话总结"]);
 
 function getProviderConfig(config: RoughLoopConfig): { provider: RoughLoopProvider; command: string; model: string } {
-  if (config.provider === "openclaw") {
-    return {
-      provider: "openclaw",
-      command: config.openclaw.command,
-      model: config.openclaw.model
-    };
+  const providerConfigs: Record<string, { command: string; model: string }> = {
+    codex: config.codex,
+    openclaw: config.openclaw
+  };
+  const resolved = providerConfigs[config.provider];
+  if (!resolved) {
+    throw new Error(
+      `No configuration found for rough-loop provider "${config.provider}". ` +
+      `Available providers: ${Object.keys(providerConfigs).join(", ")}.`
+    );
   }
-
   return {
-    provider: "codex",
-    command: config.codex.command,
-    model: config.codex.model
+    provider: config.provider,
+    command: resolved.command,
+    model: resolved.model
   };
 }
 

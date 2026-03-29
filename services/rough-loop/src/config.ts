@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { roughLoopProviderSchema, type RoughLoopProvider } from "@autopoly/contracts";
+import type { RoughLoopProvider } from "@autopoly/contracts";
 import { loadEnvFile } from "./lib/env-file.js";
 
 function readNumber(name: string, fallback: number): number {
@@ -69,7 +69,7 @@ export interface RoughLoopConfig {
   openclaw: RoughLoopProviderConfig;
 }
 
-function readProviderConfig(prefix: "CODEX" | "OPENCLAW", fallbackCommand: string): RoughLoopProviderConfig {
+function readProviderConfig(prefix: string, fallbackCommand: string): RoughLoopProviderConfig {
   return {
     command: readString(`${prefix}_COMMAND`, fallbackCommand),
     model: readString(`${prefix}_MODEL`, "")
@@ -89,7 +89,7 @@ export function loadConfig(): RoughLoopConfig {
   return {
     repoRoot,
     envFilePath,
-    provider: readEnum("ROUGH_LOOP_PROVIDER", "codex", roughLoopProviderSchema.options),
+    provider: readString("ROUGH_LOOP_PROVIDER", "codex") as RoughLoopProvider,
     loopFile,
     loopFilePath,
     loopFileEnglishPath,

@@ -59,22 +59,112 @@ export interface TradeGuardInput {
   maxPositions: number;
 }
 
-export function applyTradeGuards(input: TradeGuardInput): number {
+export type TradeGuardConstraint =
+  | "max_trade_pct"
+  | "total_exposure"
+  | "event_exposure"
+  | "max_positions"
+  | "liquidity_cap"
+  | "min_trade"
+  | "requested"
+  | "none";
+
+export interface TradeGuardConstraintDetail {
+  readonly label: TradeGuardConstraint;
+  readonly limit: number;
+  readonly headroom: number;
+}
+
+export interface TradeGuardResult {
+  readonly amount: number;
+  readonly bindingConstraint: TradeGuardConstraint;
+  readonly constraints: readonly TradeGuardConstraintDetail[];
+}
+
+function buildConstraintDetail(
+  label: TradeGuardConstraint,
+  limit: number,
+  headroom: number
+): TradeGuardConstraintDetail {
+  return { label, limit, headroom };
+}
+
+function findBindingConstraint(
+  constraints: readonly TradeGuardConstraintDetail[]
+): TradeGuardConstraint {
+  let minHeadroom = Number.POSITIVE_INFINITY;
+  let binding: TradeGuardConstraint = "none";
+  for (const c of constraints) {
+    if (c.headroom < minHeadroom) {
+      minHeadroom = c.headroom;
+      binding = c.label;
+    }
+  }
+  return binding;
+}
+
+export function applyTradeGuardsDetailed(input: TradeGuardInput): TradeGuardResult {
+  const maxTradeLimit = input.bankrollUsd * input.maxTradePct;
+  const totalExposureLimit = input.bankrollUsd * input.maxTotalExposurePct;
+  const exposureHeadroom = Math.max(0, totalExposureLimit - input.totalExposureUsd);
+  const hasEventCap = typeof input.maxEventExposurePct === "number";
+  const eventExposureLimit = hasEventCap
+    ? input.bankrollUsd * (input.maxEventExposurePct as number)
+    : Number.POSITIVE_INFINITY;
+  const eventExposureHeadroom = hasEventCap
+    ? Math.max(0, eventExposureLimit - (input.eventExposureUsd ?? 0))
+    : Number.POSITIVE_INFINITY;
+  const minTradeUsd = input.minTradeUsd ?? 10;
+
+  // USD-denominated constraints participate in binding-constraint comparison
+  const usdConstraints: TradeGuardConstraintDetail[] = [
+    buildConstraintDetail("requested", input.requestedUsd, input.requestedUsd),
+    buildConstraintDetail("max_trade_pct", maxTradeLimit, maxTradeLimit),
+    buildConstraintDetail("liquidity_cap", input.liquidityCapUsd, input.liquidityCapUsd),
+    buildConstraintDetail("total_exposure", totalExposureLimit, exposureHeadroom),
+    buildConstraintDetail("event_exposure", eventExposureLimit, eventExposureHeadroom)
+  ];
+
+  // max_positions is a count-based gate, tracked separately
+  const positionsDetail = buildConstraintDetail(
+    "max_positions",
+    input.maxPositions,
+    input.maxPositions - input.openPositions
+  );
+  const constraints: TradeGuardConstraintDetail[] = [...usdConstraints, positionsDetail];
+
   if (input.openPositions >= input.maxPositions) {
-    return 0;
+    return {
+      amount: 0,
+      bindingConstraint: "max_positions",
+      constraints
+    };
   }
 
-  const hardCap = Math.min(
-    input.requestedUsd,
-    input.bankrollUsd * input.maxTradePct,
-    input.liquidityCapUsd
-  );
-  const exposureHeadroom = Math.max(0, input.bankrollUsd * input.maxTotalExposurePct - input.totalExposureUsd);
-  const eventExposureHeadroom =
-    typeof input.maxEventExposurePct === "number"
-      ? Math.max(0, input.bankrollUsd * input.maxEventExposurePct - (input.eventExposureUsd ?? 0))
-      : Number.POSITIVE_INFINITY;
+  const hardCap = Math.min(input.requestedUsd, maxTradeLimit, input.liquidityCapUsd);
   const amount = Math.min(hardCap, exposureHeadroom, eventExposureHeadroom);
-  const minTradeUsd = input.minTradeUsd ?? 10;
-  return amount >= minTradeUsd ? amount : 0;
+
+  if (amount < minTradeUsd) {
+    const belowMinConstraints: TradeGuardConstraintDetail[] = [
+      ...constraints,
+      buildConstraintDetail("min_trade", minTradeUsd, amount >= minTradeUsd ? amount : 0)
+    ];
+    const preMinBinding = findBindingConstraint(usdConstraints);
+    return {
+      amount: 0,
+      bindingConstraint: amount <= 0 ? preMinBinding : "min_trade",
+      constraints: belowMinConstraints
+    };
+  }
+
+  return {
+    amount,
+    bindingConstraint: findBindingConstraint(usdConstraints),
+    constraints
+  };
+}
+
+/** Backward-compatible wrapper that returns only the final amount. */
+export function applyTradeGuards(input: TradeGuardInput): number {
+  return applyTradeGuardsDetailed(input).amount;
 }

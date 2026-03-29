@@ -22,7 +22,11 @@ async function canAccess(filePath: string): Promise<boolean> {
 
 export async function runDoctor(config: RoughLoopConfig): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
-  const providerCommand = config.provider === "openclaw" ? config.openclaw.command : config.codex.command;
+  const providerConfigs: Record<string, { command: string }> = {
+    codex: config.codex,
+    openclaw: config.openclaw
+  };
+  const providerCommand = providerConfigs[config.provider]?.command ?? config.provider;
   const providerCheck = await runShellCommand({
     command: `command -v ${providerCommand.split(/\s+/)[0]}`,
     cwd: config.repoRoot,

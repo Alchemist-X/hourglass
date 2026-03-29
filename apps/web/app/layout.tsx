@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Shell } from "../components/shell";
-import { isSpectatorWalletMode } from "../lib/public-wallet";
+import { DashboardShell } from "../components/dashboard-shell";
 
 export const metadata: Metadata = {
-  title: "Polymarket 钱包围观台",
-  description: "一个只读公开页面，用来查看单个 Polymarket 钱包的持仓、成交、现金流和推导后的 P&L。"
+  title: "AutoPoly Live Dashboard",
+  description: "Live trading dashboard for an autonomous Polymarket agent. View positions, P&L, and recent activity in real time."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const spectatorMode = isSpectatorWalletMode();
-
   return (
-    <html lang={spectatorMode ? "zh-CN" : "en"}>
-      <body>
-        {spectatorMode ? children : <Shell spectatorMode={spectatorMode}>{children}</Shell>}
+    <html lang="en">
+      <body className="dash-body">
+        <DashboardShell>{children}</DashboardShell>
       </body>
     </html>
   );
