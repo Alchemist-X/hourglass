@@ -884,7 +884,7 @@ function resolveDefaultProviderCommand(provider: string): string | null {
     case "codex":
       return 'cat {{prompt_file}} | codex exec --skip-git-repo-check -C {{repo_root}} -s read-only --color never -c \'model_reasoning_effort="low"\' -o {{output_file}} -';
     case "claude-code":
-      return 'cat {{prompt_file}} | claude --print --output-file {{output_file}} -';
+      return 'cat {{prompt_file}} | claude --print > {{output_file}}';
     case "openclaw":
       return 'cat {{prompt_file}} | openclaw run --output {{output_file}} -';
     default:
