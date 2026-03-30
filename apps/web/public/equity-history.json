@@ -117,5 +117,12 @@
     "cash_usd": 348.56,
     "positions_value_usd": 153.02,
     "open_positions": 7
+  },
+  {
+    "timestamp": "2026-03-30T09:15:13.539Z",
+    "total_equity_usd": 505.26,
+    "cash_usd": 389.52,
+    "positions_value_usd": 115.74,
+    "open_positions": 6
   }
 ]
