@@ -1234,13 +1234,9 @@ export async function buildFullPulseArchive(input: {
       progress: input.progress
     });
   } catch (error) {
-    if (input.config.decisionStrategy !== "pulse-direct") {
-      throw error;
-    }
-    markdown = buildDeterministicPulseMarkdown(context);
-    input.progress?.fail(
-      `Pulse render fallback engaged | ${error instanceof Error ? error.message : String(error)}`
-    );
+    // No fallback. If the AI provider fails to render, the run fails.
+    // Opening positions without proper AI analysis is worse than not trading.
+    throw error;
   }
   const markdownMetrics = measureText(markdown);
   input.progress?.stage({
