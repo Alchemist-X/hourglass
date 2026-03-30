@@ -1,15 +1,38 @@
 "use client";
 
+import type { PublicPosition } from "@autopoly/contracts";
 import { formatUsd } from "../lib/format";
 import { useLocale } from "../lib/locale-context";
+import type { ActivityItem } from "../lib/pnl-calculator";
+import { buildPnlTimeline, calculatePnl } from "../lib/pnl-calculator";
 import { usePollingJson } from "../lib/use-polling";
 
-interface EquitySnapshot {
-  timestamp: string;
-  total_equity_usd: number;
-  cash_usd: number;
-  positions_value_usd: number;
-  open_positions: number;
+interface SpectatorActivity {
+  type: string;
+  side: string | null;
+  direction: string | null;
+  usdc_size: number;
+  share_size: number;
+  price: number | null;
+  market_slug: string;
+  event_slug: string;
+  timestamp_utc?: string;
+  transaction_hash?: string | null;
+}
+
+function toActivityItem(event: SpectatorActivity): ActivityItem {
+  return {
+    type: event.type,
+    side: event.side,
+    direction: event.direction,
+    usdc_size: event.usdc_size,
+    share_size: event.share_size,
+    price: event.price ?? 0,
+    market_slug: event.market_slug,
+    event_slug: event.event_slug,
+    timestamp: event.timestamp_utc,
+    transaction_hash: event.transaction_hash ?? undefined
+  };
 }
 
 function buildPath(
@@ -46,61 +69,89 @@ function formatTimestamp(iso: string): string {
 }
 
 export function DashboardEquityChart({
-  initialEquityHistory
+  initialActivities,
+  initialPositions
 }: {
-  initialEquityHistory: EquitySnapshot[];
+  initialActivities: SpectatorActivity[];
+  initialPositions: PublicPosition[];
 }) {
   const { t } = useLocale();
-  const { data: equityHistory } = usePollingJson<EquitySnapshot[]>(
-    "/equity-history.json",
-    initialEquityHistory,
-    30_000 // poll every 30s (static file, no need to be aggressive)
+  const { data: rawActivities } = usePollingJson<SpectatorActivity[]>(
+    "/api/public/activity",
+    initialActivities,
+    15_000
+  );
+  const { data: positions } = usePollingJson<PublicPosition[]>(
+    "/api/public/positions",
+    initialPositions,
+    15_000
   );
 
-  const hasData = equityHistory.length >= 2;
+  const activityItems = rawActivities.map(toActivityItem);
+
+  const currentValue = positions.reduce(
+    (sum, p) => sum + (p.current_value_usd ?? 0),
+    0
+  );
+
+  const pnlBreakdown = calculatePnl({
+    activities: activityItems,
+    positions: positions as any
+  });
+
+  const timeline = buildPnlTimeline({
+    activities: activityItems,
+    currentValue
+  });
+
+  const hasData = timeline.length >= 2;
 
   if (!hasData) {
     return (
       <section className="dash-panel dash-chart-panel dash-chart-prominent">
         <div className="dash-panel-head">
-          <h2>{t.equity_curve}</h2>
+          <h2>{t.pnl_label}</h2>
         </div>
         <p className="dash-empty">{t.no_equity_data}</p>
       </section>
     );
   }
 
-  const equityValues = equityHistory.map((s) => s.total_equity_usd);
-  const high = Math.max(...equityValues);
-  const low = Math.min(...equityValues);
-  const latest = equityValues[equityValues.length - 1] ?? 0;
-  const initial = equityValues[0] ?? 0;
-  const pnl = Number((latest - initial).toFixed(2));
-  const isUp = pnl >= 0;
+  const pnlValues = timeline.map((p) => p.pnl);
+  const high = Math.max(...pnlValues);
+  const low = Math.min(...pnlValues);
+  const latest = pnlValues[pnlValues.length - 1] ?? 0;
+  const isUp = latest >= 0;
 
   const svgWidth = 720;
   const svgHeight = 240;
   const padding = 20;
 
-  const linePath = buildPath(equityValues, svgWidth, svgHeight, padding);
+  const linePath = buildPath(pnlValues, svgWidth, svgHeight, padding);
   const fillPath = `${linePath} L ${svgWidth} ${svgHeight} L 0 ${svgHeight} Z`;
 
-  // Build time labels at even intervals
-  const labelCount = Math.min(5, equityHistory.length);
+  // Zero line position
+  const allMin = Math.min(...pnlValues);
+  const allMax = Math.max(...pnlValues);
+  const allRange = Math.max(0.01, allMax - allMin);
+  const drawHeight = svgHeight - padding * 2;
+  const zeroY =
+    allMin <= 0 && allMax >= 0
+      ? padding + drawHeight - ((0 - allMin) / allRange) * drawHeight
+      : null;
+
+  // Time labels
+  const labelCount = Math.min(5, timeline.length);
   const labels: Array<{ x: number; text: string }> = [];
   for (let i = 0; i < labelCount; i++) {
     const idx = Math.floor(
-      (i / Math.max(1, labelCount - 1)) * (equityHistory.length - 1)
+      (i / Math.max(1, labelCount - 1)) * (timeline.length - 1)
     );
-    const x = (idx / Math.max(1, equityHistory.length - 1)) * svgWidth;
-    labels.push({ x, text: formatTimestamp(equityHistory[idx]!.timestamp) });
+    const x = (idx / Math.max(1, timeline.length - 1)) * svgWidth;
+    labels.push({ x, text: formatTimestamp(timeline[idx]!.timestamp) });
   }
 
-  // Compute last point coordinates for the dot
-  const allMin = Math.min(...equityValues);
-  const allMax = Math.max(...equityValues);
-  const allRange = Math.max(0.01, allMax - allMin);
-  const drawHeight = svgHeight - padding * 2;
+  // Latest dot
   const lastCx = svgWidth;
   const lastCy =
     padding + drawHeight - ((latest - allMin) / allRange) * drawHeight;
@@ -108,18 +159,17 @@ export function DashboardEquityChart({
   return (
     <section className="dash-panel dash-chart-panel dash-chart-prominent">
       <div className="dash-panel-head">
-        <h2>{t.equity_curve}</h2>
+        <h2>
+          {t.pnl_label}{" "}
+          <span className={isUp ? "dash-positive" : "dash-negative"} style={{ fontSize: "20px", fontWeight: 700 }}>
+            {isUp ? "+" : ""}{formatUsd(latest)}
+          </span>
+        </h2>
         <div className="dash-panel-meta">
-          <span>
-            {t.high} {formatUsd(high)}
-          </span>
-          <span>
-            {t.low} {formatUsd(low)}
-          </span>
-          <span className={isUp ? "dash-positive" : "dash-negative"}>
-            {t.pnl_label} {isUp ? "+" : ""}
-            {formatUsd(pnl)}
-          </span>
+          <span>{t.high} {formatUsd(high)}</span>
+          <span>{t.low} {formatUsd(low)}</span>
+          <span>Out {formatUsd(pnlBreakdown.cashOut)}</span>
+          <span>In {formatUsd(pnlBreakdown.cashIn)}</span>
         </div>
       </div>
       <div className="dash-chart-wrap">
@@ -127,10 +177,10 @@ export function DashboardEquityChart({
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="dash-chart"
           role="img"
-          aria-label="Equity curve chart"
+          aria-label="P&L chart"
         >
           <defs>
-            <linearGradient id="dash-equity-fill" x1="0" x2="0" y1="0" y2="1">
+            <linearGradient id="dash-pnl-fill" x1="0" x2="0" y1="0" y2="1">
               <stop
                 offset="0%"
                 stopColor={
@@ -148,8 +198,21 @@ export function DashboardEquityChart({
             </linearGradient>
           </defs>
 
+          {/* Zero line */}
+          {zeroY != null && (
+            <line
+              x1="0"
+              y1={zeroY}
+              x2={svgWidth}
+              y2={zeroY}
+              stroke="rgba(255,255,255,0.1)"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+            />
+          )}
+
           {/* Fill area */}
-          <path d={fillPath} fill="url(#dash-equity-fill)" />
+          <path d={fillPath} fill="url(#dash-pnl-fill)" />
 
           {/* Line */}
           <path
@@ -160,7 +223,7 @@ export function DashboardEquityChart({
             strokeLinejoin="round"
           />
 
-          {/* Latest point dot */}
+          {/* Latest dot */}
           <circle
             cx={lastCx}
             cy={lastCy}
@@ -170,7 +233,7 @@ export function DashboardEquityChart({
             strokeWidth="1"
           />
 
-          {/* Time labels along bottom */}
+          {/* Time labels */}
           {labels.map((label) => (
             <text
               key={`${label.x}-${label.text}`}
