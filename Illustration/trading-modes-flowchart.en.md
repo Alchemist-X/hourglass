@@ -10,7 +10,7 @@ flowchart TD
   E --> F[Paper execution + local state update]
 
   B -->|live| G{Entry Command}
-  G -->|pnpm live:test:stateless| H[Preflight]
+  G -->|pnpm pulse:live| H[Preflight]
   G -->|pnpm live:test| I[Preflight + DB/Redis/Queue Worker]
 
   H --> J[Generate or reuse Pulse]
@@ -34,6 +34,6 @@ flowchart TD
 
 ## Term Mapping
 
-- `Stateless`: `pnpm live:test:stateless`
+- `Stateless`: `pnpm pulse:live`
 - `Pre-Flight`: a gate stage inside live flow (not a standalone order mode)
 - `House Direct`: `AGENT_DECISION_STRATEGY=pulse-direct`

@@ -130,8 +130,8 @@ This Hostinger deployment keeps the existing safety boundaries:
 For real-money validation, the recommended order is still:
 
 1. `paper`
-2. `live:test:stateless --recommend-only`
-3. `live:test:stateless`
+2. `pulse:live --recommend-only`
+3. `pulse:live`
 4. `live:test`
 
 ## Current known limitations

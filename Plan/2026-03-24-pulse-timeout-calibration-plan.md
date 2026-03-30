@@ -26,7 +26,7 @@
 只看这条真实链路：
 
 - `pnpm daily:pulse`
-- `pnpm live:test:stateless`
+- `pnpm pulse:live`
 - `ensureDailyPulseSnapshot`
 - `generatePulseSnapshot`
 - `market-pulse.ts`

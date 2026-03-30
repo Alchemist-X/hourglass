@@ -181,7 +181,7 @@ Compatibility note:
   - `MAX_EVENT_EXPOSURE_PCT<=0.3`
 - this means your requested `MAX_TRADE_PCT=0.2` will make the current `live:test` fail immediately
 - therefore the first real execution smoke should prefer:
-  - `live:test:stateless`
+  - `pulse:live`
 - if we later want the full `live:test` path, we must either:
   - temporarily reduce `MAX_TRADE_PCT` back to `0.1`
   - or change the full-live preflight contract
@@ -214,7 +214,7 @@ Recommended mix:
 - `35%`: trading mainline and runtime stability
   - `provider-runtime`
   - `pulse-direct`
-  - `live:test:stateless`
+  - `pulse:live`
   - `trial:run`
 - `25%`: Portfolio Monitor / Review / Stop Loss
   - `queue-worker`
@@ -340,7 +340,7 @@ Goal:
   - `pnpm typecheck`
   - `pnpm test`
   - `pnpm build`
-  - `ENV_FILE=... pnpm live:test:stateless -- --recommend-only`
+  - `ENV_FILE=... pnpm pulse:live -- --recommend-only`
 
 Acceptance metrics:
 
@@ -363,7 +363,7 @@ Goal:
 
 Preferred path:
 
-- use `live:test:stateless` first
+- use `pulse:live` first
 - do not treat `live:test` as the primary first real smoke path
   - because the current `live:test` preflight is incompatible with `MAX_TRADE_PCT=0.2`
 
@@ -451,7 +451,7 @@ This is a pool design, not an instruction to implement every card immediately.
 Recommended first pool: `14` cards
 
 1. `pulse-direct-runtime` regression hardening
-2. `live:test:stateless` artifact and error-path regression coverage
+2. `pulse:live` artifact and error-path regression coverage
 3. `provider-runtime` filtering and explanatory-decision hardening
 4. `queue-worker` stop-loss plus snapshot regression coverage
 5. `queue-worker` remote/local mismatch detection

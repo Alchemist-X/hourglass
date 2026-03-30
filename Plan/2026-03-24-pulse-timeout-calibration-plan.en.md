@@ -26,7 +26,7 @@ This round must answer three questions:
 Only this real path is in scope:
 
 - `pnpm daily:pulse`
-- `pnpm live:test:stateless`
+- `pnpm pulse:live`
 - `ensureDailyPulseSnapshot`
 - `generatePulseSnapshot`
 - `market-pulse.ts`

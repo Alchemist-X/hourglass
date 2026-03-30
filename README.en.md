@@ -103,7 +103,7 @@ autonomous-poly-trading/
 | `packages/contracts` | `TradeDecisionSet`, `actionSchema`, queue/job names | `src/index.ts` |
 | `packages/db` | DB schema + queries; file-backed local state for paper mode | `src/queries.ts`, `src/local-state.ts` |
 | `packages/terminal-ui` | Terminal UI utilities | `src/index.ts` |
-| `scripts/` | CLI entry points that wire up different run modes | `daily-pulse.ts`, `live-test-stateless.ts`, `live-test.ts` |
+| `scripts/` | CLI entry points that wire up different run modes | `daily-pulse.ts`, `pulse-live.ts`, `live-test.ts` |
 | `services/rough-loop` | Automated code-task loop (not involved in trading) | `src/cli.ts` |
 
 ## Three Execution Paths
@@ -111,7 +111,7 @@ autonomous-poly-trading/
 ```mermaid
 flowchart LR
   paper["paper\nLocal simulation"] --> core["Pulse + Decision Core"]
-  stateless["live:test:stateless\nFastest real-money loop"] --> core
+  stateless["pulse:live\nFastest real-money loop"] --> core
   stateful["live:test\nFull production path"] --> core
 
   core --> risk["Hard risk trimming"]
@@ -123,16 +123,16 @@ flowchart LR
 | Path | Command | Dependencies | Best For |
 | --- | --- | --- | --- |
 | **paper** | `pnpm trial:recommend` / `trial:approve` | Local file | Simulation & manual confirmation |
-| **live:test:stateless** | `pnpm live:test:stateless` | Wallet + Polymarket | Fastest real-money loop, onboarding default |
+| **pulse:live** | `pnpm pulse:live` | Wallet + Polymarket | Fastest real-money loop, onboarding default |
 | **live:test** | `pnpm live:test` | Wallet + DB + Redis + Queue | Full production path |
 
-Note: `pnpm daily:pulse` is not a fourth path — it's a convenience wrapper around `live:test:stateless` that defaults to `.env.pizza`, `AUTOPOLY_EXECUTION_MODE=live`, and `pulse-direct`.
+Note: `pnpm daily:pulse` is not a fourth path — it's a convenience wrapper around `pulse:live` that defaults to `.env.pizza`, `AUTOPOLY_EXECUTION_MODE=live`, and `pulse-direct`.
 
 ### Execution Flow
 
 **All live paths must go through Preflight** — it's a mandatory phase, not a standalone mode.
 
-**live:test:stateless**:
+**pulse:live**:
 
 ```
 Preflight → Fetch remote positions/collateral → Pulse generation → Decision runtime → Risk guards + token cap → Direct execution → Summary archive
@@ -147,7 +147,7 @@ Preflight (+DB/Redis/Queue) → Pulse generation → Agent cycle (decisions + pe
 **paper**:
 
 ```
-Load portfolio context → Pulse generation → Decision runtime → shared buildExecutionPlan (same risk + exchange-threshold rules as live:test:stateless) → awaiting-approval → trial:approve → Paper state update
+Load portfolio context → Pulse generation → Decision runtime → shared buildExecutionPlan (same risk + exchange-threshold rules as pulse:live) → awaiting-approval → trial:approve → Paper state update
 ```
 
 ## Decision Engine
@@ -228,7 +228,7 @@ pnpm vendor:sync
 # Fill in CODEX_COMMAND / wallet credentials
 pnpm daily:pulse              # Convenience entry point
 # or
-pnpm live:test:stateless -- --recommend-only   # View recommendations without trading
+pnpm pulse:live -- --recommend-only   # View recommendations without trading
 ```
 
 ### Full Local Stack (Stateful)
@@ -253,7 +253,7 @@ AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
 ```
 
 State defaults to `runtime-artifacts/local/paper-state.json`.
-`trial:recommend` now uses the same pre-execution rule set as `live:test:stateless`: it reads the order book, applies the same risk clipping, minimum trade size, and Polymarket executable minimum checks. The difference is only the landing step: paper stops at `awaiting-approval` instead of sending a live order immediately.
+`trial:recommend` now uses the same pre-execution rule set as `pulse:live`: it reads the order book, applies the same risk clipping, minimum trade size, and Polymarket executable minimum checks. The difference is only the landing step: paper stops at `awaiting-approval` instead of sending a live order immediately.
 
 ## Environment Variables
 
@@ -295,10 +295,10 @@ pnpm db:seed            # Seed data
 AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend
 AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
 
-# Live Stateless
-ENV_FILE=.env.live-test pnpm live:test:stateless
-ENV_FILE=.env.live-test pnpm live:test:stateless -- --recommend-only
-ENV_FILE=.env.live-test pnpm live:test:stateless -- --json
+# Pulse Live (Stateless)
+ENV_FILE=.env.live-test pnpm pulse:live
+ENV_FILE=.env.live-test pnpm pulse:live -- --recommend-only
+ENV_FILE=.env.live-test pnpm pulse:live -- --json
 
 # Live Stateful
 ENV_FILE=.env.live-test pnpm live:test
@@ -374,7 +374,7 @@ All run artifacts go to `runtime-artifacts/` (gitignored), rooted at `ARTIFACT_S
 | `reports/pulse/YYYY/MM/DD/` | Pulse markdown + JSON (`pulse-<timestamp>-<runtime>-<mode>-<runId>`) |
 | `reports/review\|monitor\|rebalance/` | Portfolio reports |
 | `reports/runtime-log/` | Decision runtime explanatory logs |
-| `live-stateless/<timestamp>-<runId>/` | Stateless runs: preflight, recommendation, execution-summary, run-summary |
+| `pulse-live/<timestamp>-<runId>/` | Pulse Live runs: preflight, recommendation, execution-summary, run-summary |
 | `live-test/<timestamp>-<runId>/` | Stateful runs: same + error.json on failure |
 | `checkpoints/trial-recommend/` | Paper recommendation resume checkpoints |
 | `local/paper-state.json` | Default paper state file |
@@ -394,7 +394,7 @@ As of 2026-03-24.
 | Web dashboard + admin | ✅ Done | Overview, positions, trades, runs, reports, backtests, admin |
 | Shared contracts / DB / Terminal UI | ✅ Done | Schema, queries, local state, terminal rendering |
 | Paper test bench | ✅ Done | Recommend → manual approve → file-backed state |
-| `live:test:stateless` | ✅ Done and actively running | 37 live-stateless run archives (03/16–03/24) |
+| `pulse:live` | ✅ Done and actively running | 37 pulse-live run archives (03/16–03/24) |
 | `live:test` stateful | ⚠️ Implemented but blocked | Code works, local machine lacks DB/Redis so preflight always fails |
 | Real Pulse fetching | ✅ Done | ~50+ Pulse reports produced (03/14–03/23) |
 | `pulse-direct` decision engine | ✅ Live | Default since 03/20, replacing provider-runtime |
@@ -428,11 +428,11 @@ As of 2026-03-24.
 | Date | Event |
 | --- | --- |
 | **03/14** | First Pulse reports generated (codex provider-runtime), 15 pulses; first real $1 test trade matched |
-| **03/16** | Paper mode full loop completed (recommend → approve → state update); first live-stateless runs; Pizza wallet connectivity verified |
-| **03/17** | Multiple live-stateless runs; no1 wallet snapshot showed 12 real positions / $128 total equity; Rough Loop completed 5 code-task runs |
-| **03/18** | Portfolio review report generated independently for first time; live-stateless preflight pending |
+| **03/16** | Paper mode full loop completed (recommend → approve → state update); first pulse-live runs; Pizza wallet connectivity verified |
+| **03/17** | Multiple pulse-live runs; no1 wallet snapshot showed 12 real positions / $128 total equity; Rough Loop completed 5 code-task runs |
+| **03/18** | Portfolio review report generated independently for first time; pulse-live preflight pending |
 | **03/20** | **pulse-direct engine goes live**, replacing provider-runtime as default; review / monitor / rebalance reports auto-generated per run; one crude oil order rejected by Polymarket ($0.34) |
-| **03/23** | Heavy run day — 8 live-stateless runs (pizza wallet); live:test attempt failed (DATABASE_URL not configured); VPS SSH connectivity postmortem; last complete run artifact at 15:05 UTC |
+| **03/23** | Heavy run day — 8 pulse-live runs (pizza wallet); live:test attempt failed (DATABASE_URL not configured); VPS SSH connectivity postmortem; last complete run artifact at 15:05 UTC |
 | **03/24** | One pending preflight exists, full run not completed |
 
 ### Known Issues and Blockers
@@ -524,6 +524,6 @@ If this is your first time working with this repository:
 4. **Check [Illustration/onboarding-architecture.en.md](Illustration/onboarding-architecture.en.md)** — understand module boundaries, state sources, and the default primary path
 5. **Check [Illustration/trading-modes-flowchart.en.md](Illustration/trading-modes-flowchart.en.md)** — understand execution path branching
 6. **Run `pnpm build`** — verify the build works
-7. **Run `pnpm daily:pulse` or `pnpm live:test:stateless -- --recommend-only`** — see a full decision output
+7. **Run `pnpm daily:pulse` or `pnpm pulse:live -- --recommend-only`** — see a full decision output
 
 If you just need to "get the project building", step 6 is enough.

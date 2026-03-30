@@ -8,7 +8,7 @@ Last updated: 2026-03-29
 
 1. **`services/orchestrator/src/index.ts` line 43** -- Built-in cron scheduler (`node-cron`) already exists, using `agentPollCron` to trigger `runAgentCycle` every 3 hours. This is the stateful path (requires DB + Redis).
 2. **`docker-compose.hostinger.yml`** -- Complete Hostinger deployment with orchestrator/executor/postgres/redis containers, health checks, and auto-restart.
-3. **`scripts/live-test-stateless.ts`** -- Stateless path entry script, runs once then `process.exit`. This is the target command to schedule.
+3. **`scripts/pulse-live.ts`** -- Stateless path entry script, runs once then `process.exit`. This is the target command to schedule.
 4. **`deploy/hostinger/stack.env.example`** -- Environment variable template with all required config.
 
 Key fact: **The stateful path already has a built-in scheduler**; the stateless path is currently designed as "run once and exit."
@@ -17,7 +17,7 @@ Key fact: **The stateful path already has a built-in scheduler**; the stateless 
 
 ## Problem Statement
 
-`pnpm live:test:stateless` is a one-shot script: start -> preflight -> pulse -> decisions -> orders -> archive -> exit. The goal is to run it automatically every 3 hours on a remote Ubuntu VPS.
+`pnpm pulse:live` is a one-shot script: start -> preflight -> pulse -> decisions -> orders -> archive -> exit. The goal is to run it automatically every 3 hours on a remote Ubuntu VPS.
 
 ## Impact
 
@@ -46,7 +46,7 @@ Key fact: **The stateful path already has a built-in scheduler**; the stateless 
 
 ## Option A: cron + Shell Script
 
-Set up a crontab entry that calls a wrapper shell script running `pnpm live:test:stateless`.
+Set up a crontab entry that calls a wrapper shell script running `pnpm pulse:live`.
 
 **Pros**: Simplest possible. Zero extra dependencies. Easy to debug (plain text logs).
 
@@ -166,7 +166,7 @@ chmod 600 /opt/autopoly/.env.pizza
 
 ```bash
 cd /opt/autopoly
-pnpm live:test:stateless --recommend-only
+pnpm pulse:live --recommend-only
 ```
 
 Confirm it completes successfully before enabling the timer.
@@ -184,7 +184,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/autopoly
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-ExecStart=/usr/local/bin/pnpm live:test:stateless
+ExecStart=/usr/local/bin/pnpm pulse:live
 EnvironmentFile=/opt/autopoly/.env.pizza
 TimeoutStartSec=1800
 NoNewPrivileges=true
@@ -244,7 +244,7 @@ Alerts via email/Slack if no ping received within 4 hours.
 ## Evolution Path
 
 ```
-Phase 1 (now):     systemd timer + live:test:stateless
+Phase 1 (now):     systemd timer + pulse:live
                     Fastest to deploy. No DB/Redis dependency.
 
 Phase 2 (stable):  docker-compose.hostinger.yml

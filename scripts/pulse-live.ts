@@ -32,13 +32,13 @@ import {
 } from "../services/orchestrator/src/lib/execution-planning.ts";
 import { createTerminalProgressReporter } from "../services/orchestrator/src/lib/terminal-progress.ts";
 import { createAgentRuntime } from "../services/orchestrator/src/runtime/runtime-factory.ts";
-import { loadPulseSnapshotFromArtifacts } from "./live-test-stateless-pulse.ts";
+import { loadPulseSnapshotFromArtifacts } from "./pulse-live-pulse.ts";
 import {
   buildStatelessRunIdentityRows,
   buildStatelessOverview,
   calculatePositionPnlPct,
   calculatePositionValueUsd
-} from "./live-test-stateless-helpers.ts";
+} from "./pulse-live-helpers.ts";
 import {
   mapOverviewToSummarySnapshot,
   writeRunSummaryArtifacts
@@ -106,7 +106,7 @@ interface ExecutedOrderSummary extends PlannedExecution {
   rawResponse: unknown;
 }
 
-class StatelessLiveError extends Error {
+class PulseLiveError extends Error {
   constructor(
     readonly stage: string,
     message: string,
@@ -114,7 +114,7 @@ class StatelessLiveError extends Error {
     options?: { cause?: unknown }
   ) {
     super(message, options);
-    this.name = "StatelessLiveError";
+    this.name = "PulseLiveError";
   }
 }
 
@@ -291,7 +291,7 @@ async function runPreflight(input: {
       ok: Boolean(input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath),
       summary: (input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath)
         ? `Using env file ${(input.orchestratorConfig.envFilePath ?? input.executorConfig.envFilePath)}.`
-        : "ENV_FILE is required for stateless live runs."
+        : "ENV_FILE is required for pulse:live runs."
     },
     {
       key: "credentials",
@@ -391,7 +391,7 @@ async function executePlans(input: {
     executed.push(summary);
 
     if (!result.ok) {
-      throw new StatelessLiveError(
+      throw new PulseLiveError(
         "execute",
         `Order rejected for ${plan.marketSlug}.`,
         buildLiveRunContextRows({
@@ -452,7 +452,7 @@ function printRecommendationSummary(input: {
   runtimeLogPath: string | null;
 }) {
   const printer = createTerminalPrinter();
-  printer.section("Stateless Recommendation", "route live:test:stateless");
+  printer.section("Pulse Live Recommendation", "route pulse:live");
   printer.table([
     ["Run ID", input.runId],
     ["Env File", input.envFilePath ?? "-"],
@@ -500,7 +500,7 @@ function printExecutionSummary(input: {
   executed: ExecutedOrderSummary[];
 }) {
   const printer = createTerminalPrinter();
-  printer.section("Stateless Execution Summary", `run ${input.runId}`);
+  printer.section("Pulse Live Execution Summary", `run ${input.runId}`);
   printer.table([
     ...buildStatelessRunIdentityRows({
       executionMode: input.executionMode,
@@ -525,7 +525,7 @@ function printExecutionSummary(input: {
   }
 }
 
-export async function runStatelessLiveTest(args: Args = parseArgs()) {
+export async function runPulseLive(args: Args = parseArgs()) {
   process.env.ENV_FILE = process.env.ENV_FILE?.trim() || ".env.pizza";
   const reporter = createTerminalProgressReporter({
     enabled: !args.json,
@@ -537,7 +537,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
   const configuredMinTradeUsd = Math.max(0, orchestratorConfig.minTradeUsd);
   const timestamp = formatTimestampToken();
   let archiveDir = await createArchiveDir(
-    path.join(orchestratorConfig.artifactStorageRoot, "live-stateless"),
+    path.join(orchestratorConfig.artifactStorageRoot, "pulse-live"),
     timestamp
   );
   let runId: string | null = null;
@@ -571,7 +571,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     await writeJsonArtifact(preflightPath, buildArchivedPreflightReport(preflight.report));
     if (useHumanOutput) {
       const printer = createTerminalPrinter();
-      printer.section("Stateless Live Preflight", "route live:test:stateless");
+      printer.section("Pulse Live Preflight", "route pulse:live");
       printer.table([
         ...buildStatelessRunIdentityRows({
           executionMode: preflight.report.executionMode,
@@ -612,9 +612,9 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       }
     }
     if (!preflight.report.ok) {
-      throw new StatelessLiveError(
+      throw new PulseLiveError(
         "preflight",
-        "Stateless live preflight failed.",
+        "Pulse live preflight failed.",
         buildLiveRunContextRows({
           envFilePath: preflight.report.envFilePath,
           archiveDir,
@@ -705,7 +705,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     skippedForSummary = skipped;
     await writeJsonArtifact(recommendationPath, {
       runId,
-      executionMode: "live-stateless",
+      executionMode: "pulse-live",
       envFilePath: preflight.report.envFilePath,
       collateralBalanceUsd: preflight.report.effectiveCollateralUsd,
       overview,
@@ -738,7 +738,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
 
     if (args.recommendOnly) {
       await writeRunSummaryArtifacts({
-        mode: "live:test:stateless",
+        mode: "pulse:live",
         executionMode: "live",
         strategy: orchestratorConfig.decisionStrategy,
         envFilePath: preflight.report.envFilePath,
@@ -802,7 +802,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       executed: executedForSummary
     });
 
-    reporter.done(`Stateless live run completed | ${runId}`);
+    reporter.done(`Pulse live run completed | ${runId}`);
     if (useHumanOutput) {
       printExecutionSummary({
         executionMode: preflight.report.executionMode,
@@ -815,7 +815,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     }
 
     await writeRunSummaryArtifacts({
-      mode: "live:test:stateless",
+      mode: "pulse:live",
       executionMode: "live",
       strategy: orchestratorConfig.decisionStrategy,
       envFilePath: preflight.report.envFilePath,
@@ -858,10 +858,10 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
     return output;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const stage = error instanceof StatelessLiveError ? error.stage : "unknown";
+    const stage = error instanceof PulseLiveError ? error.stage : "unknown";
     const rawSummary = getErrorRawSummary(error);
     const rawResponse = getErrorCause(error) ?? null;
-    const errorContext = error instanceof StatelessLiveError
+    const errorContext = error instanceof PulseLiveError
       ? error.context
       : buildLiveRunContextRows({
           envFilePath: preflightReport?.envFilePath ?? (orchestratorConfig.envFilePath ?? executorConfig.envFilePath),
@@ -883,7 +883,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       context: errorContext
     });
     await writeRunSummaryArtifacts({
-      mode: "live:test:stateless",
+      mode: "pulse:live",
       executionMode: "live",
       strategy: orchestratorConfig.decisionStrategy,
       envFilePath: preflightReport?.envFilePath ?? null,
@@ -904,7 +904,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
         message,
         rawSummary,
         nextSteps: [
-          "Inspect error.json and recommendation.json in the stateless archive.",
+          "Inspect error.json and recommendation.json in the pulse-live archive.",
           "Retry after fixing the Polymarket or provider-side failure."
         ]
       },
@@ -932,14 +932,14 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
       }, null, 2));
     } else {
       printErrorSummary(createTerminalPrinter(), {
-        title: "Stateless Live Test Failed",
+        title: "Pulse Live Failed",
         stage,
         error,
         rawSummary,
         context: errorContext,
         artifactDir: archiveDir,
         nextSteps: [
-          "Inspect error.json and recommendation.json in the stateless archive.",
+          "Inspect error.json and recommendation.json in the pulse-live archive.",
           "Retry after fixing the Polymarket or provider-side failure."
         ]
       });
@@ -956,7 +956,7 @@ export async function runStatelessLiveTest(args: Args = parseArgs()) {
 }
 
 async function main() {
-  const result = await runStatelessLiveTest(parseArgs());
+  const result = await runPulseLive(parseArgs());
   if (!result.ok) {
     process.exit(1);
   }
@@ -965,7 +965,7 @@ async function main() {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   void main().catch((error) => {
     printErrorSummary(createTerminalPrinter(), {
-      title: "Stateless Live Test Failed",
+      title: "Pulse Live Failed",
       stage: "bootstrap",
       error,
       context: buildLiveRunContextRows({

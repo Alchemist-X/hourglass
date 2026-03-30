@@ -181,7 +181,7 @@
   - `MAX_EVENT_EXPOSURE_PCT<=0.3`
 - 这意味着你给的 `MAX_TRADE_PCT=0.2` 会让现有 `live:test` 直接失败
 - 所以首轮真实执行 smoke 应优先走：
-  - `live:test:stateless`
+  - `pulse:live`
 - 如果后面要走完整 `live:test` 路径，要么：
   - 临时把 `MAX_TRADE_PCT` 降回 `0.1`
   - 要么修改 full live preflight 契约
@@ -217,7 +217,7 @@
 - `35%`：交易主线与 runtime 稳定性
   - `provider-runtime`
   - `pulse-direct`
-  - `live:test:stateless`
+  - `pulse:live`
   - `trial:run`
 - `25%`：Portfolio Monitor / Review / Stop Loss
   - `queue-worker`
@@ -348,7 +348,7 @@
   - `pnpm typecheck`
   - `pnpm test`
   - `pnpm build`
-  - `ENV_FILE=... pnpm live:test:stateless -- --recommend-only`
+  - `ENV_FILE=... pnpm pulse:live -- --recommend-only`
 
 验收指标：
 
@@ -371,7 +371,7 @@
 
 首选路径：
 
-- 优先使用 `live:test:stateless`
+- 优先使用 `pulse:live`
 - 暂不把 `live:test` 当成首轮真实 smoke 主路径
   - 因为当前 `live:test` preflight 与 `MAX_TRADE_PCT=0.2` 不兼容
 
@@ -460,7 +460,7 @@
 
 1. `pulse-direct-runtime` 回归补强
    - 目标：锁定“已有仓位默认 hold、新推荐转 open”的当前行为
-2. `live:test:stateless` artifact / error path 回归补强
+2. `pulse:live` artifact / error path 回归补强
    - 目标：让 stateless 运行更适合长期 unattended run
 3. `provider-runtime` 过滤与 explanatory decisions 补强
    - 目标：减少空输出或不合法输出导致的假成功

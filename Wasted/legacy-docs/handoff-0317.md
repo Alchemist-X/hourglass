@@ -30,7 +30,7 @@
 
 如果远程 Agent 的目标是“尽快在服务器上先跑起来”，推荐顺序是：
 
-1. 先部署 `live:test:stateless`
+1. 先部署 `pulse:live`
    - 它不依赖本地 `Postgres` / `Redis`
    - 最容易在远程机上闭环
    - 适合先做每日定时任务
@@ -45,14 +45,14 @@
 
 原因很简单：
 
-- `live:test:stateless` 是当前最容易远程 build 和跑通的链路
+- `pulse:live` 是当前最容易远程 build 和跑通的链路
 - 但它现在还不是“完整自主调仓系统”
 - 当前 `pulse-direct` 会对已有仓位默认输出 `hold`，并明确写着“除非补 dedicated exit engine，否则不主动调整已有仓位”
 - 当前真正的 `sync portfolio + stop-loss + snapshot` 在 `executor queue worker` 这条完整服务链里
 
 所以：
 
-- 如果你只想先实现“每天自动跑一次，有推荐就执行”，从 `live:test:stateless` 开始
+- 如果你只想先实现“每天自动跑一次，有推荐就执行”，从 `pulse:live` 开始
 - 如果你要的是“真的会自主管理老仓位”，最终必须推进完整服务化路径
 
 ## 3. 当前仓库状态回看
@@ -69,7 +69,7 @@
 - provider runtime 已经接成 `codex | openclaw`
 - pulse 已经不是 mock fallback，而是真实抓取并落盘
 - 真实小额下单已经成功做过一次
-- `live:test:stateless` 已经能生成 preflight / recommendation / execution summary 归档
+- `pulse:live` 已经能生成 preflight / recommendation / execution summary 归档
 
 当前不要误判的点：
 
@@ -92,7 +92,7 @@
 - `RL-002`
   - `services/orchestrator/src/runtime/provider-runtime.test.ts` 通过
 - `RL-003`
-  - `scripts/live-test-stateless.test.ts` 已覆盖 `execution mode` / `decision strategy` 输出契约
+  - `scripts/pulse-live.test.ts` 已覆盖 `execution mode` / `decision strategy` 输出契约
 
 ### 4.2 真实下单结果
 
@@ -112,11 +112,11 @@
 
 ### 4.3 最近一次 stateless 远程友好闭环
 
-`2026-03-17` 的一轮 `live:test:stateless` 归档显示：
+`2026-03-17` 的一轮 `pulse:live` 归档显示：
 
 - runId：`8c1f79e9-37f3-4706-8009-4dd6924def96`
 - 归档目录：
-  - `runtime-artifacts/live-stateless/2026-03-17T024012Z-8c1f79e9-37f3-4706-8009-4dd6924def96/`
+  - `runtime-artifacts/pulse-live/2026-03-17T024012Z-8c1f79e9-37f3-4706-8009-4dd6924def96/`
 - preflight：
   - `executionMode=live`
   - `collateralBalanceUsd=41.7019`
@@ -163,7 +163,7 @@
   - 已能输出结构化 `TradeDecisionSet`
 - `pulse-direct`
   - 已能直接把 pulse 报告转成可执行决策
-- `live:test:stateless`
+- `pulse:live`
   - 已能在无 DB/Redis 情况下直接跑一轮 live 流程
 - `executor sync + stop-loss`
   - 已存在于 queue worker 中
@@ -194,7 +194,7 @@
 那可以先用：
 
 - `AGENT_DECISION_STRATEGY=pulse-direct`
-- `pnpm live:test:stateless`
+- `pnpm pulse:live`
 
 如果远程目标是：
 
@@ -323,13 +323,13 @@ PULSE_REPORT_TIMEOUT_SECONDS=0
 第一次只跑推荐：
 
 ```bash
-ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only
+ENV_FILE=/secure/path/pizza.env pnpm pulse:live -- --recommend-only
 ```
 
 确认以下产物存在后，再决定是否开启真实执行：
 
-- `runtime-artifacts/live-stateless/<timestamp>-<runId>/preflight.json`
-- `runtime-artifacts/live-stateless/<timestamp>-<runId>/recommendation.json`
+- `runtime-artifacts/pulse-live/<timestamp>-<runId>/preflight.json`
+- `runtime-artifacts/pulse-live/<timestamp>-<runId>/recommendation.json`
 - `runtime-artifacts/reports/pulse/YYYY/MM/DD/*.md`
 - `runtime-artifacts/reports/pulse/YYYY/MM/DD/*.json`
 - `runtime-artifacts/reports/runtime-log/YYYY/MM/DD/*.md`
@@ -337,7 +337,7 @@ ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only
 确认无误后，开始真实执行：
 
 ```bash
-ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless
+ENV_FILE=/secure/path/pizza.env pnpm pulse:live
 ```
 
 ### 7.2 方案 B：如果要每天自动运行
@@ -347,13 +347,13 @@ ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless
 最简单的 cron 示例：
 
 ```cron
-15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless >> /var/log/autopoly-live-stateless.log 2>&1
+15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm pulse:live >> /var/log/autopoly-pulse-live.log 2>&1
 ```
 
 如果要先观察 3 到 7 天，再放开真实下单，可以先用：
 
 ```cron
-15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only >> /var/log/autopoly-live-stateless.log 2>&1
+15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm pulse:live -- --recommend-only >> /var/log/autopoly-pulse-live.log 2>&1
 ```
 
 ### 7.3 方案 C：如果目标是完整自主调仓系统
@@ -399,13 +399,13 @@ ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless
 
 它是代码任务循环，不是生产交易 daemon。
 
-### 8.2 `live:test` 和 `live:test:stateless` 不是一个东西
+### 8.2 `live:test` 和 `pulse:live` 不是一个东西
 
 - `live:test`
   - 依赖 DB/Redis
   - preflight 更严格
   - 当前最新记录里没有完成稳定闭环
-- `live:test:stateless`
+- `pulse:live`
   - 不依赖 DB/Redis
   - 当前更适合作为远程第一阶段
 
@@ -446,10 +446,10 @@ ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless
 2. `pnpm install && pnpm vendor:sync`
 3. 配置 `codex` CLI 与独立钱包 env
 4. 先跑：
-   - `ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only`
+   - `ENV_FILE=/secure/path/pizza.env pnpm pulse:live -- --recommend-only`
 5. 检查归档、推荐质量、pulse 产物和 runtime log
 6. 再跑：
-   - `ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless`
+   - `ENV_FILE=/secure/path/pizza.env pnpm pulse:live`
 7. 连续观察数天
 8. 如果确认要上“自动调仓/止损/监控”
    - 切换到完整服务部署路线
@@ -466,7 +466,7 @@ ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless
 - [services/orchestrator/src/runtime/pulse-direct-runtime.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/services/orchestrator/src/runtime/pulse-direct-runtime.ts)
 - [services/orchestrator/src/runtime/provider-runtime.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/services/orchestrator/src/runtime/provider-runtime.ts)
 - [services/executor/src/workers/queue-worker.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/services/executor/src/workers/queue-worker.ts)
-- [scripts/live-test-stateless.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/scripts/live-test-stateless.ts)
+- [scripts/pulse-live.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/scripts/pulse-live.ts)
 - [scripts/live-test.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/scripts/live-test.ts)
 
 ## 11. 一句话交接

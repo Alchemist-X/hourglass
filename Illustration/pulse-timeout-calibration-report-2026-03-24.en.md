@@ -70,7 +70,7 @@ This round had three goals:
 
 - dedicated worktree: `/Users/Aincrad/dev-proj/autonomous-poly-trading-timeout-exp`
 - 5 sub-agents running in parallel
-- all runs used real `live:test:stateless --recommend-only`
+- all runs used real `pulse:live --recommend-only`
 - each run used an isolated artifact root
 
 ### 5.2 Timeout-free experiment mode
@@ -101,7 +101,7 @@ PROVIDER_TIMEOUT_SECONDS=0 \
 ARTIFACT_STORAGE_ROOT=<per-run-artifact-root> \
 /usr/bin/time -p \
 /Users/Aincrad/dev-proj/autonomous-poly-trading/node_modules/.bin/tsx \
-scripts/live-test-stateless.ts --recommend-only --json
+scripts/pulse-live.ts --recommend-only --json
 ```
 
 ## 6. Five-Run Parallel Results

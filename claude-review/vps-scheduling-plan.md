@@ -8,7 +8,7 @@
 
 1. **`services/orchestrator/src/index.ts` 第 43 行** -- 已有内置 cron 调度器（`node-cron`），用 `agentPollCron` 每 3 小时触发 `runAgentCycle`。这是有状态路径（依赖 DB + Redis）。
 2. **`docker-compose.hostinger.yml`** -- 已有完整的 Hostinger 部署方案，包含 orchestrator/executor/postgres/redis 四个容器，带健康检查和自动重启。
-3. **`scripts/live-test-stateless.ts`** -- 无状态路径的入口脚本，单次执行后 `process.exit`。这是你要定时运行的目标命令。
+3. **`scripts/pulse-live.ts`** -- 无状态路径的入口脚本，单次执行后 `process.exit`。这是你要定时运行的目标命令。
 4. **`deploy/hostinger/stack.env.example`** -- 已有环境变量模板，包含所有必要配置。
 
 核心事实：**有状态路径已经内置了调度器**；无状态路径目前是"跑一次就退出"的设计。
@@ -17,7 +17,7 @@
 
 ## 问题是什么
 
-`pnpm live:test:stateless` 是一个一次性运行脚本：启动 -> preflight -> pulse -> 决策 -> 下单 -> 归档 -> 退出。想让它在远程 VPS 上每隔 3 小时自动执行。
+`pnpm pulse:live` 是一个一次性运行脚本：启动 -> preflight -> pulse -> 决策 -> 下单 -> 归档 -> 退出。想让它在远程 VPS 上每隔 3 小时自动执行。
 
 ## 会影响什么
 
@@ -52,7 +52,7 @@
 
 ### 工作方式
 
-在 VPS 上通过 `crontab -e` 设置定时任务，调用一个 wrapper shell 脚本来执行 `pnpm live:test:stateless`。
+在 VPS 上通过 `crontab -e` 设置定时任务，调用一个 wrapper shell 脚本来执行 `pnpm pulse:live`。
 
 ### 具体实现
 
@@ -81,8 +81,8 @@ cd /opt/autopoly
 export PATH="/root/.local/share/pnpm:$PATH"
 export PATH="/usr/local/bin:$PATH"
 
-echo "[INFO] $(date) Starting live:test:stateless" >> "${LOG_FILE}"
-pnpm live:test:stateless 2>&1 | tee -a "${LOG_FILE}"
+echo "[INFO] $(date) Starting pulse:live" >> "${LOG_FILE}"
+pnpm pulse:live 2>&1 | tee -a "${LOG_FILE}"
 EXIT_CODE=${PIPESTATUS[0]}
 
 if [ "${EXIT_CODE}" -ne 0 ]; then
@@ -135,7 +135,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/autopoly
-ExecStart=/usr/local/bin/pnpm live:test:stateless
+ExecStart=/usr/local/bin/pnpm pulse:live
 EnvironmentFile=/opt/autopoly/.env.pizza
 TimeoutStartSec=1800
 # 30 分钟超时，pulse 可能很慢
@@ -198,7 +198,7 @@ module.exports = {
     {
       name: "autopoly-stateless",
       script: "pnpm",
-      args: "live:test:stateless",
+      args: "pulse:live",
       cwd: "/opt/autopoly",
       cron_restart: "0 */3 * * *",
       autorestart: false,     // 跑完就停，等下一次 cron 触发
@@ -458,7 +458,7 @@ ARTIFACT_STORAGE_ROOT=/opt/autopoly/runtime-artifacts
 
 ```bash
 cd /opt/autopoly
-pnpm live:test:stateless --recommend-only
+pnpm pulse:live --recommend-only
 ```
 
 确认能正常运行到最后、输出 recommendation 报告、归档文件写入 `runtime-artifacts/` 后再继续。
@@ -477,7 +477,7 @@ Type=oneshot
 WorkingDirectory=/opt/autopoly
 # 确保 pnpm 在 PATH 中
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-ExecStart=/usr/local/bin/pnpm live:test:stateless
+ExecStart=/usr/local/bin/pnpm pulse:live
 EnvironmentFile=/opt/autopoly/.env.pizza
 
 # 超时：pulse 生成 + 决策 + 执行，给 30 分钟
@@ -540,7 +540,7 @@ systemctl status autopoly-stateless.timer
 #!/usr/bin/env bash
 
 FAILURE_LOG="/opt/autopoly/runtime-artifacts/cron-failures.log"
-LAST_SUCCESS_DIR="/opt/autopoly/runtime-artifacts/live-stateless"
+LAST_SUCCESS_DIR="/opt/autopoly/runtime-artifacts/pulse-live"
 
 # 检查最近 6 小时内是否有成功的运行
 RECENT=$(find "${LAST_SUCCESS_DIR}" -maxdepth 2 -name "run-summary.json" -mmin -360 2>/dev/null | head -1)
@@ -596,7 +596,7 @@ Healthchecks.io 如果 4 小时没收到 ping，会发邮件/Slack 告警。
 ## 演进路径
 
 ```
-阶段 1（现在）：systemd timer + live:test:stateless
+阶段 1（现在）：systemd timer + pulse:live
     - 最快上线，验证定时交易是否可行
     - 无 DB/Redis 依赖
 

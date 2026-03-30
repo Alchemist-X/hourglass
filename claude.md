@@ -60,7 +60,7 @@
 
 - 本仓库支持三条主链路：
   - `paper`（本地模拟，支持手动确认）
-  - `live:test:stateless`（无 DB/Redis 依赖，优先用于快速闭环）
+  - `pulse:live`（无 DB/Redis 依赖，优先用于快速闭环）
   - `live:test`（带 queue worker + DB/Redis 的完整生产路径）
 - `Preflight` 是必经阶段，不是独立模式。
 - 在 live 路径中：
@@ -99,7 +99,7 @@
 - 终端风格：可见进度 + 彩色分级 + 可执行错误信息。
 - 对人沟通：默认说人话，先给人类 review 入口，再说明做了什么、效果如何，最后补结论影响和技术细节。
 - 协作方式：主 agent 默认先拆给 sub-agents 并行推进，主会话负责整合。
-- 交易调试优先：`live:test:stateless`，再扩展到 `live:test`。
+- 交易调试优先：`pulse:live`，再扩展到 `live:test`。
 
 ## 10. 前端预览工作流
 

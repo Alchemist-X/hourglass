@@ -58,7 +58,7 @@ Last updated: 2026-03-28
 
 - Three main paths are supported:
   - `paper` (local simulation with manual confirmation support)
-  - `live:test:stateless` (fast loop, no DB/Redis dependency)
+  - `pulse:live` (fast loop, no DB/Redis dependency)
   - `live:test` (production-like path with queue worker + DB/Redis)
 - `Preflight` is a mandatory stage, not a standalone mode.
 - On live paths:
@@ -97,7 +97,7 @@ Last updated: 2026-03-28
 - Terminal UX: visible progress + color levels + actionable errors.
 - Human communication: start with a human review entry point, then explain what changed and what effect it had, and only then add conclusions, impact, and technical detail.
 - Collaboration mode: the main agent should delegate parallelizable work to sub-agents first and keep the main session focused on integration.
-- Preferred trading debug route: `live:test:stateless` first, then `live:test`.
+- Preferred trading debug route: `pulse:live` first, then `live:test`.
 
 ## 10. Frontend Preview Workflow
 

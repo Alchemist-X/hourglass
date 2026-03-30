@@ -10,7 +10,7 @@
 
 - 先 `paper`
 - 再 `recommend-only`
-- 再真钱 `live:test:stateless`
+- 再真钱 `pulse:live`
 - 不绕过 preflight
 - 不放宽 bankroll / risk caps
 
@@ -20,7 +20,7 @@
 
 ```bash
 pnpm vitest run \
-  scripts/live-test-stateless.test.ts \
+  scripts/pulse-live.test.ts \
   scripts/daily-pulse.test.ts \
   services/orchestrator/src/runtime/decision-composer.test.ts \
   services/orchestrator/src/runtime/pulse-entry-planner.test.ts \
@@ -95,7 +95,7 @@ pnpm trial:recommend -- --json
 ```bash
 ENV_FILE=.env.pizza \
 AUTOPOLY_EXECUTION_MODE=live \
-pnpm live:test:stateless -- --recommend-only --json \
+pnpm pulse:live -- --recommend-only --json \
   --pulse-json runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.json \
   --pulse-markdown runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.md
 ```
@@ -107,7 +107,7 @@ pnpm live:test:stateless -- --recommend-only --json \
 - `decisionStrategy=pulse-direct`
 - `runId=dd659a03-00ff-428b-afbc-d3f9196ebe3e`
 - archive：
-  - `runtime-artifacts/live-stateless/2026-03-23T075158Z-dd659a03-00ff-428b-afbc-d3f9196ebe3e`
+  - `runtime-artifacts/pulse-live/2026-03-23T075158Z-dd659a03-00ff-428b-afbc-d3f9196ebe3e`
 
 关键 preflight 事实：
 
@@ -171,7 +171,7 @@ ENV_FILE=.env.pizza AUTOPOLY_EXECUTION_MODE=live pnpm live:test -- --json
 ```bash
 ENV_FILE=.env.pizza \
 AUTOPOLY_EXECUTION_MODE=live \
-pnpm live:test:stateless -- --json \
+pnpm pulse:live -- --json \
   --pulse-json runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.json \
   --pulse-markdown runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.md
 ```
@@ -182,7 +182,7 @@ pnpm live:test:stateless -- --json \
 - `runId=54f81d9a-842a-459f-a05f-5a7faa9206c3`
 - `executedOrders=0`
 - archive：
-  - `runtime-artifacts/live-stateless/2026-03-23T075303Z-54f81d9a-842a-459f-a05f-5a7faa9206c3`
+  - `runtime-artifacts/pulse-live/2026-03-23T075303Z-54f81d9a-842a-459f-a05f-5a7faa9206c3`
 
 关键产物：
 
@@ -217,5 +217,5 @@ run summary 事实：
 
 1. 给 `trial:recommend` / pulse render 增加明确阶段心跳和超时摘要
 2. 明确 `.env.pizza` 是否故意使用 `MAX_TRADE_PCT=0.2`
-3. 如果目标是继续真钱低风险验证，优先复用 pulse snapshot 跑 `live:test:stateless`
+3. 如果目标是继续真钱低风险验证，优先复用 pulse snapshot 跑 `pulse:live`
 4. 如果目标是完整生产链路验证，先补 `DATABASE_URL` 和相关 stateful 基础设施

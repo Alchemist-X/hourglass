@@ -77,7 +77,7 @@ export interface SummaryArtifacts {
 }
 
 export interface LiveRunSummaryInput {
-  mode: "live:test" | "live:test:stateless";
+  mode: "live:test" | "pulse:live";
   executionMode: string;
   strategy?: string | null;
   envFilePath?: string | null;

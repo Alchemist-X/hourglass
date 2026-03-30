@@ -7,7 +7,7 @@ describe("daily pulse script", () => {
     const command = buildDailyPulseCommand(parsed);
 
     expect(parsed.recommendOnly).toBe(false);
-    expect(command.args).toEqual(["scripts/live-test-stateless.ts", "--json"]);
+    expect(command.args).toEqual(["scripts/pulse-live.ts", "--json"]);
   });
 
   it("switches to recommend-only mode only when explicitly requested", () => {
@@ -15,7 +15,7 @@ describe("daily pulse script", () => {
     const command = buildDailyPulseCommand(parsed);
 
     expect(parsed.recommendOnly).toBe(true);
-    expect(command.args).toEqual(["scripts/live-test-stateless.ts", "--recommend-only", "--json"]);
+    expect(command.args).toEqual(["scripts/pulse-live.ts", "--recommend-only", "--json"]);
   });
 
   it("supports disabling the interactive shell explicitly", () => {

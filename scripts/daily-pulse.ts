@@ -22,7 +22,7 @@ export function parseDailyPulseArgs(argv = process.argv.slice(2)): DailyPulseArg
 }
 
 export function buildDailyPulseCommand(args: DailyPulseArgs) {
-  const childArgs = ["scripts/live-test-stateless.ts"];
+  const childArgs = ["scripts/pulse-live.ts"];
   if (args.recommendOnly) {
     childArgs.push("--recommend-only");
   }
@@ -71,7 +71,7 @@ function printHelp() {
       "  - Defaults ENV_FILE to .env.pizza if unset.",
       "  - Defaults AUTOPOLY_EXECUTION_MODE to live if unset.",
       "  - Defaults AGENT_DECISION_STRATEGY to pulse-direct if unset.",
-      "  - Uses live:test:stateless under the hood.",
+      "  - Uses pulse:live under the hood.",
       "  - Executes real-money flow unless --recommend-only is explicitly provided.",
       "  - Stays open in interactive terminals after each run unless --no-stay-open is provided."
     ].join("\n")

@@ -10,7 +10,7 @@ Operating order:
 
 - `paper`
 - then `recommend-only`
-- then real-money `live:test:stateless`
+- then real-money `pulse:live`
 - never bypass preflight
 - never widen bankroll or risk caps
 
@@ -20,7 +20,7 @@ Executed:
 
 ```bash
 pnpm vitest run \
-  scripts/live-test-stateless.test.ts \
+  scripts/pulse-live.test.ts \
   scripts/daily-pulse.test.ts \
   services/orchestrator/src/runtime/decision-composer.test.ts \
   services/orchestrator/src/runtime/pulse-entry-planner.test.ts \
@@ -96,7 +96,7 @@ To bypass the model-side bottleneck, this pass reused an existing pulse archive:
 ```bash
 ENV_FILE=.env.pizza \
 AUTOPOLY_EXECUTION_MODE=live \
-pnpm live:test:stateless -- --recommend-only --json \
+pnpm pulse:live -- --recommend-only --json \
   --pulse-json runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.json \
   --pulse-markdown runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.md
 ```
@@ -108,7 +108,7 @@ Result:
 - `decisionStrategy=pulse-direct`
 - `runId=dd659a03-00ff-428b-afbc-d3f9196ebe3e`
 - archive:
-  - `runtime-artifacts/live-stateless/2026-03-23T075158Z-dd659a03-00ff-428b-afbc-d3f9196ebe3e`
+  - `runtime-artifacts/pulse-live/2026-03-23T075158Z-dd659a03-00ff-428b-afbc-d3f9196ebe3e`
 
 Key preflight facts:
 
@@ -172,7 +172,7 @@ Executed:
 ```bash
 ENV_FILE=.env.pizza \
 AUTOPOLY_EXECUTION_MODE=live \
-pnpm live:test:stateless -- --json \
+pnpm pulse:live -- --json \
   --pulse-json runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.json \
   --pulse-markdown runtime-artifacts/reports/pulse/2026/03/20/pulse-20260320T070042Z-codex-full-f983b827-bd7c-4cde-bbf5-6e59691197a4.md
 ```
@@ -183,7 +183,7 @@ Result:
 - `runId=54f81d9a-842a-459f-a05f-5a7faa9206c3`
 - `executedOrders=0`
 - archive:
-  - `runtime-artifacts/live-stateless/2026-03-23T075303Z-54f81d9a-842a-459f-a05f-5a7faa9206c3`
+  - `runtime-artifacts/pulse-live/2026-03-23T075303Z-54f81d9a-842a-459f-a05f-5a7faa9206c3`
 
 Key artifacts:
 
@@ -218,5 +218,5 @@ Conclusion:
 
 1. Add explicit stage heartbeats and timeout summaries to `trial:recommend` / pulse render
 2. Clarify whether `.env.pizza` is intentionally running with `MAX_TRADE_PCT=0.2`
-3. If the goal is continued low-risk real-money validation, prefer `live:test:stateless` with a reused pulse snapshot
+3. If the goal is continued low-risk real-money validation, prefer `pulse:live` with a reused pulse snapshot
 4. If the goal is full production-path validation, configure `DATABASE_URL` and the rest of the stateful infrastructure first

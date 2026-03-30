@@ -7,7 +7,7 @@ If you only keep one sentence in mind, use this:
 New contributors should start with the green path:
 
 - `pnpm daily:pulse`
-- `pnpm live:test:stateless`
+- `pnpm pulse:live`
 - `AGENT_DECISION_STRATEGY=pulse-direct`
 
 The mode-branch companion diagram still lives in [Order Mode Flowchart](./trading-modes-flowchart.en.md).
@@ -18,7 +18,7 @@ The mode-branch companion diagram still lives in [Order Mode Flowchart](./tradin
 flowchart LR
   human[Human / Scheduler / CLI] --> daily[pnpm daily:pulse]
   human --> paper[pnpm trial:recommend / trial:approve]
-  human --> stateless[pnpm live:test:stateless]
+  human --> stateless[pnpm pulse:live]
   human --> stateful[pnpm live:test]
 
   daily --> stateless
@@ -88,9 +88,9 @@ How to read the diagram:
 - The difference is the landing point: decisions are written to `AUTOPOLY_LOCAL_STATE_FILE`, which defaults to `runtime-artifacts/local/paper-state.json`.
 - The actual paper fills and portfolio mutation happen in [`services/orchestrator/src/ops/trial-approve.ts`](../services/orchestrator/src/ops/trial-approve.ts).
 
-### 2. `live:test:stateless`
+### 2. `pulse:live`
 
-- The entry is [`scripts/live-test-stateless.ts`](../scripts/live-test-stateless.ts).
+- The entry is [`scripts/pulse-live.ts`](../scripts/pulse-live.ts).
 - It runs live preflight, fetches remote positions and collateral, and then generates or reuses Pulse.
 - By default it uses [`services/orchestrator/src/runtime/pulse-direct-runtime.ts`](../services/orchestrator/src/runtime/pulse-direct-runtime.ts).
 - After risk guards, it talks to the executor's Polymarket layer directly and does not require a local DB or Redis.
@@ -106,20 +106,20 @@ How to read the diagram:
 One more clarification:
 
 - [`scripts/daily-pulse.ts`](../scripts/daily-pulse.ts) is not a fourth mode.
-- It is only a convenience wrapper around `live:test:stateless`, with defaults for `.env.pizza`, `AUTOPOLY_EXECUTION_MODE=live`, and `pulse-direct`.
+- It is only a convenience wrapper around `pulse:live`, with defaults for `.env.pizza`, `AUTOPOLY_EXECUTION_MODE=live`, and `pulse-direct`.
 
 ## Module Map
 
 | Module | What it owns | Start here |
 | --- | --- | --- |
-| [`scripts/`](../scripts) | Workspace CLI entrypoints that wire modes together | [`scripts/daily-pulse.ts`](../scripts/daily-pulse.ts), [`scripts/live-test-stateless.ts`](../scripts/live-test-stateless.ts), [`scripts/live-test.ts`](../scripts/live-test.ts) |
+| [`scripts/`](../scripts) | Workspace CLI entrypoints that wire modes together | [`scripts/daily-pulse.ts`](../scripts/daily-pulse.ts), [`scripts/pulse-live.ts`](../scripts/pulse-live.ts), [`scripts/live-test.ts`](../scripts/live-test.ts) |
 | [`services/orchestrator/`](../services/orchestrator) | research input, decision runtime, risk clipping, report artifacts | [`services/orchestrator/src/jobs/daily-pulse-core.ts`](../services/orchestrator/src/jobs/daily-pulse-core.ts), [`services/orchestrator/src/runtime/runtime-factory.ts`](../services/orchestrator/src/runtime/runtime-factory.ts) |
 | [`services/executor/`](../services/executor) | Polymarket connectivity, order execution, sync, flatten, stop-loss | [`services/executor/src/workers/queue-worker.ts`](../services/executor/src/workers/queue-worker.ts), [`services/executor/src/lib/polymarket.ts`](../services/executor/src/lib/polymarket.ts) |
 | [`packages/contracts/`](../packages/contracts) | shared schemas and data contracts across modules | [`packages/contracts/src/index.ts`](../packages/contracts/src/index.ts) |
 | [`packages/db/`](../packages/db) | DB schema, query facade, and paper local-state fallback | [`packages/db/src/queries.ts`](../packages/db/src/queries.ts), [`packages/db/src/local-state.ts`](../packages/db/src/local-state.ts) |
 | [`packages/terminal-ui/`](../packages/terminal-ui) | colored terminal output, summaries, and tables | [`packages/terminal-ui/src`](../packages/terminal-ui/src) |
 | [`apps/web/`](../apps/web) | public read-only pages and admin console, not the main execution hot path | [`apps/web/lib/internal-api.ts`](../apps/web/lib/internal-api.ts), [`apps/web/app`](../apps/web/app) |
-| [`runtime-artifacts/`](../runtime-artifacts) | the traceable archive of every important run output | `reports/`, `live-stateless/`, `live-test/`, `checkpoints/`, `local/` |
+| [`runtime-artifacts/`](../runtime-artifacts) | the traceable archive of every important run output | `reports/`, `pulse-live/`, `live-test/`, `checkpoints/`, `local/` |
 | [`services/rough-loop/`](../services/rough-loop) | independent coding loop, not part of the trading path | [`services/rough-loop/src/cli.ts`](../services/rough-loop/src/cli.ts) |
 
 ## Source Of Truth vs Runtime Archive
@@ -129,7 +129,7 @@ This is the easiest boundary for new contributors to confuse:
 | Scenario | Real source of truth | What that means |
 | --- | --- | --- |
 | `paper` | `AUTOPOLY_LOCAL_STATE_FILE`, defaulting to `runtime-artifacts/local/paper-state.json` | recommendation lands in local state first, and `trial:approve` performs the actual paper mutation |
-| `live:test:stateless` | remote wallet / Polymarket | local files are mainly archives, not an internal portfolio ledger |
+| `pulse:live` | remote wallet / Polymarket | local files are mainly archives, not an internal portfolio ledger |
 | `live:test` | Postgres + Redis + queue worker | the system maintains runs, decisions, positions, execution events, snapshots, and system status internally |
 | `runtime-artifacts/` | usually not a source of truth | it mostly stores checkpoints, reports, summaries, and errors for traceability |
 
@@ -146,7 +146,7 @@ One more note:
   - human-readable portfolio reports
 - `runtime-artifacts/reports/runtime-log/...`
   - explanatory runtime logs
-- `runtime-artifacts/live-stateless/<run>/`
+- `runtime-artifacts/pulse-live/<run>/`
   - `preflight.json`, `recommendation.json`, `execution-summary.json`, `run-summary.md`
 - `runtime-artifacts/live-test/<run>/`
   - preflight, recommendation, execution summary, or error artifacts for the stateful path
@@ -157,7 +157,7 @@ One more note:
 
 ## Seven Things New Contributors Commonly Mix Up
 
-- `daily:pulse` is not a separate engine; it wraps `live:test:stateless`.
+- `daily:pulse` is not a separate engine; it wraps `pulse:live`.
 - `Preflight` is a stage, not a mode.
 - `pulse-direct` is the current default main path; `provider-runtime` still exists but is now mainly legacy/comparison.
 - `apps/web` reads data and triggers admin actions; it does not sit in the main trading hot path, and its data source is not always the DB.
@@ -170,7 +170,7 @@ One more note:
 1. Read this page first to understand module boundaries.
 2. Read [Order Mode Flowchart](./trading-modes-flowchart.en.md) next for mode branching.
 3. Follow the default path in code:
-   `scripts/daily-pulse.ts -> scripts/live-test-stateless.ts -> services/orchestrator/src/jobs/daily-pulse-core.ts -> services/orchestrator/src/runtime/pulse-direct-runtime.ts`
+   `scripts/daily-pulse.ts -> scripts/pulse-live.ts -> services/orchestrator/src/jobs/daily-pulse-core.ts -> services/orchestrator/src/runtime/pulse-direct-runtime.ts`
 4. Then compare the alternate entrypoints:
    [`scripts/live-test.ts`](../scripts/live-test.ts),
    [`services/orchestrator/src/ops/trial-recommend.ts`](../services/orchestrator/src/ops/trial-recommend.ts),

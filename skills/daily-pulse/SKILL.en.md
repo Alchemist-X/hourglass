@@ -21,7 +21,7 @@ In this repository, the unified entrypoint for the daily pulse recommendation fl
 - Default command:
   - `pnpm daily:pulse`
 - Primary defaults:
-  - Uses `live:test:stateless` internally
+  - Uses `pulse:live` internally
   - Does not add `--recommend-only`
   - Defaults `ENV_FILE` to `.env.pizza`
   - Defaults `AGENT_DECISION_STRATEGY` to `pulse-direct`
@@ -66,7 +66,7 @@ After the run, report at least:
 
 ## Key artifact locations
 
-- `runtime-artifacts/live-stateless/<timestamp>-<runId>/`
+- `runtime-artifacts/pulse-live/<timestamp>-<runId>/`
 - `runtime-artifacts/reports/pulse/...`
 - `runtime-artifacts/reports/review/...`
 - `runtime-artifacts/reports/monitor/...`

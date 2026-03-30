@@ -100,10 +100,10 @@ autonomous-poly-trading/                    # pnpm monorepo, Node>=20, pnpm@10.2
 │       └── src/index.ts                    # 彩色日志/进度条/错误格式化
 │
 ├── scripts/                                # [活跃] CLI 入口脚本 (22个文件)
-│   ├── live-test-stateless.ts              # 无状态实盘测试 (984行!)
+│   ├── pulse-live.ts              # 无状态实盘测试 (984行!)
 │   ├── live-test.ts                        # 有状态实盘测试 (726行)
-│   ├── live-test-stateless-pulse.ts        # Pulse 子流程
-│   ├── live-test-stateless-helpers.ts      # 辅助函数
+│   ├── pulse-live-pulse.ts        # Pulse 子流程
+│   ├── pulse-live-helpers.ts      # 辅助函数
 │   ├── daily-pulse.ts                      # 每日 Pulse 脚本
 │   ├── live-run-summary.ts                 # 运行总结生成
 │   ├── live-run-common.ts                  # 公共辅助
@@ -135,7 +135,7 @@ autonomous-poly-trading/                    # pnpm monorepo, Node>=20, pnpm@10.2
 ├── E2E Test Driven Development/            # [休眠] Playwright E2E 测试 (45MB)
 │
 ├── runtime-artifacts/                      # [运行产物] 运行归档 (33MB, gitignored except .gitkeep)
-│   ├── live-stateless/                     # 49+个时间戳命名的运行目录
+│   ├── pulse-live/                     # 49+个时间戳命名的运行目录
 │   ├── live-test/                          # 有状态运行归档
 │   ├── reports/                            # Pulse 报告
 │   ├── rough-loop/                         # Rough Loop 产物
@@ -180,14 +180,14 @@ autonomous-poly-trading/                    # pnpm monorepo, Node>=20, pnpm@10.2
 
 ### 2.1 主链路 (pulse-direct, stateless)
 
-这是当前**实际在用的主路径**，通过 `pnpm live:test:stateless` 启动。
+这是当前**实际在用的主路径**，通过 `pnpm pulse:live` 启动。
 
-This is the **actually used main path**, launched via `pnpm live:test:stateless`.
+This is the **actually used main path**, launched via `pnpm pulse:live`.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. Preflight 预检                                                │
-│     scripts/live-test-stateless.ts                                │
+│     scripts/pulse-live.ts                                │
 │     → 加载 .env.pizza (或其他钱包)                                │
 │     → 验证钱包凭证、查询余额                                     │
 │     → 检查 Polymarket API 可达性                                  │
@@ -240,7 +240,7 @@ This is the **actually used main path**, launched via `pnpm live:test:stateless`
 │     orchestrator/src/lib/portfolio-report-artifacts.ts (1266行)   │
 │     → 生成 5-8 个文件: pulse-report, runtime-log, execution-plan, │
 │       portfolio-report, summary JSON                              │
-│     → 写入 runtime-artifacts/live-stateless/{timestamp}/          │
+│     → 写入 runtime-artifacts/pulse-live/{timestamp}/          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -282,7 +282,7 @@ rough-loop/src/cli.ts → 读取 rough-loop.md 任务队列
 
 | 模块 / Module | 路径 / Path | 用途 / Purpose |
 |---|---|---|
-| Stateless 实盘入口 | `scripts/live-test-stateless.ts` | 当前唯一实际运行的交易入口 |
+| Stateless 实盘入口 | `scripts/pulse-live.ts` | 当前唯一实际运行的交易入口 |
 | Pulse Direct Runtime | `orchestrator/src/runtime/pulse-direct-runtime.ts` | 主决策引擎 |
 | Pulse 市场研究 | `orchestrator/src/pulse/full-pulse.ts` | 市场候选生成 |
 | 风控 | `orchestrator/src/lib/risk.ts` + `execution-planning.ts` | 交易裁剪 |
@@ -306,7 +306,7 @@ rough-loop/src/cli.ts → 读取 rough-loop.md 任务队列
 | Trial 系列 | `orchestrator/src/ops/trial-*.ts` | 人工审批流程，当前未使用 |
 | BullMQ Queue Worker | `executor/src/workers/queue-worker.ts` | stateless 路径不经过队列 |
 | Executor ops/ | `executor/src/ops/` | 空目录 |
-| 有状态 live-test | `scripts/live-test.ts` (726行) | 被 live-test-stateless.ts 取代 |
+| 有状态 live-test | `scripts/live-test.ts` (726行) | 被 pulse-live.ts 取代 |
 | todo-loop.md | 根级 | 被 rough-loop.md 取代 |
 
 ### 3.3 重复代码 (Duplicated Code)
@@ -389,7 +389,7 @@ The root directory has **16 Markdown files**, most of which should be moved to s
 | `orchestrator/src/pulse/full-pulse.ts` | 1251 | 拆分为 fetch / filter / render / snapshot 模块 |
 | `orchestrator/src/lib/portfolio-report-artifacts.ts` | 1266 | 拆分为 report-builder / report-formatter / artifact-writer |
 | `orchestrator/src/runtime/provider-runtime.ts` | 971 | 删除 (dead code) |
-| `scripts/live-test-stateless.ts` | 984 | 拆分为 preflight / pulse / decision / execution / report 阶段 |
+| `scripts/pulse-live.ts` | 984 | 拆分为 preflight / pulse / decision / execution / report 阶段 |
 | `orchestrator/src/jobs/resolution.ts` | 965 | 评估是否仍需要，若需要则拆分 |
 | `scripts/live-test.ts` | 726 | 删除 (被 stateless 取代) |
 
@@ -475,7 +475,7 @@ autonomous-poly-trading/
 │       └── resolution.ts
 │
 ├── scripts/                                # [简化] 仅 CLI 入口
-│   ├── live.ts                             # 唯一交易入口 (替代 live-test-stateless)
+│   ├── live.ts                             # 唯一交易入口 (替代 pulse-live)
 │   ├── daily-pulse.ts                      # 每日 Pulse
 │   ├── cache-order-limits.ts               # 缓存订单限价
 │   └── sync-vendors.mjs                    # vendor 同步
@@ -537,7 +537,7 @@ autonomous-poly-trading/
 | P2 | 重命名 Wasted/ -> archive/ | 5min | 更专业的命名 |
 | P2 | 拆分 full-pulse.ts (1251行) | 2h | 可维护性 |
 | P2 | 拆分 portfolio-report-artifacts.ts (1266行) | 2h | 可维护性 |
-| P3 | 拆分 live-test-stateless.ts (984行) | 2h | 可维护性 |
+| P3 | 拆分 pulse-live.ts (984行) | 2h | 可维护性 |
 | P3 | 合并 orchestrator + executor 为单进程 | 4h | 架构简化 |
 | P3 | 移除 BullMQ/Redis 依赖 (如 Web UI 不需要) | 1h | 减少基础设施要求 |
 | P3 | 清理 E2E Test Driven Development/ (45MB) | 30min | 减少仓库体积 |

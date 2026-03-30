@@ -62,7 +62,7 @@ applyTradeGuards()        -> 5 个上限取最小值，级联压缩到 0
 
 | 文件 | 问题 |
 |------|------|
-| `live-test-stateless.ts` | 984 行，功能过于集中 |
+| `pulse-live.ts` | 984 行，功能过于集中 |
 | `execution-planning.ts` | `buildExecutionPlan` 是一个 160 行的函数，嵌套循环 |
 | `position-review.ts` | 383 行，分支逻辑复杂 |
 | `risk.ts:applyTradeGuards` | 一个函数用 5 层级联 `min()` 应用上限 — 无法调试是哪个上限卡住了 |
@@ -115,7 +115,7 @@ applyTradeGuards()        -> 5 个上限取最小值，级联压缩到 0
 ### Phase 2：简化为单进程
 
 #### 2.1 删除 Stateful 路径
-- 只保留 `live-test-stateless.ts` 作为唯一执行路径
+- 只保留 `pulse-live.ts` 作为唯一执行路径
 - 重命名为 `live-house.ts`
 - 移除 agent-cycle.ts、queue-worker.ts 依赖
 

@@ -7,7 +7,7 @@ import {
   calculatePositionValueUsd,
   isBelowExchangeBuyMinimum,
   isBelowExchangeSellMinimum
-} from "./live-test-stateless-helpers.ts";
+} from "./pulse-live-helpers.ts";
 
 describe("stateless live test helpers", () => {
   it("computes the exchange minimum buy notional from best ask and min order size", () => {

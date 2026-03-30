@@ -30,7 +30,7 @@ The product request can be reduced to 3 modules:
 
 If the remote Agent needs to get something running on a server quickly, use this order:
 
-1. deploy `live:test:stateless` first
+1. deploy `pulse:live` first
    - it does not depend on local `Postgres` or `Redis`
    - it is the easiest remote closed loop today
    - it fits a daily scheduled job
@@ -45,14 +45,14 @@ If the remote Agent needs to get something running on a server quickly, use this
 
 Reason:
 
-- `live:test:stateless` is currently the easiest path to build and run remotely
+- `pulse:live` is currently the easiest path to build and run remotely
 - but it is not yet a full autonomous portfolio-management system
 - current `pulse-direct` keeps existing positions as `hold` by default and explicitly states that no dedicated exit engine exists yet
 - the real `sync portfolio + stop-loss + snapshot` logic lives in the full executor queue-worker path
 
 So:
 
-- if you only need “run every day and optionally open new positions from pulse”, start with `live:test:stateless`
+- if you only need “run every day and optionally open new positions from pulse”, start with `pulse:live`
 - if you need “real autonomous management of existing positions”, you must continue into the full service path
 
 ## 3. Current Repository Status
@@ -69,7 +69,7 @@ The repository already has these foundations:
 - provider runtime is wired for `codex | openclaw`
 - pulse is no longer a mock fallback; it is fetched for real and archived
 - one small real trade has already succeeded
-- `live:test:stateless` already produces preflight / recommendation / execution-summary archives
+- `pulse:live` already produces preflight / recommendation / execution-summary archives
 
 Important non-goals:
 
@@ -92,7 +92,7 @@ On 2026-03-17, two additional Rough Loop regression tasks were completed:
 - `RL-002`
   - `services/orchestrator/src/runtime/provider-runtime.test.ts` passed
 - `RL-003`
-  - `scripts/live-test-stateless.test.ts` now covers the `execution mode` / `decision strategy` output contract
+  - `scripts/pulse-live.test.ts` now covers the `execution mode` / `decision strategy` output contract
 
 ### 4.2 Real trade result
 
@@ -112,11 +112,11 @@ The position was read back successfully:
 
 ### 4.3 Latest stateless remote-friendly closed loop
 
-An archived `live:test:stateless` run on `2026-03-17` shows:
+An archived `pulse:live` run on `2026-03-17` shows:
 
 - runId: `8c1f79e9-37f3-4706-8009-4dd6924def96`
 - archive directory:
-  - `runtime-artifacts/live-stateless/2026-03-17T024012Z-8c1f79e9-37f3-4706-8009-4dd6924def96/`
+  - `runtime-artifacts/pulse-live/2026-03-17T024012Z-8c1f79e9-37f3-4706-8009-4dd6924def96/`
 - preflight:
   - `executionMode=live`
   - `collateralBalanceUsd=41.7019`
@@ -163,7 +163,7 @@ This section matters. A remote Agent can easily deploy the wrong thing otherwise
   - can output structured `TradeDecisionSet`
 - `pulse-direct`
   - can translate pulse reports into executable decisions
-- `live:test:stateless`
+- `pulse:live`
   - can run a live flow without DB/Redis
 - `executor sync + stop-loss`
   - exists inside the queue worker
@@ -195,7 +195,7 @@ If the remote goal is only:
 then use:
 
 - `AGENT_DECISION_STRATEGY=pulse-direct`
-- `pnpm live:test:stateless`
+- `pnpm pulse:live`
 
 If the remote goal is:
 
@@ -324,13 +324,13 @@ PULSE_REPORT_TIMEOUT_SECONDS=0
 First run recommendations only:
 
 ```bash
-ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only
+ENV_FILE=/secure/path/pizza.env pnpm pulse:live -- --recommend-only
 ```
 
 Only after verifying the following artifacts should you enable execution:
 
-- `runtime-artifacts/live-stateless/<timestamp>-<runId>/preflight.json`
-- `runtime-artifacts/live-stateless/<timestamp>-<runId>/recommendation.json`
+- `runtime-artifacts/pulse-live/<timestamp>-<runId>/preflight.json`
+- `runtime-artifacts/pulse-live/<timestamp>-<runId>/recommendation.json`
 - `runtime-artifacts/reports/pulse/YYYY/MM/DD/*.md`
 - `runtime-artifacts/reports/pulse/YYYY/MM/DD/*.json`
 - `runtime-artifacts/reports/runtime-log/YYYY/MM/DD/*.md`
@@ -338,7 +338,7 @@ Only after verifying the following artifacts should you enable execution:
 Then enable real execution:
 
 ```bash
-ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless
+ENV_FILE=/secure/path/pizza.env pnpm pulse:live
 ```
 
 ### 7.2 Plan B: if it must run every day
@@ -348,13 +348,13 @@ For the stateless path, use system cron or a systemd timer.
 Simple cron example:
 
 ```cron
-15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless >> /var/log/autopoly-live-stateless.log 2>&1
+15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm pulse:live >> /var/log/autopoly-pulse-live.log 2>&1
 ```
 
 If you want to observe for 3 to 7 days before allowing real execution, start with:
 
 ```cron
-15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only >> /var/log/autopoly-live-stateless.log 2>&1
+15 9 * * * cd /srv/autonomous-poly-trading && ENV_FILE=/secure/path/pizza.env pnpm pulse:live -- --recommend-only >> /var/log/autopoly-pulse-live.log 2>&1
 ```
 
 ### 7.3 Plan C: if the target is a full autonomous portfolio-management system
@@ -400,13 +400,13 @@ But note:
 
 It is a code-task loop, not the production trading daemon.
 
-### 8.2 `live:test` and `live:test:stateless` are different
+### 8.2 `live:test` and `pulse:live` are different
 
 - `live:test`
   - depends on DB/Redis
   - has stricter preflight rules
   - does not have a completed stable closed-loop record yet
-- `live:test:stateless`
+- `pulse:live`
   - does not depend on DB/Redis
   - is the better first remote phase today
 
@@ -447,10 +447,10 @@ If the remote Agent clones directly from GitHub:
 2. run `pnpm install && pnpm vendor:sync`
 3. configure the `codex` CLI and a dedicated wallet env file
 4. run:
-   - `ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless -- --recommend-only`
+   - `ENV_FILE=/secure/path/pizza.env pnpm pulse:live -- --recommend-only`
 5. inspect artifacts, recommendation quality, pulse output, and runtime log
 6. then run:
-   - `ENV_FILE=/secure/path/pizza.env pnpm live:test:stateless`
+   - `ENV_FILE=/secure/path/pizza.env pnpm pulse:live`
 7. observe for several days
 8. if the real goal is “automatic rebalance / stop-loss / monitoring”
    - switch to the full service deployment track
@@ -467,7 +467,7 @@ If some of these files are missing in a remote clone, first check the earlier no
 - [services/orchestrator/src/runtime/pulse-direct-runtime.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/services/orchestrator/src/runtime/pulse-direct-runtime.ts)
 - [services/orchestrator/src/runtime/provider-runtime.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/services/orchestrator/src/runtime/provider-runtime.ts)
 - [services/executor/src/workers/queue-worker.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/services/executor/src/workers/queue-worker.ts)
-- [scripts/live-test-stateless.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/scripts/live-test-stateless.ts)
+- [scripts/pulse-live.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/scripts/pulse-live.ts)
 - [scripts/live-test.ts](/Users/Aincrad/dev-proj/autonomous-poly-trading/scripts/live-test.ts)
 
 ## 11. One-Line Transfer Summary

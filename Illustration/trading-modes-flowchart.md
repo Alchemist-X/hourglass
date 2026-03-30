@@ -10,7 +10,7 @@ flowchart TD
   E --> F[Paper execution + 本地状态更新]
 
   B -->|live| G{入口命令}
-  G -->|pnpm live:test:stateless| H[Preflight]
+  G -->|pnpm pulse:live| H[Preflight]
   G -->|pnpm live:test| I[Preflight + DB/Redis/Queue Worker]
 
   H --> J[生成或复用 Pulse]
@@ -34,6 +34,6 @@ flowchart TD
 
 ## 名词对齐
 
-- `Stateless`：`pnpm live:test:stateless`
+- `Stateless`：`pnpm pulse:live`
 - `Pre-Flight`：live 流程中的前置检查阶段（不是独立下单模式）
 - `House Direct`：`AGENT_DECISION_STRATEGY=pulse-direct`

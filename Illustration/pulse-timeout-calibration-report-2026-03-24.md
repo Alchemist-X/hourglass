@@ -70,7 +70,7 @@
 
 - 使用独立 worktree：`/Users/Aincrad/dev-proj/autonomous-poly-trading-timeout-exp`
 - 使用 5 个 sub-agent 并行执行
-- 所有实验都跑真实 `live:test:stateless --recommend-only`
+- 所有实验都跑真实 `pulse:live --recommend-only`
 - 所有实验都写入独立 artifact root，避免互相污染
 
 ### 5.2 无 timeout 限制模式
@@ -101,7 +101,7 @@ PROVIDER_TIMEOUT_SECONDS=0 \
 ARTIFACT_STORAGE_ROOT=<per-run-artifact-root> \
 /usr/bin/time -p \
 /Users/Aincrad/dev-proj/autonomous-poly-trading/node_modules/.bin/tsx \
-scripts/live-test-stateless.ts --recommend-only --json
+scripts/pulse-live.ts --recommend-only --json
 ```
 
 ## 6. 5 路并行实验结果

@@ -47,9 +47,9 @@ Please edit the status using:
 
 - [ ] `live:test`
   - Current suggestion: `merge`
-  - Reason: heavily overlaps with `live:test:stateless`
+  - Reason: heavily overlaps with `pulse:live`
 
-- [ ] `live:test:stateless`
+- [ ] `pulse:live`
   - Current suggestion: `merge`
   - Reason: heavily overlaps with `live:test`
 
@@ -134,7 +134,7 @@ Please edit the status using:
 Current large files:
 
 - `scripts/live-test.ts`: about `809` lines
-- `scripts/live-test-stateless.ts`: about `1269` lines
+- `scripts/pulse-live.ts`: about `1269` lines
 - `scripts/live-run-summary.ts`: about `453` lines
 
 Current issues:
@@ -158,7 +158,7 @@ Current surface includes:
 
 - `trial:*`
 - `live:test`
-- `live:test:stateless`
+- `pulse:live`
 - orchestrator + executor + web
 
 Current issue:
@@ -198,7 +198,7 @@ Recommendation:
 
 - `trial:*`
 - `live:test`
-- `live:test:stateless`
+- `pulse:live`
 
 should all call the same core instead of each owning a full copy of the flow.
 
@@ -260,7 +260,7 @@ Suggested shared fields:
 
 ### Phase 1
 
-- merge the shared logic from `live:test` and `live:test:stateless`
+- merge the shared logic from `live:test` and `pulse:live`
 - do not change CLI names yet, only extract a shared core
 
 ### Phase 2

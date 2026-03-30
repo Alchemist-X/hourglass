@@ -47,9 +47,9 @@
 
 - [ ] `live:test`
   - 当前建议：`合并`
-  - 原因：和 `live:test:stateless` 大量逻辑重叠
+  - 原因：和 `pulse:live` 大量逻辑重叠
 
-- [ ] `live:test:stateless`
+- [ ] `pulse:live`
   - 当前建议：`合并`
   - 原因：和 `live:test` 大量逻辑重叠
 
@@ -134,7 +134,7 @@
 目前大文件如下：
 
 - `scripts/live-test.ts`：约 `809` 行
-- `scripts/live-test-stateless.ts`：约 `1269` 行
+- `scripts/pulse-live.ts`：约 `1269` 行
 - `scripts/live-run-summary.ts`：约 `453` 行
 
 当前问题：
@@ -158,7 +158,7 @@
 
 - `trial:*`
 - `live:test`
-- `live:test:stateless`
+- `pulse:live`
 - orchestrator + executor + web
 
 问题是：
@@ -204,7 +204,7 @@
 
 - `trial:*`
 - `live:test`
-- `live:test:stateless`
+- `pulse:live`
 
 都调用同一个 core，而不是各自维护完整流程。
 
@@ -266,7 +266,7 @@
 
 ### Phase 1
 
-- 合并 `live:test` 和 `live:test:stateless` 的共享部分
+- 合并 `live:test` 和 `pulse:live` 的共享部分
 - 先不改外部命令名，只抽出 core
 
 ### Phase 2

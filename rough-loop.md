@@ -54,10 +54,10 @@ P1
 暂无任务。
 
 ## Done（已完成）
-### RL-003 | 确保 live:test:stateless 明确输出 execution mode 与 decision strategy / Ensure live:test:stateless prints execution mode and decision strategy
+### RL-003 | 确保 pulse:live 明确输出 execution mode 与 decision strategy / Ensure pulse:live prints execution mode and decision strategy
 
 #### Title（标题）
-确保 live:test:stateless 明确输出 execution mode 与 decision strategy / Ensure live:test:stateless prints execution mode and decision strategy
+确保 pulse:live 明确输出 execution mode 与 decision strategy / Ensure pulse:live prints execution mode and decision strategy
 
 #### Status（状态）
 done
@@ -69,20 +69,20 @@ P1
 - RL-001
 
 #### Allowed Paths（允许改动路径）
-- scripts/live-test-stateless.ts
-- scripts/live-test-stateless.test.ts
+- scripts/pulse-live.ts
+- scripts/pulse-live.test.ts
 - services/orchestrator/src/ops/trial-recommend.ts
 - README.md
 - README.en.md
 
 #### Definition of Done（完成定义）
-- `live:test:stateless` 的人类可读输出始终明确展示当前 `execution mode` 与 `decision strategy` / Ensure the human-readable `live:test:stateless` output always shows the current `execution mode` and `decision strategy`
+- `pulse:live` 的人类可读输出始终明确展示当前 `execution mode` 与 `decision strategy` / Ensure the human-readable `pulse:live` output always shows the current `execution mode` and `decision strategy`
 - 用测试覆盖这个输出契约，防止未来回退 / Cover this output contract with tests to prevent regressions
 - 只有在命令行行为真的变化时才更新 `README.md` 和 `README.en.md` / Update `README.md` and `README.en.md` only if the CLI behavior really changes
 
 #### Verification（验证命令）
-- pnpm vitest run scripts/live-test-stateless.test.ts
-- pnpm exec tsx -e "import('./scripts/live-test-stateless.ts').then(() => console.log('import-ok'))"
+- pnpm vitest run scripts/pulse-live.test.ts
+- pnpm exec tsx -e "import('./scripts/pulse-live.ts').then(() => console.log('import-ok'))"
 
 #### Context（上下文）
 - 仓库规则要求任何一次执行都必须明确当前使用的 `execution mode` 与 `decision strategy` / Repository rules require every execution path to state the current `execution mode` and `decision strategy`
