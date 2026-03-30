@@ -18,13 +18,13 @@ The mode-branch companion diagram still lives in [Order Mode Flowchart](./tradin
 flowchart LR
   human[Human / Scheduler / CLI] --> daily[pnpm daily:pulse]
   human --> paper[pnpm trial:recommend / trial:approve]
-  human --> stateless[pnpm pulse:live]
+  human --> pulseLive[pnpm pulse:live]
   human --> stateful[pnpm live:test]
 
-  daily --> stateless
+  daily --> pulseLive
 
   paper --> paperCore[Load portfolio context]
-  stateless --> preflight[Preflight]
+  pulseLive --> preflight[Preflight]
   stateful --> infraPreflight[Preflight + DB/Redis/Queue]
 
   paperCore --> pulse[Pulse generation]
@@ -40,7 +40,7 @@ flowchart LR
 
   guards --> route{Execution path}
   route -->|paper| localState[Local paper state file]
-  route -->|stateless| directExec[Direct Polymarket execution]
+  route -->|pulse-live| directExec[Direct Polymarket execution]
   route -->|stateful| queueExec[BullMQ queue + executor worker]
 
   queueExec --> db[(Postgres / Redis)]
@@ -65,7 +65,7 @@ flowchart LR
   classDef storage fill:#fff8db,stroke:#b54708,stroke-width:2px,color:#5f370e;
   classDef auxiliary fill:#f4f3ff,stroke:#6e59cf,stroke-width:1px,color:#2f2473;
 
-  class daily,stateless,preflight,pulse,pulseDirect,guards,directExec primary;
+  class daily,pulseLive,preflight,pulse,pulseDirect,guards,directExec primary;
   class providerRuntime legacy;
   class stateful,infraPreflight,queueExec,db stateful;
   class localState,artifacts,reports storage;
@@ -99,7 +99,7 @@ How to read the diagram:
 ### 3. `live:test`
 
 - The entry is [`scripts/live-test.ts`](../scripts/live-test.ts).
-- It does the same high-level work as stateless, but also checks DB, Redis, and queue-worker readiness.
+- It does the same high-level work as pulse:live, but also checks DB, Redis, and queue-worker readiness.
 - Orchestrator persists the run to DB and hands executable trades to [`services/executor/src/workers/queue-worker.ts`](../services/executor/src/workers/queue-worker.ts) through BullMQ.
 - It is closer to the production shape, but also more infra-sensitive.
 

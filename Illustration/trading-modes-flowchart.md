@@ -25,7 +25,7 @@ flowchart TD
 
   N --> O{是否有可执行计划}
   O -->|否| P[仅输出总结，0 笔下单]
-  O -->|是 + stateless| Q[直接执行下单]
+  O -->|是 + pulse-live| Q[直接执行下单]
   O -->|是 + stateful| R[入队执行 + 同步]
 
   Q --> S[execution-summary 归档]
@@ -34,6 +34,6 @@ flowchart TD
 
 ## 名词对齐
 
-- `Stateless`：`pnpm pulse:live`
+- `Pulse Live`：`pnpm pulse:live`
 - `Pre-Flight`：live 流程中的前置检查阶段（不是独立下单模式）
 - `House Direct`：`AGENT_DECISION_STRATEGY=pulse-direct`

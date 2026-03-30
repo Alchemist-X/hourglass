@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildStatelessRunIdentityRows,
-  buildStatelessOverview,
+  buildPulseLiveRunIdentityRows,
+  buildPulseLiveOverview,
   computeExchangeBuyMinNotionalUsd,
   calculatePositionPnlPct,
   calculatePositionValueUsd,
@@ -9,7 +9,7 @@ import {
   isBelowExchangeSellMinimum
 } from "./pulse-live-helpers.ts";
 
-describe("stateless live test helpers", () => {
+describe("pulse-live helpers", () => {
   it("computes the exchange minimum buy notional from best ask and min order size", () => {
     expect(computeExchangeBuyMinNotionalUsd({
       bestAsk: 0.43,
@@ -25,7 +25,7 @@ describe("stateless live test helpers", () => {
   });
 
   it("builds an overview from collateral and open exposure without capping", () => {
-    const overview = buildStatelessOverview({
+    const overview = buildPulseLiveOverview({
       collateralBalanceUsd: 18,
       positions: [
         {
@@ -53,7 +53,7 @@ describe("stateless live test helpers", () => {
   });
 
   it("uses actual equity even when it exceeds what would have been a static cap", () => {
-    const overview = buildStatelessOverview({
+    const overview = buildPulseLiveOverview({
       collateralBalanceUsd: 500,
       positions: [
         {
@@ -105,7 +105,7 @@ describe("stateless live test helpers", () => {
   });
 
   it("surfaces execution mode and decision strategy in terminal summary rows", () => {
-    expect(buildStatelessRunIdentityRows({
+    expect(buildPulseLiveRunIdentityRows({
       executionMode: "live",
       decisionStrategy: "pulse-direct"
     })).toEqual([

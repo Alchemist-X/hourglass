@@ -215,7 +215,7 @@
 - `state adapter`
   - `paper-local`
   - `db-state`
-  - `remote-stateless snapshot`
+  - `remote-live snapshot`
 
 - `execution adapter`
   - `paper`

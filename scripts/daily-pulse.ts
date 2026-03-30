@@ -58,7 +58,7 @@ function printHelp() {
     [
       "daily:pulse",
       "",
-      "Default route: stateless daily pulse in live execute mode.",
+      "Default route: pulse-live daily pulse in live execute mode.",
       "",
       "Examples:",
       "  pnpm daily:pulse",

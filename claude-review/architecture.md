@@ -178,7 +178,7 @@ autonomous-poly-trading/                    # pnpm monorepo, Node>=20, pnpm@10.2
 
 ## 2. 数据流：从市场数据到交易执行 / Data Flow: Market Data to Trade Execution
 
-### 2.1 主链路 (pulse-direct, stateless)
+### 2.1 主链路 (pulse-direct, pulse-live)
 
 这是当前**实际在用的主路径**，通过 `pnpm pulse:live` 启动。
 
@@ -228,7 +228,7 @@ This is the **actually used main path**, launched via `pnpm pulse:live`.
 └─────────────────────────┬────────────────────────────────────────┘
                           ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  5. Execution 执行 (stateless 路径直接调用)                       │
+│  5. Execution 执行 (pulse-live 路径直接调用)                      │
 │     executor/src/lib/polymarket.ts: 下单到 Polymarket CLOB        │
 │     executor/src/lib/polymarket-sdk.ts: SDK 封装                  │
 │     executor/src/lib/orderbook-limits.ts: 订单簿询价              │
@@ -258,9 +258,9 @@ orchestrator (Fastify + cron) → agent-cycle.ts → ProviderRuntime
   → DB 写入持仓/交易记录
 ```
 
-**状态**: 代码中 `runtime-factory.ts` 已对 provider-runtime 发出 deprecation warning。实际运行全部使用 pulse-direct + stateless 路径。
+**状态**: 代码中 `runtime-factory.ts` 已对 provider-runtime 发出 deprecation warning。实际运行全部使用 pulse-direct + pulse-live 路径。
 
-**Status**: `runtime-factory.ts` already emits a deprecation warning for provider-runtime. All actual runs use the pulse-direct + stateless path.
+**Status**: `runtime-factory.ts` already emits a deprecation warning for provider-runtime. All actual runs use the pulse-direct + pulse-live path.
 
 ### 2.3 Rough Loop (非交易)
 
@@ -282,7 +282,7 @@ rough-loop/src/cli.ts → 读取 rough-loop.md 任务队列
 
 | 模块 / Module | 路径 / Path | 用途 / Purpose |
 |---|---|---|
-| Stateless 实盘入口 | `scripts/pulse-live.ts` | 当前唯一实际运行的交易入口 |
+| Pulse Live 实盘入口 | `scripts/pulse-live.ts` | 当前唯一实际运行的交易入口 |
 | Pulse Direct Runtime | `orchestrator/src/runtime/pulse-direct-runtime.ts` | 主决策引擎 |
 | Pulse 市场研究 | `orchestrator/src/pulse/full-pulse.ts` | 市场候选生成 |
 | 风控 | `orchestrator/src/lib/risk.ts` + `execution-planning.ts` | 交易裁剪 |
@@ -304,7 +304,7 @@ rough-loop/src/cli.ts → 读取 rough-loop.md 任务队列
 | Agent Cycle (stateful) | `orchestrator/src/jobs/agent-cycle.ts` | 仅 stateful 路径使用 |
 | Paper Trading | `orchestrator/src/ops/paper-trading.ts` | 模拟交易，当前未使用 |
 | Trial 系列 | `orchestrator/src/ops/trial-*.ts` | 人工审批流程，当前未使用 |
-| BullMQ Queue Worker | `executor/src/workers/queue-worker.ts` | stateless 路径不经过队列 |
+| BullMQ Queue Worker | `executor/src/workers/queue-worker.ts` | pulse-live 路径不经过队列 |
 | Executor ops/ | `executor/src/ops/` | 空目录 |
 | 有状态 live-test | `scripts/live-test.ts` (726行) | 被 pulse-live.ts 取代 |
 | todo-loop.md | 根级 | 被 rough-loop.md 取代 |
@@ -391,15 +391,15 @@ The root directory has **16 Markdown files**, most of which should be moved to s
 | `orchestrator/src/runtime/provider-runtime.ts` | 971 | 删除 (dead code) |
 | `scripts/pulse-live.ts` | 984 | 拆分为 preflight / pulse / decision / execution / report 阶段 |
 | `orchestrator/src/jobs/resolution.ts` | 965 | 评估是否仍需要，若需要则拆分 |
-| `scripts/live-test.ts` | 726 | 删除 (被 stateless 取代) |
+| `scripts/live-test.ts` | 726 | 删除 (被 pulse-live 取代) |
 
 ### 4.6 monorepo 不必要的复杂度 (Unnecessary Monorepo Complexity)
 
 | 问题 / Issue | 详情 / Detail |
 |---|---|
-| services/orchestrator + services/executor 分离 | stateless 路径中，executor 的功能被 scripts 直接调用，不经过队列。两个服务可合并为一个 |
-| BullMQ + Redis 依赖 | stateless 路径不使用队列。根 `package.json` 仍有 `bullmq` 和 `ioredis` 依赖 |
-| PostgreSQL 依赖 | stateless 路径使用 `packages/db/local-state.ts` 而非真实数据库 |
+| services/orchestrator + services/executor 分离 | pulse-live 路径中，executor 的功能被 scripts 直接调用，不经过队列。两个服务可合并为一个 |
+| BullMQ + Redis 依赖 | pulse-live 路径不使用队列。根 `package.json` 仍有 `bullmq` 和 `ioredis` 依赖 |
+| PostgreSQL 依赖 | pulse-live 路径使用 `packages/db/local-state.ts` 而非真实数据库 |
 | `E2E Test Driven Development/` | 目录名含空格，45MB (含 node_modules)，在 pnpm-workspace.yaml 中注册为 workspace package |
 
 ---
@@ -495,12 +495,12 @@ autonomous-poly-trading/
 ### 5.3 关键变更说明 / Key Changes Explained
 
 **合并 orchestrator + executor**:
-- 当前 stateless 路径已经绕过了 BullMQ 队列，scripts 直接调用 executor 的 lib 函数
+- 当前 pulse-live 路径已经绕过了 BullMQ 队列，scripts 直接调用 executor 的 lib 函数
 - 两个独立的 Fastify 服务对于单钱包交易者来说是不必要的基础设施开销
 - 合并后可移除 BullMQ、Redis 依赖 (Web UI 如需要可单独连接)
 
 **Merge orchestrator + executor**:
-- The stateless path already bypasses BullMQ, with scripts calling executor lib functions directly
+- The pulse-live path already bypasses BullMQ, with scripts calling executor lib functions directly
 - Two separate Fastify services are unnecessary infrastructure overhead for a single-wallet trader
 - After merging, BullMQ and Redis dependencies can be removed (Web UI can connect separately if needed)
 
@@ -568,7 +568,7 @@ autonomous-poly-trading/
 
 ### 核心发现 / Key Findings
 
-1. **项目有两条完整的决策-执行路径**，但只有一条 (pulse-direct + stateless) 在实际使用。另一条 (provider-runtime + stateful + BullMQ) 约 2500 行代码可安全删除。
+1. **项目有两条完整的决策-执行路径**，但只有一条 (pulse-direct + pulse-live) 在实际使用。另一条 (provider-runtime + stateful + BullMQ) 约 2500 行代码可安全删除。
 
 2. **根目录过度拥挤**：51 项，其中 16 个是 Markdown 文件。大部分文档应移入统一的 `docs/` 目录。
 
@@ -584,7 +584,7 @@ autonomous-poly-trading/
 
 ### Key Findings (English)
 
-1. **Two complete decision-execution paths exist**, but only one (pulse-direct + stateless) is actually used. The other (provider-runtime + stateful + BullMQ) comprises ~2500 lines that can be safely removed.
+1. **Two complete decision-execution paths exist**, but only one (pulse-direct + pulse-live) is actually used. The other (provider-runtime + stateful + BullMQ) comprises ~2500 lines that can be safely removed.
 
 2. **Root directory is overcrowded**: 51 items, including 16 Markdown files. Most docs should move to a unified `docs/` directory.
 

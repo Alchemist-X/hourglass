@@ -5,7 +5,7 @@ export {
   isBelowExchangeSellMinimum
 } from "../services/orchestrator/src/lib/execution-planning.ts";
 
-export function buildStatelessRunIdentityRows(input: {
+export function buildPulseLiveRunIdentityRows(input: {
   executionMode: string;
   decisionStrategy: string;
 }): Array<[string, string]> {
@@ -23,7 +23,7 @@ function roundCurrency(value: number): number {
   return Number(value.toFixed(2));
 }
 
-export function buildStatelessOverview(input: {
+export function buildPulseLiveOverview(input: {
   collateralBalanceUsd: number;
   positions: PublicPosition[];
 }): OverviewResponse {

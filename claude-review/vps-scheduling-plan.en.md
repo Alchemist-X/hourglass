@@ -8,10 +8,10 @@ Last updated: 2026-03-29
 
 1. **`services/orchestrator/src/index.ts` line 43** -- Built-in cron scheduler (`node-cron`) already exists, using `agentPollCron` to trigger `runAgentCycle` every 3 hours. This is the stateful path (requires DB + Redis).
 2. **`docker-compose.hostinger.yml`** -- Complete Hostinger deployment with orchestrator/executor/postgres/redis containers, health checks, and auto-restart.
-3. **`scripts/pulse-live.ts`** -- Stateless path entry script, runs once then `process.exit`. This is the target command to schedule.
+3. **`scripts/pulse-live.ts`** -- Pulse Live path entry script, runs once then `process.exit`. This is the target command to schedule.
 4. **`deploy/hostinger/stack.env.example`** -- Environment variable template with all required config.
 
-Key fact: **The stateful path already has a built-in scheduler**; the stateless path is currently designed as "run once and exit."
+Key fact: **The stateful path already has a built-in scheduler**; the pulse-live path is currently designed as "run once and exit."
 
 ---
 
@@ -38,7 +38,7 @@ Key fact: **The stateful path already has a built-in scheduler**; the stateless 
 | **Error recovery** | None (next run) | None (next run) | Configurable restart | Container restart | Container restart + DB state | AI-driven retry |
 | **Concurrency guard** | Needs flock | Built-in (oneshot) | PM2 single instance | Single container | Internal guarantee | None |
 | **Monitoring** | None (DIY) | systemctl status | pm2 monit | docker stats | /health endpoint | No standard approach |
-| **Fits stateless** | Perfect | Perfect | Suitable | Needs wrapper | Not suitable (designed for stateful) | Over-engineered |
+| **Fits pulse-live** | Perfect | Perfect | Suitable | Needs wrapper | Not suitable (designed for stateful) | Over-engineered |
 | **Key management** | .env file | .env file | .env file | Docker secret/env | Docker secret/env | .env file |
 | **Reliability** | High (cron is rock-solid) | Very high | High | High | High | Uncertain |
 
@@ -76,11 +76,11 @@ Use PM2 process manager with `cron_restart` in an ecosystem config file.
 
 ## Option D: Docker Container with Built-in Scheduler
 
-Build a dedicated Docker image with an internal node-cron scheduler that calls `runStatelessLiveTest()`.
+Build a dedicated Docker image with an internal node-cron scheduler that calls `runPulseLive()`.
 
 **Pros**: Unified with existing `docker-compose.hostinger.yml`. Container restart policy.
 
-**Cons**: Requires new code (scheduler wrapper). Large image (entire monorepo). Stateless path doesn't need DB/Redis, so Docker stack is overkill. Long build times.
+**Cons**: Requires new code (scheduler wrapper). Large image (entire monorepo). Pulse-live path doesn't need DB/Redis, so Docker stack is overkill. Long build times.
 
 ---
 
@@ -88,7 +88,7 @@ Build a dedicated Docker image with an internal node-cron scheduler that calls `
 
 The orchestrator already has `cron.schedule(config.agentPollCron, ...)` running `runAgentCycle` every 3 hours. But this is the stateful path requiring PostgreSQL + Redis + executor service.
 
-**Conclusion**: Not recommended for stateless. If/when you want to switch to the stateful path (`live:test`), just deploy `docker-compose.hostinger.yml` -- scheduling is already built in.
+**Conclusion**: Not recommended for pulse-live. If/when you want to switch to the stateful path (`live:test`), just deploy `docker-compose.hostinger.yml` -- scheduling is already built in.
 
 ---
 
@@ -174,9 +174,9 @@ Confirm it completes successfully before enabling the timer.
 ### Step 5: Create systemd Service
 
 ```bash
-cat > /etc/systemd/system/autopoly-stateless.service << 'UNIT'
+cat > /etc/systemd/system/autopoly-pulse-live.service << 'UNIT'
 [Unit]
-Description=AutoPoly Stateless Live Trading Run
+Description=AutoPoly Pulse Live Live Trading Run
 After=network-online.target
 Wants=network-online.target
 
@@ -197,9 +197,9 @@ UNIT
 ### Step 6: Create systemd Timer
 
 ```bash
-cat > /etc/systemd/system/autopoly-stateless.timer << 'UNIT'
+cat > /etc/systemd/system/autopoly-pulse-live.timer << 'UNIT'
 [Unit]
-Description=Run AutoPoly stateless trading every 3 hours
+Description=Run AutoPoly pulse-live trading every 3 hours
 
 [Timer]
 OnCalendar=*-*-* 00/3:00:00
@@ -215,10 +215,10 @@ UNIT
 
 ```bash
 systemctl daemon-reload
-systemctl enable --now autopoly-stateless.timer
-systemctl list-timers autopoly-stateless.timer
-systemctl start autopoly-stateless.service   # manual test
-journalctl -u autopoly-stateless.service -f  # watch logs
+systemctl enable --now autopoly-pulse-live.timer
+systemctl list-timers autopoly-pulse-live.timer
+systemctl start autopoly-pulse-live.service   # manual test
+journalctl -u autopoly-pulse-live.service -f  # watch logs
 ```
 
 ### Step 8: Monitoring (Optional but Recommended)
@@ -236,7 +236,7 @@ Alerts via email/Slack if no ping received within 4 hours.
 - **`.env.pizza` permissions**: Must be `chmod 600`, readable only by the run user
 - **Dedicated user**: Use the `AutoPulse` user from `bootstrap-autopulse.sh`, not root
 - **VPS hardening**: Disable password login, use SSH keys only, enable `fail2ban`, only expose port 22
-- **Duplicate order prevention**: systemd oneshot guarantees single instance; stateless script is idempotent
+- **Duplicate order prevention**: systemd oneshot guarantees single instance; pulse-live script is idempotent
 - **Risk controls**: Use conservative parameters on VPS (e.g., `MAX_TOTAL_EXPOSURE_PCT=0.5`, `MAX_POSITIONS=10`)
 
 ---

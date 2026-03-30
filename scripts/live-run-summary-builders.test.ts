@@ -5,7 +5,7 @@ import {
   mapExecutedOrderToSummaryOrder,
   mapExecutionEventToSummaryOrder,
   mapQueuedTradeToSummaryPlan,
-  mapStatelessPlanToSummaryPlan
+  mapPulseLivePlanToSummaryPlan
 } from "./live-run-summary-builders.ts";
 
 describe("live run summary builders", () => {
@@ -42,8 +42,8 @@ describe("live run summary builders", () => {
     });
   });
 
-  it("maps stateless plans and executed orders into summary models", () => {
-    expect(mapStatelessPlanToSummaryPlan({
+  it("maps pulse-live plans and executed orders into summary models", () => {
+    expect(mapPulseLivePlanToSummaryPlan({
       action: "open",
       marketSlug: "demo-market",
       eventSlug: "demo-event",

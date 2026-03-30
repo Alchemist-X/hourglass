@@ -25,7 +25,7 @@ flowchart TD
 
   N --> O{Executable plans available?}
   O -->|No| P[Summary only, 0 orders]
-  O -->|Yes + stateless| Q[Direct order execution]
+  O -->|Yes + pulse-live| Q[Direct order execution]
   O -->|Yes + stateful| R[Queue execution + sync]
 
   Q --> S[Archive execution-summary]
@@ -34,6 +34,6 @@ flowchart TD
 
 ## Term Mapping
 
-- `Stateless`: `pnpm pulse:live`
+- `Pulse Live`: `pnpm pulse:live`
 - `Pre-Flight`: a gate stage inside live flow (not a standalone order mode)
 - `House Direct`: `AGENT_DECISION_STRATEGY=pulse-direct`

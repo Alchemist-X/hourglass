@@ -63,7 +63,7 @@ function createReducePosition(): PublicPosition {
 }
 
 describe("execution planning", () => {
-  it("applies the same open sizing caps used by stateless live", async () => {
+  it("applies the same open sizing caps used by pulse-live", async () => {
     const result = await buildExecutionPlan({
       decisions: [createOpenDecision(200)],
       positions: [],

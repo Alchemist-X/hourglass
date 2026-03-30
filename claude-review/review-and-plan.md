@@ -51,7 +51,7 @@ applyTradeGuards()        -> 5 个上限取最小值，级联压缩到 0
 
 | 问题 | 描述 |
 |------|------|
-| 3 条执行路径 | paper、live:stateless、live:stateful — 不知道用哪个 |
+| 3 条执行路径 | paper、pulse:live、live:test — 不知道用哪个 |
 | 2 套决策策略 | `provider-runtime`（LLM）和 `pulse-direct` — 死代码增加维护负担 |
 | 2 个独立服务 | orchestrator + executor 之间用 BullMQ 通信 — 单用户场景没必要 |
 | 预检仪式 | 6 个门禁检查，任何一个失败都不能交易 |
@@ -126,7 +126,7 @@ applyTradeGuards()        -> 5 个上限取最小值，级联压缩到 0
 
 #### 2.3 内联执行
 - 移除 BullMQ 任务队列
-- 在主循环中直接执行交易（stateless 路径已经是这么做的）
+- 在主循环中直接执行交易（pulse-live 路径已经是这么做的）
 - 不再需要单独的 executor 服务
 
 #### 2.4 简化预检

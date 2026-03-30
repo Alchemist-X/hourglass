@@ -18,13 +18,13 @@
 flowchart LR
   human[Human / Scheduler / CLI] --> daily[pnpm daily:pulse]
   human --> paper[pnpm trial:recommend / trial:approve]
-  human --> stateless[pnpm pulse:live]
+  human --> pulseLive[pnpm pulse:live]
   human --> stateful[pnpm live:test]
 
-  daily --> stateless
+  daily --> pulseLive
 
   paper --> paperCore[Load portfolio context]
-  stateless --> preflight[Preflight]
+  pulseLive --> preflight[Preflight]
   stateful --> infraPreflight[Preflight + DB/Redis/Queue]
 
   paperCore --> pulse[Pulse generation]
@@ -40,7 +40,7 @@ flowchart LR
 
   guards --> route{Execution path}
   route -->|paper| localState[Local paper state file]
-  route -->|stateless| directExec[Direct Polymarket execution]
+  route -->|pulse-live| directExec[Direct Polymarket execution]
   route -->|stateful| queueExec[BullMQ queue + executor worker]
 
   queueExec --> db[(Postgres / Redis)]
@@ -65,7 +65,7 @@ flowchart LR
   classDef storage fill:#fff8db,stroke:#b54708,stroke-width:2px,color:#5f370e;
   classDef auxiliary fill:#f4f3ff,stroke:#6e59cf,stroke-width:1px,color:#2f2473;
 
-  class daily,stateless,preflight,pulse,pulseDirect,guards,directExec primary;
+  class daily,pulseLive,preflight,pulse,pulseDirect,guards,directExec primary;
   class providerRuntime legacy;
   class stateful,infraPreflight,queueExec,db stateful;
   class localState,artifacts,reports storage;
@@ -99,7 +99,7 @@ flowchart LR
 ### 3. `live:test`
 
 - 入口是 [`scripts/live-test.ts`](../scripts/live-test.ts)。
-- 它和 stateless 一样会做 preflight，但还会额外检查 DB / Redis / queue worker。
+- 它和 pulse:live 一样会做 preflight，但还会额外检查 DB / Redis / queue worker。
 - orchestrator 会把运行结果持久化到 DB，并通过 BullMQ 把可执行交易交给 [`services/executor/src/workers/queue-worker.ts`](../services/executor/src/workers/queue-worker.ts)。
 - 更接近完整生产链路，但对基础设施更敏感。
 
@@ -147,7 +147,7 @@ flowchart LR
 - `runtime-artifacts/reports/runtime-log/...`
   - 决策运行时的解释性日志。
 - `runtime-artifacts/pulse-live/<run>/`
-  - stateless live 运行的 `preflight.json`、`recommendation.json`、`execution-summary.json`、`run-summary.md`。
+  - pulse-live 运行的 `preflight.json`、`recommendation.json`、`execution-summary.json`、`run-summary.md`。
 - `runtime-artifacts/live-test/<run>/`
   - stateful live 运行的 preflight、recommendation、execution summary 或 error。
 - `runtime-artifacts/checkpoints/trial-recommend/`

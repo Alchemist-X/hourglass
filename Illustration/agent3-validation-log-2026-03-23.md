@@ -88,7 +88,7 @@ pnpm trial:recommend -- --json
 - 当前 `paper -> trial:recommend` 最大卡点不是直接报错，而是 `pulse render / codex exec` 段缺少心跳且可观测性差
 - 这与仓库“关键流程必须可见输出”的偏好不一致
 
-## 4. Stateless recommend-only 回放
+## 4. Pulse Live recommend-only 回放
 
 为了绕开上面的模型卡点，本轮复用已有 pulse 归档：
 
@@ -164,7 +164,7 @@ ENV_FILE=.env.pizza AUTOPOLY_EXECUTION_MODE=live pnpm live:test -- --json
 - `live:test` 当前不是交易策略卡住，而是基础设施前置条件未满足
 - 先补 `DATABASE_URL`，再谈 queue worker / DB stateful 验证
 
-## 6. 真钱 stateless 执行分支
+## 6. 真钱 pulse-live 执行分支
 
 已执行：
 
@@ -201,7 +201,7 @@ run summary 事实：
 
 结论：
 
-- 当前真钱 stateless 链路可以安全走完整个执行分支，并在风控约束下实现 “0 order no-op”
+- 当前真钱 pulse-live 链路可以安全走完整个执行分支，并在风控约束下实现 “0 order no-op”
 - 这是一条可重复、低风险的真钱验证路径
 
 ## 7. 当前最重要的卡点
@@ -210,7 +210,7 @@ run summary 事实：
 2. `.env.pizza` 下 bankroll 太小，而 `configuredMinTradeUsd=10`、order-book minimum 共同导致 open/close 都难以转成 executable plan
 3. `live:test` 缺 `DATABASE_URL`，目前无法验证 stateful 完整链路
 4. `.env.pizza` 下出现 `MAX_TRADE_PCT=0.2`，而 `live:test` 约束文档要求 `<=0.1`
-   - 这不会阻止当前 stateless recommend-only 成功
+   - 这不会阻止当前 pulse-live recommend-only 成功
    - 但它是一个需要明确口径的风险信号
 
 ## 8. 下一步建议

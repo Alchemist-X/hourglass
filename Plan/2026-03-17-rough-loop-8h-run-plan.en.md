@@ -104,7 +104,7 @@ Recommended remote permission boundary:
 - allowed by default:
   - clone / pull the repo
   - install dependencies
-  - build / test / run stateless smoke
+  - build / test / run pulse-live smoke
   - configure `cron` or `systemd`
   - write non-sensitive logs and artifacts
 - now authorized in principle:
@@ -121,7 +121,7 @@ Recommended remote permission boundary:
 Recommended remote priority order:
 
 1. get remote build passing
-2. get stateless recommend-only passing
+2. get pulse-live recommend-only passing
 3. get a constrained live-execution smoke passing
 4. get the daily scheduler passing
 5. only then consider the full `orchestrator + executor + Postgres + Redis` path
@@ -332,7 +332,7 @@ Acceptance metrics:
 - baseline command logs are saved
 - at least one remote-environment handoff file exists
 
-#### Level 1: remote stateless-loop validation
+#### Level 1: remote pulse-live-loop validation
 
 Goal:
 
@@ -523,7 +523,7 @@ If this round also includes the remote track, additionally confirm:
 
 - Decision: whether this run should prioritize remote deployment or portfolio monitor / stop-loss
   - Why it matters: both matter, but `8h` is not enough to average the effort cleanly
-  - Recommended default: prioritize `portfolio monitor / stop-loss / stateless runtime` first, deployment docs in the back half
+  - Recommended default: prioritize `portfolio monitor / stop-loss / pulse-live runtime` first, deployment docs in the back half
 
 - Decision: whether to use the success threshold `>=10 completed` plus `>=80% verification pass rate`
   - Why it matters: without a numeric threshold, the run is hard to judge

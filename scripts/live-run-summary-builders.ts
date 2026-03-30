@@ -15,7 +15,7 @@ type QueueTradeLike = {
   decision: DecisionLike;
 };
 
-type StatelessPlanLike = {
+type PulseLivePlanLike = {
   action: TradeDecision["action"];
   marketSlug: string;
   eventSlug?: string;
@@ -83,7 +83,7 @@ export function mapQueuedTradeToSummaryPlan(trade: QueueTradeLike, bankrollUsd: 
   };
 }
 
-export function mapStatelessPlanToSummaryPlan(plan: StatelessPlanLike): SummaryPlan {
+export function mapPulseLivePlanToSummaryPlan(plan: PulseLivePlanLike): SummaryPlan {
   return {
     action: plan.action,
     marketSlug: plan.marketSlug,

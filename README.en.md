@@ -111,7 +111,7 @@ autonomous-poly-trading/
 ```mermaid
 flowchart LR
   paper["paper\nLocal simulation"] --> core["Pulse + Decision Core"]
-  stateless["pulse:live\nFastest real-money loop"] --> core
+  pulseLive["pulse:live\nFastest real-money loop"] --> core
   stateful["live:test\nFull production path"] --> core
 
   core --> risk["Hard risk trimming"]
@@ -295,7 +295,7 @@ pnpm db:seed            # Seed data
 AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend
 AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
 
-# Pulse Live (Stateless)
+# Pulse Live
 ENV_FILE=.env.live-test pnpm pulse:live
 ENV_FILE=.env.live-test pnpm pulse:live -- --recommend-only
 ENV_FILE=.env.live-test pnpm pulse:live -- --json
@@ -303,7 +303,7 @@ ENV_FILE=.env.live-test pnpm pulse:live -- --json
 # Live Stateful
 ENV_FILE=.env.live-test pnpm live:test
 
-# Daily Pulse (convenience wrapper for stateless)
+# Daily Pulse (convenience wrapper for pulse:live)
 pnpm daily:pulse
 ```
 
@@ -441,12 +441,12 @@ As of 2026-03-24.
 | --- | --- | --- |
 | No local Postgres / Redis | `live:test` stateful path always fails at preflight | Needs Docker or remote DB |
 | Pulse provider timeout | Some runs degrade to deterministic fallback, lower entry candidate quality | Intermittent |
-| Min trade threshold | Risk guard $10 minimum blocks small stateless open candidates | By design; stateless path lowered to $0.01 |
+| Min trade threshold | Risk guard $10 minimum blocks small pulse-live open candidates | By design; pulse-live path lowered to $0.01 |
 | Order rejected by Polymarket | One crude oil $0.34 order rejected | Archived, no impact on subsequent runs |
 
 ### Known Limitations
 
-- `live:test` stateful path cannot be verified on local machine, needs remote infrastructure
+- `live:test` path cannot be verified on local machine, needs remote infrastructure
 - Full production deployment not yet condensed into a single deploy handbook
 - `provider-runtime` will continue to be de-emphasized as a legacy path
 - Backtest remains lightweight

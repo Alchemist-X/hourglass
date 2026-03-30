@@ -40,7 +40,7 @@
 3. 确认推荐稳定后，再去掉 `--recommend-only`
    - 让它开始真实执行
 4. 如果目标是“自动调仓 + 自动止损 + 完整 portfolio monitor”
-   - 不能停留在 stateless
+   - 不能停留在 pulse-live
    - 需要继续打通 `orchestrator + executor + Postgres + Redis` 的完整服务路径
 
 原因很简单：
@@ -60,7 +60,7 @@
 当前 Git 基线：
 
 - 本地 `HEAD` / `origin/main`：`b2e87ff`
-- commit message：`fix: surface stateless execution mode and strategy`
+- commit message：`fix: surface pulse-live execution mode and strategy`
 
 当前仓库已经具备这些基础能力：
 
@@ -110,7 +110,7 @@
 - 持仓数量：`2.040815`
 - 平均成本：`0.49`
 
-### 4.3 最近一次 stateless 远程友好闭环
+### 4.3 最近一次 pulse-live 远程友好闭环
 
 `2026-03-17` 的一轮 `pulse:live` 归档显示：
 
@@ -132,7 +132,7 @@
 
 这个结果非常重要：
 
-- 它说明 stateless 路径的“拉取远端持仓 -> 跑 pulse -> 生成建议 -> 归档”已经能闭环
+- 它说明 pulse-live 路径的”拉取远端持仓 -> 跑 pulse -> 生成建议 -> 归档”已经能闭环
 - 但它不代表“当前策略已经会自动调仓”
 
 ### 4.4 最近一次 full live 路径失败结果
@@ -314,8 +314,8 @@ PULSE_SOURCE_REPO_DIR=vendor/repos/all-polymarket-skill
 CODEX_SKILL_ROOT_DIR=vendor/repos/all-polymarket-skill
 CODEX_SKILL_LOCALE=zh
 CODEX_SKILLS=polymarket-market-pulse,portfolio-review-polymarket,poly-position-monitor,poly-resolution-tracking,api-trade-polymarket
-STATELESS_MAX_BUY_TOKENS=1
-STATELESS_MIN_TRADE_USD=0.01
+PULSE_LIVE_MAX_BUY_TOKENS=1
+PULSE_LIVE_MIN_TRADE_USD=0.01
 PROVIDER_TIMEOUT_SECONDS=0
 PULSE_REPORT_TIMEOUT_SECONDS=0
 ```
@@ -342,7 +342,7 @@ ENV_FILE=/secure/path/pizza.env pnpm pulse:live
 
 ### 7.2 方案 B：如果要每天自动运行
 
-对于 stateless 路径，推荐直接用系统 cron 或 systemd timer。
+对于 pulse-live 路径，推荐直接用系统 cron 或 systemd timer。
 
 最简单的 cron 示例：
 
@@ -419,7 +419,7 @@ ENV_FILE=/secure/path/pizza.env pnpm pulse:live
 - `MAX_TRADE_PCT<=0.1`
 - `MAX_EVENT_EXPOSURE_PCT<=0.3`
 
-而最新 stateless 归档显示当前测试钱包有：
+而最新 pulse-live 归档显示当前测试钱包有：
 
 - `remotePositionCount=12`
 
@@ -471,4 +471,4 @@ ENV_FILE=/secure/path/pizza.env pnpm pulse:live
 
 ## 11. 一句话交接
 
-当前仓库已经能让远程 Agent 先把 `Pulse -> recommendation -> archive -> optional execute` 这条 stateless 链路每天跑起来，但“自动调整已有持仓 + 自动 stop-loss + 完整 portfolio monitor”仍然主要落在完整服务路径里，还没有完成最终生产闭环验证。
+当前仓库已经能让远程 Agent 先把 `Pulse -> recommendation -> archive -> optional execute` 这条 pulse-live 链路每天跑起来，但”自动调整已有持仓 + 自动 stop-loss + 完整 portfolio monitor”仍然主要落在完整服务路径里，还没有完成最终生产闭环验证。

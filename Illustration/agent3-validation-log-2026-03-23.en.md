@@ -89,7 +89,7 @@ Conclusion:
 - The main `paper -> trial:recommend` bottleneck is not an immediate failure. It is the `pulse render / codex exec` segment lacking heartbeats and observability.
 - This is inconsistent with the repository preference for visible stage output.
 
-## 4. Stateless recommend-only replay
+## 4. Pulse Live recommend-only replay
 
 To bypass the model-side bottleneck, this pass reused an existing pulse archive:
 
@@ -165,7 +165,7 @@ Conclusion:
 - The blocker on `live:test` is infrastructure, not trading logic.
 - `DATABASE_URL` must be configured before stateful queue-worker validation is meaningful.
 
-## 6. Real-money stateless execution branch
+## 6. Real-money pulse-live execution branch
 
 Executed:
 
@@ -202,7 +202,7 @@ Run-summary facts:
 
 Conclusion:
 
-- The current real-money stateless path can safely reach the execution branch and still end in a `0 order` no-op under current guardrails.
+- The current real-money pulse-live path can safely reach the execution branch and still end in a `0 order` no-op under current guardrails.
 - This is a repeatable and low-risk real-money validation path.
 
 ## 7. Most important bottlenecks right now
@@ -211,7 +211,7 @@ Conclusion:
 2. Under `.env.pizza`, bankroll is too small relative to `configuredMinTradeUsd=10` and order-book minimums, so both opens and closes struggle to become executable plans
 3. `live:test` is blocked by missing `DATABASE_URL`, so the full stateful path is not yet testable
 4. `.env.pizza` currently exposes `MAX_TRADE_PCT=0.2`, while the documented `live:test` constraint is `<=0.1`
-   - this does not block the stateless recommend-only replay
+   - this does not block the pulse-live recommend-only replay
    - but it is still a risk signal that needs an explicit policy decision
 
 ## 8. Recommended next steps

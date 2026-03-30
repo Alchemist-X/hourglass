@@ -40,7 +40,7 @@ If the remote Agent needs to get something running on a server quickly, use this
 3. remove `--recommend-only` only after that looks stable
    - then let it trade
 4. if the actual goal is “automatic position adjustment + automatic stop-loss + complete portfolio monitoring”
-   - do not stop at stateless
+   - do not stop at pulse-live
    - continue into the full `orchestrator + executor + Postgres + Redis` path
 
 Reason:
@@ -60,7 +60,7 @@ So:
 Current Git baseline:
 
 - local `HEAD` / `origin/main`: `b2e87ff`
-- commit message: `fix: surface stateless execution mode and strategy`
+- commit message: `fix: surface pulse-live execution mode and strategy`
 
 The repository already has these foundations:
 
@@ -110,7 +110,7 @@ The position was read back successfully:
 - size: `2.040815`
 - average cost: `0.49`
 
-### 4.3 Latest stateless remote-friendly closed loop
+### 4.3 Latest pulse-live remote-friendly closed loop
 
 An archived `pulse:live` run on `2026-03-17` shows:
 
@@ -132,7 +132,7 @@ An archived `pulse:live` run on `2026-03-17` shows:
 
 This matters because:
 
-- it proves the stateless loop `fetch remote portfolio -> pulse -> recommendations -> archive` already closes
+- it proves the pulse-live loop `fetch remote portfolio -> pulse -> recommendations -> archive` already closes
 - it does not prove the strategy is already adjusting positions autonomously
 
 ### 4.4 Latest full live-path failure
@@ -315,8 +315,8 @@ PULSE_SOURCE_REPO_DIR=vendor/repos/all-polymarket-skill
 CODEX_SKILL_ROOT_DIR=vendor/repos/all-polymarket-skill
 CODEX_SKILL_LOCALE=zh
 CODEX_SKILLS=polymarket-market-pulse,portfolio-review-polymarket,poly-position-monitor,poly-resolution-tracking,api-trade-polymarket
-STATELESS_MAX_BUY_TOKENS=1
-STATELESS_MIN_TRADE_USD=0.01
+PULSE_LIVE_MAX_BUY_TOKENS=1
+PULSE_LIVE_MIN_TRADE_USD=0.01
 PROVIDER_TIMEOUT_SECONDS=0
 PULSE_REPORT_TIMEOUT_SECONDS=0
 ```
@@ -343,7 +343,7 @@ ENV_FILE=/secure/path/pizza.env pnpm pulse:live
 
 ### 7.2 Plan B: if it must run every day
 
-For the stateless path, use system cron or a systemd timer.
+For the pulse-live path, use system cron or a systemd timer.
 
 Simple cron example:
 
@@ -420,7 +420,7 @@ It is a code-task loop, not the production trading daemon.
 - `MAX_TRADE_PCT<=0.1`
 - `MAX_EVENT_EXPOSURE_PCT<=0.3`
 
-The latest stateless archive shows the current test wallet has:
+The latest pulse-live archive shows the current test wallet has:
 
 - `remotePositionCount=12`
 
@@ -472,4 +472,4 @@ If some of these files are missing in a remote clone, first check the earlier no
 
 ## 11. One-Line Transfer Summary
 
-The repository is already good enough for a remote Agent to run a daily stateless loop of `Pulse -> recommendation -> archive -> optional execution`, but “automatic adjustment of existing positions + automatic stop-loss + full portfolio monitoring” still mostly lives in the full service path and has not yet completed final production-loop validation.
+The repository is already good enough for a remote Agent to run a daily pulse-live loop of `Pulse -> recommendation -> archive -> optional execution`, but “automatic adjustment of existing positions + automatic stop-loss + full portfolio monitoring” still mostly lives in the full service path and has not yet completed final production-loop validation.

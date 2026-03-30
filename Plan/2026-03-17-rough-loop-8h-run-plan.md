@@ -104,7 +104,7 @@
 - 默认允许：
   - clone / pull repo
   - 安装依赖
-  - build / test / run stateless smoke
+  - build / test / run pulse-live smoke
   - 配置 `cron` 或 `systemd`
   - 写非敏感运行日志和归档
 - 你已原则上授权：
@@ -121,7 +121,7 @@
 推荐远程路径优先级：
 
 1. 先拿远程 build 成功
-2. 再拿 stateless recommend-only 跑通
+2. 再拿 pulse-live recommend-only 跑通
 3. 再拿受限 live execute smoke 跑通
 4. 再拿 daily scheduler 跑通
 5. 最后才考虑完整 `orchestrator + executor + Postgres + Redis`
@@ -340,7 +340,7 @@
 - 基线命令日志已保存
 - 至少一份远程环境 handoff 文档已落盘
 
-#### Level 1：远程验证 stateless 闭环
+#### Level 1：远程验证 pulse-live 闭环
 
 目标：
 
@@ -461,7 +461,7 @@
 1. `pulse-direct-runtime` 回归补强
    - 目标：锁定“已有仓位默认 hold、新推荐转 open”的当前行为
 2. `pulse:live` artifact / error path 回归补强
-   - 目标：让 stateless 运行更适合长期 unattended run
+   - 目标：让 pulse-live 运行更适合长期 unattended run
 3. `provider-runtime` 过滤与 explanatory decisions 补强
    - 目标：减少空输出或不合法输出导致的假成功
 4. `queue-worker` stop-loss + snapshot 回归补强
@@ -545,7 +545,7 @@
 
 - 决策：本轮是否优先推进 remote deployment，还是优先推进 portfolio monitor / stop-loss
   - Why it matters：两条线都重要，但 `8h` 内不适合同时平均用力
-  - Recommended default：先把 `portfolio monitor / stop-loss / stateless runtime` 放前面，deployment 文档放后半程
+  - Recommended default：先把 `portfolio monitor / stop-loss / pulse-live runtime` 放前面，deployment 文档放后半程
 
 - 决策：本轮成功阈值是否采用“完成 `>=10` 张 + 验证通过率 `>=80%`”
   - Why it matters：没有量化阈值，run 结束时很难判断值不值
