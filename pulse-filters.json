@@ -1,0 +1,8 @@
+{
+  "_comment": "Pulse candidate filters. CLI flags (--category, --tag, etc.) override these values.",
+  "category": null,
+  "tag": null,
+  "minProb": 0.05,
+  "maxProb": 0.95,
+  "minLiquidity": null
+}

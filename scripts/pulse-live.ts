@@ -37,7 +37,13 @@ import {
   buildPulseLiveRunIdentityRows,
   buildPulseLiveOverview,
   calculatePositionPnlPct,
-  calculatePositionValueUsd
+  calculatePositionValueUsd,
+  applyPulseFilters,
+  hasPulseFilters,
+  loadPulseFilterFile,
+  mergePulseFilters,
+  parsePulseFilterArgs,
+  type PulseFilterArgs
 } from "./pulse-live-helpers.ts";
 import {
   mapOverviewToSummarySnapshot,
@@ -68,6 +74,7 @@ interface Args {
   recommendOnly: boolean;
   pulseJsonPath: string | null;
   pulseMarkdownPath: string | null;
+  filters: PulseFilterArgs;
 }
 
 interface PreflightReport {
@@ -125,12 +132,35 @@ function parseArgs(argv = process.argv.slice(2)): Args {
     const value = index >= 0 ? argv[index + 1] : undefined;
     return value && !value.startsWith("--") ? value : null;
   };
+  const fileFilters = loadPulseFilterFile(get("--filters"));
+  const cliFilters = parsePulseFilterArgs(argv);
   return {
     json: argv.includes("--json"),
     recommendOnly: argv.includes("--recommend-only"),
     pulseJsonPath: get("--pulse-json"),
-    pulseMarkdownPath: get("--pulse-markdown")
+    pulseMarkdownPath: get("--pulse-markdown"),
+    filters: mergePulseFilters(fileFilters, cliFilters)
   };
+}
+
+function printPulseFilterSummary(
+  printer: ReturnType<typeof createTerminalPrinter>,
+  filters: PulseFilterArgs,
+  totalBefore: number,
+  totalAfter: number
+) {
+  const parts: string[] = [];
+  if (filters.category != null) parts.push(`category: ${filters.category}`);
+  if (filters.tag != null) parts.push(`tag: ${filters.tag}`);
+  const probParts: string[] = [];
+  if (filters.minProb != null) probParts.push(filters.minProb.toFixed(2));
+  if (filters.maxProb != null) probParts.push(filters.maxProb.toFixed(2));
+  if (probParts.length > 0) {
+    parts.push(`prob: ${filters.minProb != null ? filters.minProb.toFixed(2) : "*"}-${filters.maxProb != null ? filters.maxProb.toFixed(2) : "*"}`);
+  }
+  if (filters.minLiquidity != null) parts.push(`min-liquidity: $${filters.minLiquidity}`);
+  printer.note("info", "Pulse filters active", parts.join(" | "));
+  printer.note("info", "Candidates", `${totalBefore} total -> ${totalAfter} after filters`);
 }
 
 function roundCurrency(value: number): number {
@@ -659,6 +689,21 @@ export async function runPulseLive(args: Args = parseArgs()) {
       label: args.pulseJsonPath ? "Reused pulse snapshot ready" : "Pulse snapshot ready",
       detail: `${pulse.selectedCandidates} candidates | risk flags ${pulse.riskFlags.length}`
     });
+    const filtersActive = hasPulseFilters(args.filters);
+    const effectivePulse = filtersActive
+      ? (() => {
+          const filtered = applyPulseFilters(pulse.candidates, args.filters);
+          if (useHumanOutput) {
+            const printer = createTerminalPrinter();
+            printPulseFilterSummary(printer, args.filters, pulse.candidates.length, filtered.length);
+          }
+          return {
+            ...pulse,
+            candidates: filtered,
+            selectedCandidates: filtered.length
+          };
+        })()
+      : pulse;
     const runtime = createAgentRuntime(orchestratorConfig);
     const coreResult = await runDailyPulseCore({
       config: orchestratorConfig,
@@ -667,7 +712,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
       mode: "full",
       overview,
       positions,
-      pulse,
+      pulse: effectivePulse,
       progress: reporter
     });
     const runtimeResult = coreResult.result;
