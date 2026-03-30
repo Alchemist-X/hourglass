@@ -1224,6 +1224,7 @@ export async function buildFullPulseArchive(input: {
     detail: `${input.relativeJsonPath} | ${formatTextMetrics(contextJsonMetrics)}`
   });
   let markdown: string;
+  const renderStartedAtMs = Date.now();
   try {
     markdown = await renderFullPulseMarkdown({
       config: input.config,
@@ -1238,11 +1239,26 @@ export async function buildFullPulseArchive(input: {
     // Opening positions without proper AI analysis is worse than not trading.
     throw error;
   }
+  const renderElapsedSeconds = Math.round((Date.now() - renderStartedAtMs) / 1000);
   const markdownMetrics = measureText(markdown);
+  const inputTokensEstimate = Math.round(contextJsonMetrics.estimatedTokens);
+  const outputTokensEstimate = Math.round(markdownMetrics.estimatedTokens);
+
+  // Inject render stats into the top of the markdown
+  const renderStatsBlock = [
+    "",
+    `> **Render stats** | provider: ${input.provider} | elapsed: ${renderElapsedSeconds}s | input: ~${inputTokensEstimate} tok | output: ~${outputTokensEstimate} tok | timeout: ${input.config.pulse.directRenderTimeoutSeconds}s`,
+    ""
+  ].join("\n");
+  const firstNewline = markdown.indexOf("\n");
+  markdown = firstNewline >= 0
+    ? markdown.slice(0, firstNewline) + renderStatsBlock + markdown.slice(firstNewline)
+    : markdown + renderStatsBlock;
+
   input.progress?.stage({
     percent: 64,
     label: "Full pulse markdown rendered",
-    detail: `${input.relativeMarkdownPath} | ${formatTextMetrics(markdownMetrics)}`
+    detail: `${input.relativeMarkdownPath} | ${formatTextMetrics(markdownMetrics)} | ${renderElapsedSeconds}s`
   });
   const absoluteMarkdownPath = await writeStoredArtifact(
     input.config.artifactStorageRoot,

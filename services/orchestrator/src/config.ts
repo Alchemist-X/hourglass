@@ -170,7 +170,7 @@ export function loadConfig(): OrchestratorConfig {
       reportCandidates: readNumber("PULSE_REPORT_CANDIDATES", 4),
       reportCommentLimit: readNumber("PULSE_REPORT_COMMENT_LIMIT", 20),
       reportTimeoutSeconds: readNumber("PULSE_REPORT_TIMEOUT_SECONDS", 0),
-      directRenderTimeoutSeconds: readNumber("PULSE_DIRECT_RENDER_TIMEOUT_SECONDS", 1200),
+      directRenderTimeoutSeconds: readNumber("PULSE_DIRECT_RENDER_TIMEOUT_SECONDS", 1800),
       minTradeableCandidates: readNumber("PULSE_MIN_TRADEABLE_CANDIDATES", 1),
       maxAgeMinutes: readNumber("PULSE_MAX_AGE_MINUTES", 120),
       maxMarkdownChars: readNumber("PULSE_MAX_MARKDOWN_CHARS", 24000)
