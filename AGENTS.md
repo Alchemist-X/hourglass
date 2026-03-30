@@ -196,3 +196,10 @@
 - **recommend-only ≠ 实盘下单**：测试时必须明确区分。如果目标是验证下单，必须跑不带 `--recommend-only` 的命令。
 - **先验证再扩展**：在增加新功能前，应先确保现有流程能真正执行一笔交易（从 Pulse 到下单），再做架构改进。
 - **.env 配置是生命线**：provider 配置（codex command、model）必须在 .env 中正确设置，否则整个链路断裂。
+
+## 20. 部署验证规则（2026-03-30）
+
+- 每次 push 代码更新后，必须确保 **Vercel 能部署成功**。
+- 部署失败 = 改动未完成。必须修复构建错误后重新推送。
+- 推荐流程：`pnpm build`（本地验证）→ `git push` → `npx vercel --prod` → 验证线上页面。
+- 如果 lockfile 过期导致构建失败，先 `pnpm install --no-frozen-lockfile` 更新 lockfile 再推。

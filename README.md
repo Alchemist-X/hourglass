@@ -8,13 +8,13 @@
 
 面向 [Polymarket](https://polymarket.com) 的云端自主交易系统。
 
-系统围绕 **Market Pulse** 这一核心流程设计：让 AI 自主对事件发生的概率进行评估，对比市场隐含的概率，综合偏差值（edge）和资金回报周期（monthly return）给出交易指示。
+系统围绕 **Market Pulse** 这一核心组件设计：让 AI 自主评估事件发生的概率，动态地从信息源收集证据，将其与市场隐含的赔率对比，综合偏差值（edge）和资金回报周期（monthly return）给出交易指示。
 
 ### 为什么让 Agent 来做这件事
 
-1. **推理能力已接近人类** — 没有明显证据表明人类在预测未来上拥有清晰的 edge。人类更多依靠常识和内幕消息来矫正概率；如果给予 Agent 同等上下文，它们理应做得和人类一样好。
-2. **广度战胜深度** — Agent 能同时覆盖成千上万个市场，更容易发现被错误定价的标的；Agent 能更有时效性地做出止损和新闻交易，而人类的反应延迟通常在 3 分钟以上。哪怕单点推理能力有落后，也能靠覆盖面弥补。
-3. **竞争窗口存在** — 在政治和科技类预测市场中，参与者普遍缺乏清晰的定价模型，且畏惧于库存管理和逆向选择。大规模使用 Agent 交易在当前面对的竞争不多。
+1. **复杂任务推理能力趋近于人类** — Agent 在复杂任务上的推理能力已经接近人类水平。人类的优势主要在于更好的信息源，但这一差距可以通过工程能力弥合。核心分析能力已经到位。
+2. **覆盖面广且时效性强** — Agent 能 7×24 小时同时监控数千个市场，发现任何个人无法跟踪的定价失调。新闻爆发时 Agent 秒级响应，人类则至少需要 3 分钟以上。
+3. **部分市场仍处于蓝海** — 政治和科技预测市场中，多数参与者缺乏清晰的定价模型，且普遍畏惧库存管理和逆向选择风险。系统化的 Agent 交易在这些领域面临的竞争极少。
 
 ### 核心定位
 
@@ -119,7 +119,7 @@ autonomous-poly-trading/
 ```mermaid
 flowchart LR
   paper["paper\n本地模拟"] --> core["Pulse + Decision Core"]
-  stateless["pulse:live\n最快真钱闭环"] --> core
+  pulseLive["pulse:live\n最快真钱闭环"] --> core
   stateful["live:test\n完整生产链路"] --> core
 
   core --> risk["风控硬裁剪"]
@@ -332,7 +332,7 @@ pnpm db:seed            # 种子数据
 AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend
 AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
 
-# Pulse Live (Stateless)
+# Pulse Live
 ENV_FILE=.env.live-test pnpm pulse:live
 ENV_FILE=.env.live-test pnpm pulse:live -- --recommend-only
 ENV_FILE=.env.live-test pnpm pulse:live -- --json
@@ -340,7 +340,7 @@ ENV_FILE=.env.live-test pnpm pulse:live -- --json
 # Live Stateful
 ENV_FILE=.env.live-test pnpm live:test
 
-# Daily Pulse（stateless 的便捷入口）
+# Daily Pulse（pulse:live 的便捷入口）
 pnpm daily:pulse
 ```
 
@@ -478,12 +478,12 @@ Hostinger VPS 部署方案见 [Illustration/hostinger-vps-deploy-runbook.md](Ill
 | --- | --- | --- |
 | 本机无 Postgres / Redis | `live:test` stateful 链路始终 preflight 失败 | 需要 Docker 或远端 DB |
 | Pulse provider 超时 | 部分运行退化为 deterministic fallback，开仓候选质量降低 | 间歇性 |
-| 最小交易额拦截 | 风控 `$10` 最小额度拦截了 stateless 的小额开仓候选 | 设计如此，stateless 路径已调低到 `$0.01` |
+| 最小交易额拦截 | 风控 `$10` 最小额度拦截了 pulse-live 的小额开仓候选 | 设计如此，pulse-live 路径已调低到 `$0.01` |
 | 订单被 Polymarket 拒绝 | 原油市场一笔 $0.34 订单被拒 | 已归档，未影响后续运行 |
 
 ### 当前限制
 
-- `live:test` stateful 链路在本机无法验证，需要远端基础设施
+- `live:test` 链路在本机无法验证，需要远端基础设施
 - 完整生产部署流程尚未收敛为单独 deploy handbook
 - `provider-runtime` 作为 legacy 路径将继续弱化
 - Backtest 仍是轻量版

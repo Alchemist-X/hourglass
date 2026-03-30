@@ -10,16 +10,18 @@ import {
   getPublicTradesData,
   getSpectatorClosedPositionsData
 } from "../lib/public-wallet";
+import { loadEquityHistory } from "../lib/equity-history";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const [overview, positions, trades, closedPositions] = await Promise.all([
+  const [overview, positions, trades, closedPositions, equityHistory] = await Promise.all([
     getPublicOverviewData(),
     getPublicPositionsData(),
     getPublicTradesData(),
-    getSpectatorClosedPositionsData()
+    getSpectatorClosedPositionsData(),
+    loadEquityHistory()
   ]);
 
   return (
@@ -27,8 +29,7 @@ export default async function HomePage() {
       <DashboardHeader initialData={overview} />
 
       <DashboardEquityChart
-        initialTrades={trades}
-        currentEquityUsd={overview.total_equity_usd}
+        initialEquityHistory={equityHistory}
       />
 
       <DashboardThesis />

@@ -34,8 +34,8 @@ import { createTerminalProgressReporter } from "../services/orchestrator/src/lib
 import { createAgentRuntime } from "../services/orchestrator/src/runtime/runtime-factory.ts";
 import { loadPulseSnapshotFromArtifacts } from "./pulse-live-pulse.ts";
 import {
-  buildStatelessRunIdentityRows,
-  buildStatelessOverview,
+  buildPulseLiveRunIdentityRows,
+  buildPulseLiveOverview,
   calculatePositionPnlPct,
   calculatePositionValueUsd
 } from "./pulse-live-helpers.ts";
@@ -47,7 +47,7 @@ import {
   mapBlockedItemToSummaryBlockedItem,
   mapDecisionToSummaryDecision,
   mapExecutedOrderToSummaryOrder,
-  mapStatelessPlanToSummaryPlan
+  mapPulseLivePlanToSummaryPlan
 } from "./live-run-summary-builders.ts";
 import {
   buildLiveRunContextRows,
@@ -61,6 +61,7 @@ import {
 import {
   probeCollateralBalanceUsd
 } from "./live-preflight-probes.ts";
+import { appendEquitySnapshot } from "./equity-snapshot.ts";
 
 interface Args {
   json: boolean;
@@ -425,7 +426,7 @@ async function buildFinalPortfolioState(input: {
     remotePositions,
     input.orchestratorConfig.positionStopLossPct
   );
-  const overview = buildStatelessOverview({
+  const overview = buildPulseLiveOverview({
     collateralBalanceUsd: roundCurrency(collateralBalanceUsd.balanceUsd ?? input.orchestratorConfig.initialBankrollUsd),
     positions
   });
@@ -456,7 +457,7 @@ function printRecommendationSummary(input: {
   printer.table([
     ["Run ID", input.runId],
     ["Env File", input.envFilePath ?? "-"],
-    ...buildStatelessRunIdentityRows({
+    ...buildPulseLiveRunIdentityRows({
       executionMode: input.executionMode,
       decisionStrategy: input.decisionStrategy
     }),
@@ -502,7 +503,7 @@ function printExecutionSummary(input: {
   const printer = createTerminalPrinter();
   printer.section("Pulse Live Execution Summary", `run ${input.runId}`);
   printer.table([
-    ...buildStatelessRunIdentityRows({
+    ...buildPulseLiveRunIdentityRows({
       executionMode: input.executionMode,
       decisionStrategy: input.decisionStrategy
     }),
@@ -573,7 +574,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
       const printer = createTerminalPrinter();
       printer.section("Pulse Live Preflight", "route pulse:live");
       printer.table([
-        ...buildStatelessRunIdentityRows({
+        ...buildPulseLiveRunIdentityRows({
           executionMode: preflight.report.executionMode,
           decisionStrategy: preflight.report.decisionStrategy
         }),
@@ -630,7 +631,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
       preflight.remotePositions,
       orchestratorConfig.positionStopLossPct
     );
-    const overview = buildStatelessOverview({
+    const overview = buildPulseLiveOverview({
       collateralBalanceUsd: preflight.collateralBalanceUsd,
       positions
     });
@@ -638,7 +639,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
     const pulseRunId = randomUUID();
     reporter.stage({
       percent: 10,
-      label: "Loaded stateless portfolio context",
+      label: "Loaded pulse-live portfolio context",
       detail: `${positions.length} positions | collateral ${formatUsd(preflight.collateralBalanceUsd)} | effective bankroll ${formatUsd(overview.total_equity_usd)}`
     });
     const pulse = args.pulseJsonPath
@@ -749,7 +750,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
         promptSummary,
         reasoningMd,
         decisions: decisionsForSummary.map(mapDecisionToSummaryDecision),
-        executablePlans: plansForSummary.map(mapStatelessPlanToSummaryPlan),
+        executablePlans: plansForSummary.map(mapPulseLivePlanToSummaryPlan),
         blockedItems: skippedForSummary.map(mapBlockedItemToSummaryBlockedItem),
         portfolioBefore: mapOverviewToSummarySnapshot(overview),
         portfolioAfter: mapOverviewToSummarySnapshot(overview),
@@ -762,6 +763,12 @@ export async function runPulseLive(args: Args = parseArgs()) {
           additionalPaths: supplementalArtifactPaths
         }
       });
+      const equityResult = await appendEquitySnapshot({ overview });
+      if (useHumanOutput) {
+        const printer = createTerminalPrinter();
+        printer.note("success", "Equity snapshot appended", `${equityResult.snapshotCount} total snapshots in ${equityResult.historyPath}`);
+        printer.note("warn", "Remember to commit + push", "equity-history.json must be pushed for the live chart to update on Vercel.");
+      }
       const output = {
         ok: true,
         mode: "recommend-only",
@@ -826,7 +833,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
       promptSummary,
       reasoningMd,
       decisions: decisionsForSummary.map(mapDecisionToSummaryDecision),
-      executablePlans: plansForSummary.map(mapStatelessPlanToSummaryPlan),
+      executablePlans: plansForSummary.map(mapPulseLivePlanToSummaryPlan),
       executedOrders: executedForSummary.map(mapExecutedOrderToSummaryOrder),
       blockedItems: skippedForSummary.map(mapBlockedItemToSummaryBlockedItem),
       portfolioBefore: overviewBefore ? mapOverviewToSummarySnapshot(overviewBefore) : null,
@@ -842,6 +849,12 @@ export async function runPulseLive(args: Args = parseArgs()) {
       }
     });
 
+    const equityResult = await appendEquitySnapshot({ overview: finalState.overview });
+    if (useHumanOutput) {
+      const printer = createTerminalPrinter();
+      printer.note("success", "Equity snapshot appended", `${equityResult.snapshotCount} total snapshots in ${equityResult.historyPath}`);
+      printer.note("warn", "Remember to commit + push", "equity-history.json must be pushed for the live chart to update on Vercel.");
+    }
     const output = {
       ok: true,
       executionMode: preflight.report.executionMode,
@@ -894,7 +907,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
       promptSummary,
       reasoningMd,
       decisions: decisionsForSummary.map(mapDecisionToSummaryDecision),
-      executablePlans: plansForSummary.map(mapStatelessPlanToSummaryPlan),
+      executablePlans: plansForSummary.map(mapPulseLivePlanToSummaryPlan),
       executedOrders: executedForSummary.map(mapExecutedOrderToSummaryOrder),
       blockedItems: skippedForSummary.map(mapBlockedItemToSummaryBlockedItem),
       portfolioBefore: overviewBefore ? mapOverviewToSummarySnapshot(overviewBefore) : null,

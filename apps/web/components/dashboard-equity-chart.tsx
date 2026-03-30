@@ -1,94 +1,39 @@
 "use client";
 
-import type { PublicTrade } from "@autopoly/contracts";
 import { formatUsd } from "../lib/format";
 import { useLocale } from "../lib/locale-context";
 import { usePollingJson } from "../lib/use-polling";
 
-interface PnlPoint {
+interface EquitySnapshot {
   timestamp: string;
-  cumulative_pnl: number;
+  total_equity_usd: number;
+  cash_usd: number;
+  positions_value_usd: number;
+  open_positions: number;
 }
 
-/**
- * Build cumulative PNL points from trade history.
- * Each BUY is a cash outflow (negative), each SELL is a cash inflow (positive).
- * The cumulative sum represents realized cash-flow PNL over time.
- */
-function buildCumulativePnlFromTrades(trades: PublicTrade[]): PnlPoint[] {
-  if (trades.length === 0) {
-    return [];
-  }
-
-  // Sort trades by timestamp ascending (oldest first)
-  const sorted = [...trades].sort(
-    (a, b) => new Date(a.timestamp_utc).getTime() - new Date(b.timestamp_utc).getTime()
-  );
-
-  let cumulative = 0;
-  const points: PnlPoint[] = [
-    { timestamp: sorted[0]!.timestamp_utc, cumulative_pnl: 0 }
-  ];
-
-  for (const trade of sorted) {
-    const usdcAmount = trade.filled_notional_usd;
-    if (usdcAmount <= 0) {
-      continue;
-    }
-
-    // BUY = spending USDC (cost), SELL = receiving USDC (proceeds)
-    if (trade.side === "SELL") {
-      cumulative = cumulative + usdcAmount;
-    } else {
-      cumulative = cumulative - usdcAmount;
-    }
-
-    points.push({
-      timestamp: trade.timestamp_utc,
-      cumulative_pnl: Number(cumulative.toFixed(2))
-    });
-  }
-
-  return points;
-}
-
-function buildPath(points: PnlPoint[], width: number, height: number, padding: number): string {
-  if (points.length === 0) {
+function buildPath(
+  values: readonly number[],
+  width: number,
+  height: number,
+  padding: number
+): string {
+  if (values.length === 0) {
     return "";
   }
 
-  const values = points.map((p) => p.cumulative_pnl);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(0.01, max - min);
   const drawHeight = height - padding * 2;
 
-  return points
-    .map((point, index) => {
-      const x = (index / Math.max(1, points.length - 1)) * width;
-      const y = padding + drawHeight - ((point.cumulative_pnl - min) / range) * drawHeight;
+  return values
+    .map((value, index) => {
+      const x = (index / Math.max(1, values.length - 1)) * width;
+      const y = padding + drawHeight - ((value - min) / range) * drawHeight;
       return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
-}
-
-function buildZeroLine(points: PnlPoint[], width: number, height: number, padding: number): number | null {
-  if (points.length === 0) {
-    return null;
-  }
-
-  const values = points.map((p) => p.cumulative_pnl);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(0.01, max - min);
-  const drawHeight = height - padding * 2;
-
-  // Only show zero line if the range spans across zero
-  if (min > 0 || max < 0) {
-    return null;
-  }
-
-  return padding + drawHeight - ((0 - min) / range) * drawHeight;
 }
 
 function formatTimestamp(iso: string): string {
@@ -101,63 +46,79 @@ function formatTimestamp(iso: string): string {
 }
 
 export function DashboardEquityChart({
-  initialTrades,
-  currentEquityUsd
+  initialEquityHistory
 }: {
-  initialTrades: PublicTrade[];
-  currentEquityUsd: number;
+  initialEquityHistory: EquitySnapshot[];
 }) {
   const { t } = useLocale();
-  const { data: trades } = usePollingJson("/api/public/trades", initialTrades);
+  const { data: equityHistory } = usePollingJson<EquitySnapshot[]>(
+    "/equity-history.json",
+    initialEquityHistory,
+    30_000 // poll every 30s (static file, no need to be aggressive)
+  );
 
-  const points = buildCumulativePnlFromTrades(trades);
-
-  // If we have points, also add a "current" anchor based on unrealized
-  const hasData = points.length >= 2;
-
-  const values = points.map((p) => p.cumulative_pnl);
-  const high = hasData ? Math.max(...values) : 0;
-  const low = hasData ? Math.min(...values) : 0;
-  const latest = hasData ? (values[values.length - 1] ?? 0) : 0;
-  const isUp = latest >= 0;
-
-  const svgWidth = 720;
-  const svgHeight = 240;
-  const padding = 20;
+  const hasData = equityHistory.length >= 2;
 
   if (!hasData) {
     return (
       <section className="dash-panel dash-chart-panel dash-chart-prominent">
         <div className="dash-panel-head">
-          <h2>{t.cumulative_pnl}</h2>
+          <h2>{t.equity_curve}</h2>
         </div>
-        <p className="dash-empty">{t.no_trade_data}</p>
+        <p className="dash-empty">{t.no_equity_data}</p>
       </section>
     );
   }
 
-  const linePath = buildPath(points, svgWidth, svgHeight, padding);
-  const zeroY = buildZeroLine(points, svgWidth, svgHeight, padding);
+  const equityValues = equityHistory.map((s) => s.total_equity_usd);
+  const high = Math.max(...equityValues);
+  const low = Math.min(...equityValues);
+  const latest = equityValues[equityValues.length - 1] ?? 0;
+  const initial = equityValues[0] ?? 0;
+  const pnl = Number((latest - initial).toFixed(2));
+  const isUp = pnl >= 0;
+
+  const svgWidth = 720;
+  const svgHeight = 240;
+  const padding = 20;
+
+  const linePath = buildPath(equityValues, svgWidth, svgHeight, padding);
   const fillPath = `${linePath} L ${svgWidth} ${svgHeight} L 0 ${svgHeight} Z`;
 
   // Build time labels at even intervals
-  const labelCount = Math.min(5, points.length);
+  const labelCount = Math.min(5, equityHistory.length);
   const labels: Array<{ x: number; text: string }> = [];
   for (let i = 0; i < labelCount; i++) {
-    const idx = Math.floor((i / Math.max(1, labelCount - 1)) * (points.length - 1));
-    const x = (idx / Math.max(1, points.length - 1)) * svgWidth;
-    labels.push({ x, text: formatTimestamp(points[idx]!.timestamp) });
+    const idx = Math.floor(
+      (i / Math.max(1, labelCount - 1)) * (equityHistory.length - 1)
+    );
+    const x = (idx / Math.max(1, equityHistory.length - 1)) * svgWidth;
+    labels.push({ x, text: formatTimestamp(equityHistory[idx]!.timestamp) });
   }
+
+  // Compute last point coordinates for the dot
+  const allMin = Math.min(...equityValues);
+  const allMax = Math.max(...equityValues);
+  const allRange = Math.max(0.01, allMax - allMin);
+  const drawHeight = svgHeight - padding * 2;
+  const lastCx = svgWidth;
+  const lastCy =
+    padding + drawHeight - ((latest - allMin) / allRange) * drawHeight;
 
   return (
     <section className="dash-panel dash-chart-panel dash-chart-prominent">
       <div className="dash-panel-head">
-        <h2>{t.cumulative_pnl}</h2>
+        <h2>{t.equity_curve}</h2>
         <div className="dash-panel-meta">
-          <span>{t.high} {formatUsd(high)}</span>
-          <span>{t.low} {formatUsd(low)}</span>
+          <span>
+            {t.high} {formatUsd(high)}
+          </span>
+          <span>
+            {t.low} {formatUsd(low)}
+          </span>
           <span className={isUp ? "dash-positive" : "dash-negative"}>
-            {isUp ? "+" : ""}{formatUsd(latest)}
+            {t.pnl_label} {isUp ? "+" : ""}
+            {formatUsd(pnl)}
           </span>
         </div>
       </div>
@@ -166,36 +127,29 @@ export function DashboardEquityChart({
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="dash-chart"
           role="img"
-          aria-label="Cumulative P&L chart"
+          aria-label="Equity curve chart"
         >
           <defs>
-            <linearGradient id="dash-pnl-fill" x1="0" x2="0" y1="0" y2="1">
+            <linearGradient id="dash-equity-fill" x1="0" x2="0" y1="0" y2="1">
               <stop
                 offset="0%"
-                stopColor={isUp ? "rgba(52, 211, 153, 0.30)" : "rgba(239, 68, 68, 0.30)"}
+                stopColor={
+                  isUp
+                    ? "rgba(52, 211, 153, 0.30)"
+                    : "rgba(239, 68, 68, 0.30)"
+                }
               />
               <stop
                 offset="100%"
-                stopColor={isUp ? "rgba(52, 211, 153, 0)" : "rgba(239, 68, 68, 0)"}
+                stopColor={
+                  isUp ? "rgba(52, 211, 153, 0)" : "rgba(239, 68, 68, 0)"
+                }
               />
             </linearGradient>
           </defs>
 
-          {/* Zero line */}
-          {zeroY != null ? (
-            <line
-              x1="0"
-              y1={zeroY}
-              x2={svgWidth}
-              y2={zeroY}
-              stroke="rgba(232, 236, 244, 0.12)"
-              strokeWidth="1"
-              strokeDasharray="6 4"
-            />
-          ) : null}
-
           {/* Fill area */}
-          <path d={fillPath} fill="url(#dash-pnl-fill)" />
+          <path d={fillPath} fill="url(#dash-equity-fill)" />
 
           {/* Line */}
           <path
@@ -207,26 +161,14 @@ export function DashboardEquityChart({
           />
 
           {/* Latest point dot */}
-          {points.length > 0 ? (() => {
-            const lastPt = points[points.length - 1]!;
-            const allVals = points.map((p) => p.cumulative_pnl);
-            const mn = Math.min(...allVals);
-            const mx = Math.max(...allVals);
-            const rng = Math.max(0.01, mx - mn);
-            const dh = svgHeight - padding * 2;
-            const cx = svgWidth;
-            const cy = padding + dh - ((lastPt.cumulative_pnl - mn) / rng) * dh;
-            return (
-              <circle
-                cx={cx}
-                cy={cy}
-                r="4"
-                fill={isUp ? "#34d399" : "#ef4444"}
-                stroke="rgba(0,0,0,0.3)"
-                strokeWidth="1"
-              />
-            );
-          })() : null}
+          <circle
+            cx={lastCx}
+            cy={lastCy}
+            r="4"
+            fill={isUp ? "#34d399" : "#ef4444"}
+            stroke="rgba(0,0,0,0.3)"
+            strokeWidth="1"
+          />
 
           {/* Time labels along bottom */}
           {labels.map((label) => (
