@@ -190,24 +190,19 @@
 - Pulse 报告中的回报时间线分析应由 AI 完成，不仅是机械的 edge/days 计算。
 - 市场筛选阶段应加入 AI 分析，过滤无 edge 的短期市场。
 
-## 19. 工作流反思（2026-03-29 session）
+## 19. 交付标准
 
-- **改动未推送 = 未完成**：所有代码改动必须 commit + push + 验证部署后才算完成。本地跑通不等于上线。
-- **recommend-only ≠ 实盘下单**：测试时必须明确区分。如果目标是验证下单，必须跑不带 `--recommend-only` 的命令。
-- **先验证再扩展**：在增加新功能前，应先确保现有流程能真正执行一笔交易（从 Pulse 到下单），再做架构改进。
-- **.env 配置是生命线**：provider 配置（codex command、model）必须在 .env 中正确设置，否则整个链路断裂。
-
-## 20. 部署验证规则（2026-03-30）
-
-- 每次 push 代码更新后，必须确保 **Vercel 能部署成功**。
-- 部署失败 = 改动未完成。必须修复构建错误后重新推送。
+- **改动未推送 = 未完成**：所有代码改动必须 commit + push + Vercel 部署成功后才算完成。
 - 推荐流程：`pnpm build`（本地验证）→ `git push` → `npx vercel --prod` → 验证线上页面。
 - 如果 lockfile 过期导致构建失败，先 `pnpm install --no-frozen-lockfile` 更新 lockfile 再推。
 
-## 21. 工作流反思（2026-03-30 session）
+## 20. 决策安全原则
 
-- **Fallback 必须删除**：deterministic fallback 跟随市场共识 + 固定上调 10% 的"假 edge"导致了一笔方向完全相反的实盘交易。AI 分析失败时，必须停止交易而不是降级执行。
-- **手续费是盈利门槛的一部分**：Polymarket 新费率（2026-03-30 生效）按类别收费。Geopolitics = 0%，Crypto 最高 1.8%。交易决策必须扣除手续费后再评估 edge 是否足够。
-- **筛选条件应持久化**：市场类别/标签/概率范围的筛选条件放在 `pulse-filters.json` 里，不要每次手动传 CLI 参数。
-- **渲染超时需要留够余量**：Claude Code 渲染 Pulse 报告可能需要 5-20 分钟，默认超时已从 20 分钟调到 30 分钟。
-- **PNL 计算必须用现金流口径**：`total_pnl = cash_in - cash_out + current_value`，不能用权益差值（会把入金算成利润）。
+- **AI 分析失败 = 停止交易**：禁止任何形式的 deterministic fallback 或降级执行。没有完整 AI 分析就不开新仓。
+- **手续费纳入盈利评估**：交易决策必须扣除手续费后再评估 edge 是否足够。费率按 Polymarket 类别不同（Geopolitics 0%，Crypto 最高 1.8%）。
+- **PNL 计算用现金流口径**：`total_pnl = cash_in - cash_out + current_value`，禁止用权益差值（会把入金算成利润）。
+
+## 21. 配置管理
+
+- 市场筛选条件持久化在 `pulse-filters.json`，CLI 参数仅用于临时覆盖。
+- 工作日志和反思记录在 `claude-review/diary.md`，不放在 CLAUDE.md / AGENTS.md 里。
