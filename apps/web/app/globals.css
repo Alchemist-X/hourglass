@@ -3570,6 +3570,65 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
   gap: 20px;
 }
 
+/* ---- Thesis section ---- */
+
+.dash-thesis {
+  padding: 24px 28px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(12px);
+}
+
+.dash-thesis h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e8ecf4;
+  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+}
+
+.dash-thesis > p {
+  color: #8a94a6;
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+
+.dash-thesis-points {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.dash-thesis-point {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dash-thesis-point strong {
+  color: #c5cdd8;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dash-thesis-point span {
+  color: #6b7589;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+@media (max-width: 860px) {
+  .dash-thesis-points {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- Header / KPIs ---- */
 
 .dash-header {
