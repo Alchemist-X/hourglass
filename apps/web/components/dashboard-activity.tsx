@@ -2,6 +2,7 @@
 
 import type { PublicTrade } from "@autopoly/contracts";
 import { formatUsd } from "../lib/format";
+import { useLocale } from "../lib/locale-context";
 import { usePollingJson } from "../lib/use-polling";
 
 function relativeTime(isoString: string): string {
@@ -27,19 +28,20 @@ function relativeTime(isoString: string): string {
 }
 
 export function DashboardActivity({ initialData }: { initialData: PublicTrade[] }) {
+  const { t } = useLocale();
   const { data } = usePollingJson("/api/public/trades", initialData);
   const recent = data.slice(0, 8);
 
   return (
     <section className="dash-panel">
       <div className="dash-panel-head">
-        <h2>Recent Trades</h2>
+        <h2>{t.recent_trades}</h2>
         <div className="dash-panel-meta">
-          <span>{data.length} total trades</span>
+          <span>{t.total_trades(data.length)}</span>
         </div>
       </div>
       {recent.length === 0 ? (
-        <p className="dash-empty">No recent trades.</p>
+        <p className="dash-empty">{t.no_recent_trades}</p>
       ) : (
         <div className="dash-activity-list">
           {recent.map((trade) => {
@@ -57,9 +59,9 @@ export function DashboardActivity({ initialData }: { initialData: PublicTrade[] 
                   <div className="dash-activity-info">
                     <strong>{trade.market_slug}</strong>
                     <span className="dash-activity-detail">
-                      {formatUsd(trade.filled_notional_usd)} filled
+                      {formatUsd(trade.filled_notional_usd)} {t.filled}
                       {trade.avg_price != null ? ` @ ${trade.avg_price.toFixed(3)}` : ""}
-                      {fillRatio < 1 ? ` (${(fillRatio * 100).toFixed(0)}% fill)` : ""}
+                      {fillRatio < 1 ? ` ${t.fill_pct(fillRatio * 100)}` : ""}
                     </span>
                   </div>
                 </div>

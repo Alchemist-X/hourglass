@@ -3553,6 +3553,31 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.dash-locale-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(232, 236, 244, 0.7);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms, border-color 150ms;
+}
+
+.dash-locale-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f0f4ff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
 .dash-main {
   position: relative;
 }
@@ -3893,6 +3918,15 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.dash-chart-prominent {
+  border: 1px solid rgba(52, 211, 153, 0.12);
+  background: rgba(52, 211, 153, 0.02);
+}
+
+.dash-chart-prominent .dash-chart-wrap {
+  min-height: 180px;
 }
 
 /* ---- P&L cards ---- */
@@ -4375,6 +4409,14 @@ body:has(.bal-preview-flow) .dash-topbar {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
+    position: relative;
+  }
+
+  .dash-locale-toggle {
+    position: absolute;
+    top: 14px;
+    right: 0;
+    margin-left: 0;
   }
 
   .dash-header-row {

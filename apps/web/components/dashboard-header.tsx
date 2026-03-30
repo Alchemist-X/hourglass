@@ -2,6 +2,7 @@
 
 import type { OverviewResponse } from "@autopoly/contracts";
 import { formatPct, formatUsd } from "../lib/format";
+import { useLocale } from "../lib/locale-context";
 import { usePollingJson } from "../lib/use-polling";
 
 function statusColor(status: OverviewResponse["status"]): string {
@@ -17,80 +18,81 @@ function statusColor(status: OverviewResponse["status"]): string {
   }
 }
 
-function statusLabel(status: OverviewResponse["status"]): string {
-  switch (status) {
-    case "running":
-      return "Running";
-    case "paused":
-      return "Paused";
-    case "halted":
-      return "Halted";
-    default:
-      return status;
-  }
-}
-
-function relativeTime(isoString: string | null): string {
-  if (!isoString) {
-    return "N/A";
-  }
-  const now = Date.now();
-  const then = new Date(isoString).getTime();
-  const diffMs = now - then;
-  if (diffMs < 0) {
-    return "just now";
-  }
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) {
-    return "just now";
-  }
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 export function DashboardHeader({ initialData }: { initialData: OverviewResponse }) {
+  const { t } = useLocale();
   const { data, error } = usePollingJson("/api/public/overview", initialData);
 
   const pnlUsd = data.total_equity_usd - data.high_water_mark_usd;
   const pnlIsPositive = pnlUsd >= 0;
+
+  function statusLabel(status: OverviewResponse["status"]): string {
+    switch (status) {
+      case "running":
+        return t.status_running;
+      case "paused":
+        return t.status_paused;
+      case "halted":
+        return t.status_halted;
+      default:
+        return status;
+    }
+  }
+
+  function relativeTime(isoString: string | null): string {
+    if (!isoString) {
+      return t.na;
+    }
+    const now = Date.now();
+    const then = new Date(isoString).getTime();
+    const diffMs = now - then;
+    if (diffMs < 0) {
+      return t.just_now;
+    }
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) {
+      return t.just_now;
+    }
+    if (minutes < 60) {
+      return t.minutes_ago(minutes);
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return t.hours_ago(hours);
+    }
+    const days = Math.floor(hours / 24);
+    return t.days_ago(days);
+  }
 
   return (
     <header className="dash-header">
       <div className="dash-header-row">
         <div className="dash-kpi">
           <div className="dash-kpi-item dash-kpi-equity">
-            <span className="dash-kpi-label">Total Equity</span>
+            <span className="dash-kpi-label">{t.total_equity}</span>
             <strong className="dash-kpi-value">{formatUsd(data.total_equity_usd)}</strong>
           </div>
           <div className="dash-kpi-item">
-            <span className="dash-kpi-label">Cash</span>
+            <span className="dash-kpi-label">{t.cash}</span>
             <strong className="dash-kpi-value">{formatUsd(data.cash_balance_usd)}</strong>
           </div>
           <div className="dash-kpi-item">
-            <span className="dash-kpi-label">HWM</span>
+            <span className="dash-kpi-label">{t.hwm}</span>
             <strong className="dash-kpi-value">{formatUsd(data.high_water_mark_usd)}</strong>
           </div>
           <div className="dash-kpi-item">
-            <span className="dash-kpi-label">Drawdown</span>
+            <span className="dash-kpi-label">{t.drawdown}</span>
             <strong className={`dash-kpi-value ${data.drawdown_pct > 0 ? "dash-negative" : ""}`}>
               {formatPct(data.drawdown_pct)}
             </strong>
           </div>
           <div className="dash-kpi-item">
-            <span className="dash-kpi-label">vs HWM</span>
+            <span className="dash-kpi-label">{t.vs_hwm}</span>
             <strong className={`dash-kpi-value ${pnlIsPositive ? "dash-positive" : "dash-negative"}`}>
               {pnlIsPositive ? "+" : ""}{formatUsd(pnlUsd)}
             </strong>
           </div>
           <div className="dash-kpi-item">
-            <span className="dash-kpi-label">Open Positions</span>
+            <span className="dash-kpi-label">{t.open_positions}</span>
             <strong className="dash-kpi-value">{data.open_positions}</strong>
           </div>
         </div>
@@ -100,7 +102,7 @@ export function DashboardHeader({ initialData }: { initialData: OverviewResponse
             {statusLabel(data.status)}
           </div>
           <span className="dash-last-update">
-            {error ? `Error: ${error}` : `Updated ${relativeTime(data.last_run_at)}`}
+            {error ? `Error: ${error}` : `${t.updated} ${relativeTime(data.last_run_at)}`}
           </span>
         </div>
       </div>

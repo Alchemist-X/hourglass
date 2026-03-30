@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LocaleToggle } from "./locale-toggle";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
@@ -39,6 +40,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+        <LocaleToggle />
       </header>
       <main className="dash-main">{children}</main>
     </div>

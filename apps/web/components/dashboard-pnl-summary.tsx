@@ -11,6 +11,7 @@ import {
   getTopPositionsByContribution
 } from "../lib/account-metrics";
 import { formatPct, formatUsd } from "../lib/format";
+import { useLocale } from "../lib/locale-context";
 import { usePollingJson } from "../lib/use-polling";
 
 export function DashboardPnlSummary({
@@ -20,6 +21,7 @@ export function DashboardPnlSummary({
   initialPositions: PublicPosition[];
   initialClosedPositions: SpectatorClosedPosition[];
 }) {
+  const { t } = useLocale();
   const { data: positions } = usePollingJson("/api/public/positions", initialPositions);
   const { data: closedPositions } = usePollingJson<SpectatorClosedPosition[]>(
     "/api/public/closed-positions",
@@ -37,41 +39,41 @@ export function DashboardPnlSummary({
   return (
     <section className="dash-panel">
       <div className="dash-panel-head">
-        <h2>P&L Summary</h2>
+        <h2>{t.pnl_summary_title}</h2>
       </div>
       <div className="dash-pnl-grid">
         <div className="dash-pnl-card">
-          <span>Net P&L</span>
+          <span>{t.net_pnl}</span>
           <strong className={netPnl >= 0 ? "dash-positive" : "dash-negative"}>
             {netPnl >= 0 ? "+" : ""}{formatUsd(netPnl)}
           </strong>
         </div>
         <div className="dash-pnl-card">
-          <span>Unrealized</span>
+          <span>{t.unrealized}</span>
           <strong className={unrealizedPnl >= 0 ? "dash-positive" : "dash-negative"}>
             {unrealizedPnl >= 0 ? "+" : ""}{formatUsd(unrealizedPnl)}
           </strong>
           <small>{formatPct(unrealizedPnlPct)}</small>
         </div>
         <div className="dash-pnl-card">
-          <span>Realized</span>
+          <span>{t.realized}</span>
           <strong className={realizedPnl >= 0 ? "dash-positive" : "dash-negative"}>
             {realizedPnl >= 0 ? "+" : ""}{formatUsd(realizedPnl)}
           </strong>
-          <small>{closedPositions.length} closed markets</small>
+          <small>{t.closed_markets(closedPositions.length)}</small>
         </div>
         <div className="dash-pnl-card">
-          <span>Cost Basis</span>
+          <span>{t.cost_basis}</span>
           <strong>{formatUsd(costBasis)}</strong>
         </div>
         <div className="dash-pnl-card">
-          <span>Market Value</span>
+          <span>{t.market_value_label}</span>
           <strong>{formatUsd(marketValue)}</strong>
         </div>
       </div>
       {topPositions.length > 0 ? (
         <div className="dash-top-movers">
-          <h3>Top Movers</h3>
+          <h3>{t.top_movers}</h3>
           <div className="dash-movers-list">
             {topPositions.map((position) => {
               const pnl = calculatePositionUnrealizedPnlUsd(position);

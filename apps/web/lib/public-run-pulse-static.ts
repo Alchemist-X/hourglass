@@ -17,8 +17,8 @@ export const STATIC_PUBLIC_PULSE_RECOMMENDATION_EXAMPLES: PublicPulseRecommendat
     pulse_excerpt_md: null,
     pulse_markdown_path: "runtime-artifacts/reports/pulse/2026/03/23/pulse-20260323T144934Z-codex-full-7504bda8-c58e-4492-b43a-7c6d64315bcf.md",
     pulse_json_path: "runtime-artifacts/reports/pulse/2026/03/23/pulse-20260323T144934Z-codex-full-7504bda8-c58e-4492-b43a-7c6d64315bcf.json",
-    run_summary_path: "runtime-artifacts/live-stateless/2026-03-23T144924Z-7504bda8-c58e-4492-b43a-7c6d64315bcf/run-summary.md",
-    execution_summary_path: "runtime-artifacts/live-stateless/2026-03-23T144924Z-7504bda8-c58e-4492-b43a-7c6d64315bcf/execution-summary.json",
+    run_summary_path: "runtime-artifacts/pulse-live/2026-03-23T144924Z-7504bda8-c58e-4492-b43a-7c6d64315bcf/run-summary.md",
+    execution_summary_path: "runtime-artifacts/pulse-live/2026-03-23T144924Z-7504bda8-c58e-4492-b43a-7c6d64315bcf/execution-summary.json",
     executed_trade_count: 0,
     executed_trades: []
   },
@@ -38,8 +38,8 @@ export const STATIC_PUBLIC_PULSE_RECOMMENDATION_EXAMPLES: PublicPulseRecommendat
     pulse_excerpt_md: null,
     pulse_markdown_path: "runtime-artifacts/reports/pulse/2026/03/24/pulse-20260324T012336Z-codex-full-2911461a-1dcb-4186-aab0-7aecc6ad012c.md",
     pulse_json_path: "runtime-artifacts/reports/pulse/2026/03/24/pulse-20260324T012336Z-codex-full-2911461a-1dcb-4186-aab0-7aecc6ad012c.json",
-    run_summary_path: "runtime-artifacts/live-stateless/2026-03-24T012317Z-2911461a-1dcb-4186-aab0-7aecc6ad012c/run-summary.md",
-    execution_summary_path: "runtime-artifacts/live-stateless/2026-03-24T012317Z-2911461a-1dcb-4186-aab0-7aecc6ad012c/execution-summary.json",
+    run_summary_path: "runtime-artifacts/pulse-live/2026-03-24T012317Z-2911461a-1dcb-4186-aab0-7aecc6ad012c/run-summary.md",
+    execution_summary_path: "runtime-artifacts/pulse-live/2026-03-24T012317Z-2911461a-1dcb-4186-aab0-7aecc6ad012c/execution-summary.json",
     executed_trade_count: 0,
     executed_trades: []
   },
@@ -81,8 +81,8 @@ export const STATIC_PUBLIC_PULSE_RECOMMENDATION_EXAMPLES: PublicPulseRecommendat
       "# Polymarket 每日市场脉搏\n**报告生成时间：** 2026-03-24 03:06:57 (UTC)  \n**市场数据获取时间：** 2026-03-24 03:06:57 (UTC)\n> 本轮最强机会仍集中在“中东升级叙事被高估”的 No 侧：截至 3 月 31 日的“美伊停火”和“美军进入伊朗”都具备高流动性、近端催化和较清晰的 longshot bias。第三名选择“英格兰夺得 2026 世界杯”的 No，不是因为英格兰一定弱，而是因为 12.9% 的单一冠军定价在多结果市场里仍偏贵。\n## 候选池与筛选思路\n**候选来源：**\n- 研究上下文共抓取 1,578 个市场，过滤后剩余 83 个，最终进入研究候选 12 个。\n- 本轮候选主要来自三类主题：\n  - 中东地缘政治短期事件：美伊停火、美军进入伊朗\n  - 大宗商品/加密价格触发：原油触及 $100 / $110，比特币触及 $80,000 或跌至 $65,000\n  - 多结果体育冠军市场中拆出的单一 outcome：英格兰世界杯、曼城英超、布法罗军刀斯坦利杯\n**筛选原则：**",
     pulse_markdown_path: "runtime-artifacts/reports/pulse/2026/03/24/pulse-20260324T030657Z-codex-full-a2420cbb-f0d2-46ca-8931-77b4ee3cfd67.md",
     pulse_json_path: "runtime-artifacts/reports/pulse/2026/03/24/pulse-20260324T030657Z-codex-full-a2420cbb-f0d2-46ca-8931-77b4ee3cfd67.json",
-    run_summary_path: "runtime-artifacts/live-stateless/2026-03-24T030643Z-a2420cbb-f0d2-46ca-8931-77b4ee3cfd67/run-summary.md",
-    execution_summary_path: "runtime-artifacts/live-stateless/2026-03-24T030643Z-a2420cbb-f0d2-46ca-8931-77b4ee3cfd67/execution-summary.json",
+    run_summary_path: "runtime-artifacts/pulse-live/2026-03-24T030643Z-a2420cbb-f0d2-46ca-8931-77b4ee3cfd67/run-summary.md",
+    execution_summary_path: "runtime-artifacts/pulse-live/2026-03-24T030643Z-a2420cbb-f0d2-46ca-8931-77b4ee3cfd67/execution-summary.json",
     executed_trade_count: 2,
     executed_trades: [
       {

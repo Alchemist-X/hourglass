@@ -365,7 +365,7 @@ async function loadRecommendationExample(record: {
 }
 
 async function loadRecommendationExampleRecords(): Promise<LoadedRecommendationExample[]> {
-  const root = path.join(process.cwd(), "runtime-artifacts", "live-stateless");
+  const root = path.join(process.cwd(), "runtime-artifacts", "pulse-live");
 
   try {
     const entries = await fs.readdir(root, { withFileTypes: true });

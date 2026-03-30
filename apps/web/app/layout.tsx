@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { DashboardShell } from "../components/dashboard-shell";
+import { LocaleProvider } from "../lib/locale-context";
 
 export const metadata: Metadata = {
   title: "AutoPoly Live Dashboard",
@@ -11,7 +12,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body className="dash-body">
-        <DashboardShell>{children}</DashboardShell>
+        <LocaleProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </LocaleProvider>
       </body>
     </html>
   );

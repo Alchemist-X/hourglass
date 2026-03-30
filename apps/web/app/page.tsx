@@ -3,6 +3,7 @@ import { DashboardEquityChart } from "../components/dashboard-equity-chart";
 import { DashboardHeader } from "../components/dashboard-header";
 import { DashboardPnlSummary } from "../components/dashboard-pnl-summary";
 import { DashboardPositions } from "../components/dashboard-positions";
+import { DashboardThesis } from "../components/dashboard-thesis";
 import {
   getPublicOverviewData,
   getPublicPositionsData,
@@ -25,30 +26,12 @@ export default async function HomePage() {
     <div className="dash-page">
       <DashboardHeader initialData={overview} />
 
-      <section className="dash-panel dash-thesis">
-        <h2>Why Agents Trade Prediction Markets</h2>
-        <p>
-          This system is built around <strong>Market Pulse</strong> — AI autonomously
-          estimates event probabilities, compares them against market-implied odds,
-          and generates trade signals based on edge and capital efficiency (monthly return).
-        </p>
-        <div className="dash-thesis-points">
-          <div className="dash-thesis-point">
-            <strong>Reasoning at parity</strong>
-            <span>No clear evidence that humans have an edge in forecasting. Given the same context, agents perform comparably — and they never sleep.</span>
-          </div>
-          <div className="dash-thesis-point">
-            <strong>Breadth beats depth</strong>
-            <span>Agents cover thousands of markets simultaneously, catching mispricings that no individual can monitor. Human reaction latency is 3+ minutes; agents act in seconds.</span>
-          </div>
-          <div className="dash-thesis-point">
-            <strong>Competition window</strong>
-            <span>In political and tech prediction markets, participants lack clear pricing models and fear inventory risk. Large-scale agent trading faces little competition today.</span>
-          </div>
-        </div>
-      </section>
+      <DashboardEquityChart
+        initialTrades={trades}
+        currentEquityUsd={overview.total_equity_usd}
+      />
 
-      <DashboardEquityChart points={overview.equity_curve} />
+      <DashboardThesis />
 
       <DashboardPositions
         initialData={positions}
