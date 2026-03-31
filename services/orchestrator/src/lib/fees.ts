@@ -76,7 +76,21 @@ const CATEGORY_ALIASES: ReadonlyArray<{ pattern: string; canonical: string }> = 
  * key, partial-match aliases are tried.  Falls back to "other" if nothing
  * matches.
  */
-export function lookupCategoryFeeParams(categorySlug: string | null | undefined): FeeParams {
+/**
+ * Neg-risk (multi-outcome) markets on Polymarket have 0% taker fees.
+ * The complement mechanism replaces traditional fee charging.
+ * Pass `negRisk: true` to override the category-based lookup.
+ */
+const NEG_RISK_FEE_PARAMS: FeeParams = { feeRate: 0, exponent: 0 };
+
+export function lookupCategoryFeeParams(
+  categorySlug: string | null | undefined,
+  options?: { negRisk?: boolean }
+): FeeParams {
+  if (options?.negRisk) {
+    return NEG_RISK_FEE_PARAMS;
+  }
+
   if (!categorySlug) {
     return DEFAULT_FEE_PARAMS;
   }
@@ -257,8 +271,9 @@ export function verifyFeeEstimate(input: {
   marketSlug: string;
   categorySlug: string | null;
   actualBaseFee: number;
+  negRisk?: boolean;
 }): FeeDiscrepancy {
-  const params = lookupCategoryFeeParams(input.categorySlug);
+  const params = lookupCategoryFeeParams(input.categorySlug, { negRisk: input.negRisk });
   const estimatedHasFee = params.feeRate > 0;
   const actualHasFee = input.actualBaseFee > 0;
 

@@ -327,7 +327,7 @@ export function buildPulseEntryPlans(input: {
     ];
 
     const categorySlug = candidate.categorySlug ?? null;
-    const feeParams = lookupCategoryFeeParams(categorySlug);
+    const feeParams = lookupCategoryFeeParams(categorySlug, { negRisk: candidate.negRisk });
     const grossEdge = aiProb - marketProb;
     const entryFeePct = roundPct(calculateFeePct(marketProb, feeParams));
     const roundTripFee = roundPct(calculateRoundTripFeePct(marketProb, marketProb, feeParams));

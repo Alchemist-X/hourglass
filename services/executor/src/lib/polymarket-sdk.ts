@@ -127,15 +127,28 @@ export async function executeMarketOrder(
     OrderType.FOK
   );
 
-  const avgPrice = Number((response as any)?.price ?? (response as any)?.avgPrice ?? 0.5);
+  const taking = Number((response as any)?.takingAmount ?? 0);
+  const making = Number((response as any)?.makingAmount ?? 0);
+
+  // For BUY: making = USDC given, taking = shares received → price = making / taking
+  // For SELL: making = shares given, taking = USDC received → price = taking / making
+  const derivedAvgPrice =
+    making > 0 && taking > 0
+      ? signal.side === "BUY"
+        ? making / taking
+        : taking / making
+      : Number((response as any)?.price ?? (response as any)?.avgPrice ?? 0.5);
+
+  const filledNotionalUsd =
+    signal.side === "BUY"
+      ? (making > 0 ? making : signal.amount)
+      : (taking > 0 ? taking : signal.amount * derivedAvgPrice);
+
   return {
     ok: Boolean((response as any)?.success ?? (response as any)?.orderID),
     orderId: (response as any)?.orderID ?? (response as any)?.orderId ?? null,
-    avgPrice,
-    filledNotionalUsd:
-      signal.side === "BUY"
-        ? signal.amount
-        : Number((response as any)?.filledNotionalUsd ?? signal.amount * avgPrice),
+    avgPrice: derivedAvgPrice,
+    filledNotionalUsd,
     rawResponse: response
   };
 }

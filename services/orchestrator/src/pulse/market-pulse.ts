@@ -37,6 +37,7 @@ interface RawPulseMarket {
     slug?: string | null;
     label?: string | null;
   }>;
+  neg_risk?: boolean;
 }
 
 interface RawPulseBucketStat {
@@ -111,6 +112,7 @@ export interface PulseCandidate {
   categoryLabel?: string | null;
   categorySource?: string | null;
   tags?: PulseTag[];
+  negRisk?: boolean;
 }
 
 export interface PulseSnapshot {
@@ -210,7 +212,8 @@ function toPulseCandidate(market: RawPulseMarket): PulseCandidate {
       ? market.tags
           .map((tag) => toPulseTag(tag))
           .filter((tag): tag is PulseTag => tag != null)
-      : []
+      : [],
+    negRisk: typeof market.neg_risk === "boolean" ? market.neg_risk : false
   };
 }
 
