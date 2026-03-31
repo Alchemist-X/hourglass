@@ -48,6 +48,21 @@ describe("lookupCategoryFeeParams", () => {
     expect(lookupCategoryFeeParams("   ")).toEqual(other);
     expect(lookupCategoryFeeParams("some-random-slug")).toEqual(other);
   });
+
+  it("returns 0% fee for negRisk markets regardless of category", () => {
+    const zero = { feeRate: 0, exponent: 0 };
+    expect(lookupCategoryFeeParams("politics", { negRisk: true })).toEqual(zero);
+    expect(lookupCategoryFeeParams("sports", { negRisk: true })).toEqual(zero);
+    expect(lookupCategoryFeeParams("crypto", { negRisk: true })).toEqual(zero);
+    expect(lookupCategoryFeeParams("world-elections", { negRisk: true })).toEqual(zero);
+    expect(lookupCategoryFeeParams(null, { negRisk: true })).toEqual(zero);
+  });
+
+  it("uses category-based fee when negRisk is false or omitted", () => {
+    expect(lookupCategoryFeeParams("politics", { negRisk: false })).toEqual({ feeRate: 0.04, exponent: 1 });
+    expect(lookupCategoryFeeParams("sports", { negRisk: false })).toEqual({ feeRate: 0.03, exponent: 1 });
+    expect(lookupCategoryFeeParams("politics")).toEqual({ feeRate: 0.04, exponent: 1 });
+  });
 });
 
 describe("calculateTakerFee", () => {
@@ -146,6 +161,13 @@ describe("calculateNetEdge", () => {
     expect(calculateNetEdge(0.10, 0.5, params)).toBeCloseTo(0.10, 6);
   });
 
+  it("returns gross edge unchanged for negRisk markets", () => {
+    // negRisk markets get 0% fee regardless of category
+    const negRiskParams = lookupCategoryFeeParams("politics", { negRisk: true });
+    expect(calculateNetEdge(0.10, 0.5, negRiskParams)).toBeCloseTo(0.10, 6);
+    expect(calculateNetEdge(0.10, 0.5, negRiskParams, false)).toBeCloseTo(0.10, 6);
+  });
+
   it("can produce negative net edge if fee exceeds gross edge", () => {
     // mentions at p=0.5: fee = 0.25 * (0.25)^2 = 0.25 * 0.0625 = 0.015625
     const params: FeeParams = { feeRate: 0.25, exponent: 2 };
@@ -231,5 +253,29 @@ describe("verifyFeeEstimate", () => {
       actualBaseFee: 0
     });
     expect(result.mismatch).toBe(true);
+  });
+
+  it("reports no mismatch for negRisk market with zero CLOB fee", () => {
+    const result = verifyFeeEstimate({
+      tokenId: "tok-4",
+      marketSlug: "rubio-2028",
+      categorySlug: "world-elections",
+      actualBaseFee: 0,
+      negRisk: true
+    });
+    expect(result.mismatch).toBe(false);
+    expect(result.estimatedFeeRate).toBe(0);
+  });
+
+  it("detects mismatch if negRisk market unexpectedly has a CLOB fee", () => {
+    const result = verifyFeeEstimate({
+      tokenId: "tok-5",
+      marketSlug: "fifa-winner",
+      categorySlug: "sports",
+      actualBaseFee: 1000,
+      negRisk: true
+    });
+    expect(result.mismatch).toBe(true);
+    expect(result.estimatedFeeRate).toBe(0);
   });
 });
