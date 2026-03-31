@@ -47,7 +47,38 @@
 
 ### 未完成
 - 手续费集成到交易代码（仅文档，未改代码）
-- 用 `--category sports/tech` 实际跑一次 recommend
-- PNL 曲线历史段修复（中间点缺少未实现盈亏估值）
+- ~~用 `--category sports/tech` 实际跑一次 recommend~~ → Done（filter 前置后待再验证）
+- ~~PNL 曲线历史段修复~~ → Done
 - VPS 定时部署（仅文档）
-- 市场筛选 Phase B-D（类型权重、AI 预筛选、回报时间线）
+- ~~市场筛选 Phase B-D~~ → Phase B/C done，Phase D 待做
+
+---
+
+## 2026-03-31 Session
+
+### 完成
+- 手续费完整集成：fees.ts 计算模块 + netEdge 排序 + 报告显示 + CLOB API 验证 + 费率不一致日志
+- PNL 曲线修复：图表用 equity-history 画线（正确），headline 用现金流（正确），消除 -$150
+- Filter 前置：category/tag 过滤移到候选选择之前，小众类别（tech/sports）不再被挤出
+- Phase B 类型权重：politics/tech 1.5x，crypto 0.3x，影响候选排序
+- 短期价格市场自动过滤：<7 天 crypto/stock 涨跌直接移除
+- Phase C AI 预筛选：TRADE/SKIP 分类（默认关闭，`PULSE_AI_PRESCREEN=true` 启用）
+- 231 个测试（从 153 增长到 231）
+
+### 反思与发现的缺点
+
+**架构层面：**
+- **Filter 位置设计失误**：最初把 filter 放在 post-selection（选完再过滤），导致小众类别永远被挤出。这是典型的"先做了再想对不对"的错误。应该在设计时就考虑过滤应该发生在哪一步。
+- **equity-history.json 作为 PNL 数据源有局限性**：静态文件需要每次跑完 push 才能更新线上图表。如果跑了但没 push，网页数据就是旧的。长期应该用数据库或 API 存储。
+- **AI 预筛选（Phase C）还没实测**：写了代码但默认关闭。需要用真实数据验证它的分类质量，否则可能误杀好的候选。
+
+**交易层面：**
+- **地缘政治高度集中**：当前 7 个持仓里 5 个是伊朗相关市场。同一事件驱动因素太集中，一旦伊朗局势突变，所有仓位同时受影响。类型权重解决不了这个问题，需要事件级别的分散化。
+- **费率验证是事后的**：当前的 CLOB API 对比是在下单前做的，但如果发现不一致，仍然继续下单（只记录日志）。如果我们严重低估了费率，可能会在不知不觉中亏钱。
+- **没有跟踪实际执行滑点**：FOK 成交的 avgPrice 和预期 bestAsk 之间的差异没有被记录和分析。
+
+**改进方向：**
+1. 事件敞口分散化 — 不只是按类别分散，还要按底层事件分散（同一个伊朗冲突不应占超过 30% 的总仓位）
+2. 执行质量监控 — 记录每笔交易的 expected price vs actual price，积累数据后分析滑点模式
+3. 实测 AI 预筛选 — 跑 10 轮 recommend-only 对比有/无预筛选的候选质量差异
+4. 考虑动态 equity-history API — 替代静态 JSON 文件的方案
