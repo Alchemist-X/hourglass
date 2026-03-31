@@ -68,6 +68,10 @@ import {
   probeCollateralBalanceUsd
 } from "./live-preflight-probes.ts";
 import { appendEquitySnapshot } from "./equity-snapshot.ts";
+import {
+  autoRedeemResolved,
+  type AutoRedeemSummary
+} from "../services/executor/src/lib/redeem.ts";
 
 interface Args {
   json: boolean;
@@ -624,7 +628,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
   let supplementalArtifactPaths: string[] = [];
 
   try {
-    reporter.info("Flow: 1) preflight 2) fetch remote portfolio 3) generate pulse 4) run decision runtime 5) apply guards + exchange sizing checks 6) execute directly 7) summarize");
+    reporter.info("Flow: 1) preflight 2) auto-redeem resolved positions 3) fetch remote portfolio 4) generate pulse 5) run decision runtime 6) apply guards + exchange sizing checks 7) execute directly 8) summarize");
     const preflight = await runPreflight({
       executorConfig,
       orchestratorConfig,
@@ -689,9 +693,65 @@ export async function runPulseLive(args: Args = parseArgs()) {
       );
     }
 
+    // ---- Auto-redeem resolved positions (non-blocking) ----------------------
+    let redeemSummary: AutoRedeemSummary | null = null;
+    try {
+      reporter.stage({ percent: 5, label: "Checking for resolved positions to auto-redeem" });
+      redeemSummary = await autoRedeemResolved(executorConfig, preflight.remotePositions);
+
+      if (redeemSummary.redeemed.length > 0) {
+        await writeJsonArtifact(
+          path.join(archiveDir, "auto-redeem.json"),
+          redeemSummary
+        );
+
+        if (useHumanOutput) {
+          const printer = createTerminalPrinter();
+          printer.section("Auto-Redeem Resolved Positions", `${redeemSummary.redeemed.length} position(s)`);
+          for (const result of redeemSummary.redeemed) {
+            const winLabel = result.position.isWinner ? "winner" : "loser";
+            const usdcNote = result.position.isWinner
+              ? ` → $${result.position.size.toFixed(2)} USDC`
+              : " → $0.00 (clearing dead tokens)";
+            if (result.ok) {
+              printer.note(
+                "success",
+                `Auto-redeem: ${result.position.marketSlug}`,
+                `${result.position.size.toFixed(2)} shares | ${winLabel}: ${result.position.isWinner ? "Yes" : "No"}${usdcNote} | tx ${result.txHash}`
+              );
+            } else {
+              printer.note(
+                "warn",
+                `Auto-redeem failed: ${result.position.marketSlug}`,
+                `${result.position.size.toFixed(2)} shares | ${winLabel} | error: ${result.error}`
+              );
+            }
+          }
+          if (redeemSummary.totalWinnerUsdc > 0) {
+            printer.note("info", "Total redeemed USDC", formatUsd(redeemSummary.totalWinnerUsdc));
+          }
+        }
+      } else if (useHumanOutput) {
+        const printer = createTerminalPrinter();
+        printer.note("muted", "Auto-redeem", "No resolved positions found to redeem.");
+      }
+    } catch (redeemError) {
+      // Auto-redeem is non-blocking: log and continue
+      if (useHumanOutput) {
+        const printer = createTerminalPrinter();
+        printer.note("warn", "Auto-redeem skipped", `Error: ${redeemError instanceof Error ? redeemError.message : String(redeemError)}`);
+      }
+    }
+
+    // If positions were redeemed, re-fetch remote positions to get updated state
+    const effectiveRemotePositions =
+      redeemSummary && redeemSummary.redeemed.some((r) => r.ok)
+        ? await fetchRemotePositions(executorConfig)
+        : preflight.remotePositions;
+
     const positions = await buildRemotePublicPositions(
       executorConfig,
-      preflight.remotePositions,
+      effectiveRemotePositions,
       orchestratorConfig.positionStopLossPct
     );
     const overview = buildPulseLiveOverview({
