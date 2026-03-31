@@ -6,8 +6,8 @@
 
 ## P0 — 必须立即做
 
-- [ ] 手续费集成到交易代码：edge 评估扣除手续费后再判断是否下单，Pulse 报告显示费用
-- [ ] 用 `--category sports` 和 `--category tech` 各跑一次 recommend，验证 filter 功能
+- [x] ~~手续费集成到交易代码：edge 评估扣除手续费后再判断是否下单，Pulse 报告显示费用~~
+- [x] ~~用 `--category sports` 和 `--category tech` 各跑一次 recommend，验证 filter 功能~~（filter 生效但位置不对 — 需移到抓取阶段前过滤）
 
 ## P1 — 本轮应做
 
