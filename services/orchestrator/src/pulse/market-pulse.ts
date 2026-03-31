@@ -8,7 +8,13 @@ import type { AgentRuntimeProvider, OrchestratorConfig, SkillLocale } from "../c
 import { buildArtifactRelativePath } from "../lib/artifacts.js";
 import type { ProgressReporter } from "../lib/terminal-progress.js";
 import { buildFullPulseArchive } from "./full-pulse.js";
-import { applyPulseFilters, hasPulseFilters, type PulseFilterArgs } from "./pulse-filters.js";
+import {
+  applyPulseFilters,
+  filterShortTermPriceMarkets,
+  hasPulseFilters,
+  sortCandidatesByScore,
+  type PulseFilterArgs
+} from "./pulse-filters.js";
 
 interface RawPulseMarket {
   question: string;
@@ -382,10 +388,28 @@ export async function generatePulseSnapshot(input: {
     .map(toPulseCandidate)
     .filter((candidate) => candidate.clobTokenIds.length > 0);
   const preFilterCount = allCandidates.length;
-  const filteredCandidates = input.filters && hasPulseFilters(input.filters)
-    ? applyPulseFilters(allCandidates, input.filters)
-    : allCandidates;
+
+  // Step 1: Remove short-term price prediction markets (always on)
+  const afterPriceFilter = filterShortTermPriceMarkets(allCandidates);
+
+  // Step 2: Apply user-specified filters (category, tag, prob, liquidity)
+  const afterUserFilter = input.filters && hasPulseFilters(input.filters)
+    ? applyPulseFilters(afterPriceFilter, input.filters)
+    : afterPriceFilter;
+
+  // Step 3: Re-rank by composite score (liquidity * type weight)
+  const ranked = sortCandidatesByScore(afterUserFilter);
+
+  const filteredCandidates = ranked;
   const candidates = filteredCandidates.slice(0, input.config.pulse.maxCandidates);
+  const priceFilterRemoved = preFilterCount - afterPriceFilter.length;
+  if (priceFilterRemoved > 0) {
+    input.progress?.stage({
+      percent: 16,
+      label: "Short-term price filter applied",
+      detail: `removed ${priceFilterRemoved} short-term price market(s) (${preFilterCount} -> ${afterPriceFilter.length})`
+    });
+  }
   if (input.filters && hasPulseFilters(input.filters)) {
     const parts: string[] = [];
     if (input.filters.category != null) parts.push(`category=${input.filters.category}`);
@@ -396,7 +420,7 @@ export async function generatePulseSnapshot(input: {
     input.progress?.stage({
       percent: 18,
       label: "Pre-selection filter applied",
-      detail: `${preFilterCount} markets -> ${filteredCandidates.length} after ${parts.join(", ")} filter -> top ${candidates.length} selected`
+      detail: `${afterPriceFilter.length} markets -> ${afterUserFilter.length} after ${parts.join(", ")} filter -> top ${candidates.length} selected (ranked by type-weighted score)`
     });
   }
   input.progress?.stage({
