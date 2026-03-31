@@ -395,6 +395,38 @@ async function runPreflight(input: {
   };
 }
 
+async function verifyFeesForPlans(
+  plans: PlannedExecution[],
+  executorConfig: ReturnType<typeof loadExecutorConfig>,
+  archiveDir: string
+) {
+  const { verifyFeeEstimate, logFeeDiscrepancyIfNeeded } = await import("../services/orchestrator/src/lib/fees.ts");
+  for (const plan of plans) {
+    try {
+      const response = await fetch(
+        `https://clob.polymarket.com/fee-rate?token_id=${plan.tokenId}`
+      );
+      if (response.ok) {
+        const data = await response.json() as { base_fee?: number };
+        const discrepancy = verifyFeeEstimate({
+          tokenId: plan.tokenId,
+          marketSlug: plan.marketSlug,
+          categorySlug: (plan as any).categorySlug ?? null,
+          actualBaseFee: data.base_fee ?? 0
+        });
+        await logFeeDiscrepancyIfNeeded(discrepancy, archiveDir);
+        if (discrepancy.mismatch) {
+          console.warn(
+            `[WARN] Fee mismatch for ${plan.marketSlug}: estimated feeRate=${discrepancy.estimatedFeeRate}, CLOB base_fee=${discrepancy.actualBaseFee}`
+          );
+        }
+      }
+    } catch {
+      // Non-blocking: fee verification failure should not prevent trading
+    }
+  }
+}
+
 async function executePlans(input: {
   plans: PlannedExecution[];
   executorConfig: ReturnType<typeof loadExecutorConfig>;
@@ -404,6 +436,7 @@ async function executePlans(input: {
   executionMode: string;
   decisionStrategy: string;
 }) {
+  await verifyFeesForPlans(input.plans, input.executorConfig, input.archiveDir);
   const executed: ExecutedOrderSummary[] = [];
   for (const plan of input.plans) {
     const result = await executeMarketOrder(input.executorConfig, {
