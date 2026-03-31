@@ -16,7 +16,7 @@
 ## P2 — 下一轮
 
 - [x] ~~Auto-redeem：到期市场自动赎回 tokens（赢家拿 USDC，输家清理持仓）~~
-- [ ] neg-risk 订单簿读取修复：`readBook()` 对 neg-risk 市场返回错误价格（raw book bid=0.001），需用 Gamma API bestBid 替代
+- [x] ~~neg-risk 订单簿读取验证：py-clob-client 已正确处理 neg-risk complement，无需修复（raw CLOB API 有问题但代码不用它）~~
 - [ ] 启用 position-monitor：先 dry-run 验证一周，确认无误后切实盘
 - [ ] VPS 定时部署：systemd timer 方案实施（文档已就绪 `claude-review/vps-scheduling-plan.md`）
 - [ ] 市场筛选 Phase D：回报时间线 AI 分析（催化事件、edge 持续窗口）
