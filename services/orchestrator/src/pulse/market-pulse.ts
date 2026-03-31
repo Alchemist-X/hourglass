@@ -12,7 +12,7 @@ import {
   applyPulseFilters,
   filterShortTermPriceMarkets,
   hasPulseFilters,
-  sortCandidatesByScore,
+  shuffleCandidates,
   type PulseFilterArgs
 } from "./pulse-filters.js";
 
@@ -397,10 +397,10 @@ export async function generatePulseSnapshot(input: {
     ? applyPulseFilters(afterPriceFilter, input.filters)
     : afterPriceFilter;
 
-  // Step 3: Re-rank by composite score (liquidity * type weight)
-  const ranked = sortCandidatesByScore(afterUserFilter);
+  // Step 3: Randomly sample candidates (no liquidity-based ranking)
+  const shuffled = shuffleCandidates(afterUserFilter);
 
-  const filteredCandidates = ranked;
+  const filteredCandidates = shuffled;
   const candidates = filteredCandidates.slice(0, input.config.pulse.maxCandidates);
   const priceFilterRemoved = preFilterCount - afterPriceFilter.length;
   if (priceFilterRemoved > 0) {

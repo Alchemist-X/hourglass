@@ -271,3 +271,16 @@ export function sortCandidatesByScore<
     (a, b) => calculateCandidateScore(b) - calculateCandidateScore(a)
   );
 }
+
+/**
+ * Randomly shuffle candidates using Fisher-Yates.
+ * Returns a new array; does not mutate the input.
+ */
+export function shuffleCandidates<T>(candidates: readonly T[]): T[] {
+  const arr = [...candidates];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+  return arr;
+}
