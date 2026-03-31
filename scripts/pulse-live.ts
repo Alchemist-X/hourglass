@@ -715,7 +715,8 @@ export async function runPulseLive(args: Args = parseArgs()) {
           config: orchestratorConfig,
           runId: pulseRunId,
           mode: "full",
-          progress: reporter
+          progress: reporter,
+          filters: hasPulseFilters(args.filters) ? args.filters : undefined
         });
     reporter.stage({
       percent: 70,

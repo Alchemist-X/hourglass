@@ -9,6 +9,7 @@ import type { OrchestratorConfig } from "../config.js";
 import { buildPortfolioReportArtifacts } from "../lib/portfolio-report-artifacts.js";
 import type { ProgressReporter } from "../lib/terminal-progress.js";
 import { generatePulseSnapshot, type PulseSnapshot } from "../pulse/market-pulse.js";
+import type { PulseFilterArgs } from "../pulse/pulse-filters.js";
 import type { AgentRuntime, RuntimeExecutionResult } from "../runtime/agent-runtime.js";
 import { resolveProviderSkillSettings } from "../runtime/skill-settings.js";
 
@@ -55,6 +56,7 @@ export async function ensureDailyPulseSnapshot(input: {
   runId: string;
   mode: RunMode;
   progress?: ProgressReporter;
+  filters?: PulseFilterArgs;
 }) {
   const skillSettings = resolveProviderSkillSettings(input.config, input.config.runtimeProvider);
   return generatePulseSnapshot({
@@ -63,7 +65,8 @@ export async function ensureDailyPulseSnapshot(input: {
     locale: skillSettings.locale,
     runId: input.runId,
     mode: input.mode,
-    progress: input.progress
+    progress: input.progress,
+    filters: input.filters
   });
 }
 

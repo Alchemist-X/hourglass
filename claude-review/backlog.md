@@ -8,10 +8,11 @@
 
 - [x] ~~手续费集成到交易代码：edge 评估扣除手续费后再判断是否下单，Pulse 报告显示费用~~
 - [x] ~~用 `--category sports` 和 `--category tech` 各跑一次 recommend，验证 filter 功能~~（filter 生效但位置不对 — 需移到抓取阶段前过滤）
+- [x] ~~Filter 前置：category/tag 过滤移到候选选择之前（pre-selection），解决小类别被大类别挤出 top 12 的问题~~
 
 ## P1 — 本轮应做
 
-- [ ] PNL 曲线历史段修复：中间点缺少未实现盈亏估值，导致 Low 显示 -$150
+- [x] ~~PNL 曲线历史段修复：中间点缺少未实现盈亏估值，导致 Low 显示 -$150~~
 - [ ] 市场筛选 Phase B：候选排序加入类型权重（政治 1.5x，加密 0.3x 等）
 - [ ] 市场筛选 Phase C：AI 预筛选（轻量 prompt 判断"这个市场 AI 能产生 edge 吗"）
 - [ ] 短期价格类市场自动过滤（加密/股票涨跌 < 7 天）
@@ -52,6 +53,7 @@
 - [x] Polymarket 手续费研究文档
 - [x] GTC+FOK 混合提案文档
 - [x] 市场筛选 filter 功能（JSON 配置 + CLI override）
+- [x] Filter 前置到候选选择前（pre-selection filtering）
 - [x] 项目架构审计 + 历史失败分析
 - [x] VPS 定时方案文档
 - [x] 市场筛选策略计划文档

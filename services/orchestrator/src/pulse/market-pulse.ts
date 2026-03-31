@@ -8,6 +8,7 @@ import type { AgentRuntimeProvider, OrchestratorConfig, SkillLocale } from "../c
 import { buildArtifactRelativePath } from "../lib/artifacts.js";
 import type { ProgressReporter } from "../lib/terminal-progress.js";
 import { buildFullPulseArchive } from "./full-pulse.js";
+import { applyPulseFilters, hasPulseFilters, type PulseFilterArgs } from "./pulse-filters.js";
 
 interface RawPulseMarket {
   question: string;
@@ -363,6 +364,7 @@ export async function generatePulseSnapshot(input: {
   runId: string;
   mode: RunMode;
   progress?: ProgressReporter;
+  filters?: PulseFilterArgs;
 }): Promise<PulseSnapshot> {
   const generatedAtUtc = new Date().toISOString();
   const scriptDir = resolvePulseScriptsDir(input.config, input.locale);
@@ -376,10 +378,27 @@ export async function generatePulseSnapshot(input: {
   const fetchConfig = toPulseFetchConfig(raw, input.config);
   const categoryStats = toPulseStatsBundle(raw.category_stats);
   const tagStats = toPulseStatsBundle(raw.tag_stats);
-  const candidates = raw.markets
+  const allCandidates = raw.markets
     .map(toPulseCandidate)
-    .filter((candidate) => candidate.clobTokenIds.length > 0)
-    .slice(0, input.config.pulse.maxCandidates);
+    .filter((candidate) => candidate.clobTokenIds.length > 0);
+  const preFilterCount = allCandidates.length;
+  const filteredCandidates = input.filters && hasPulseFilters(input.filters)
+    ? applyPulseFilters(allCandidates, input.filters)
+    : allCandidates;
+  const candidates = filteredCandidates.slice(0, input.config.pulse.maxCandidates);
+  if (input.filters && hasPulseFilters(input.filters)) {
+    const parts: string[] = [];
+    if (input.filters.category != null) parts.push(`category=${input.filters.category}`);
+    if (input.filters.tag != null) parts.push(`tag=${input.filters.tag}`);
+    if (input.filters.minProb != null) parts.push(`minProb=${input.filters.minProb}`);
+    if (input.filters.maxProb != null) parts.push(`maxProb=${input.filters.maxProb}`);
+    if (input.filters.minLiquidity != null) parts.push(`minLiquidity=${input.filters.minLiquidity}`);
+    input.progress?.stage({
+      percent: 18,
+      label: "Pre-selection filter applied",
+      detail: `${preFilterCount} markets -> ${filteredCandidates.length} after ${parts.join(", ")} filter -> top ${candidates.length} selected`
+    });
+  }
   input.progress?.stage({
     percent: 20,
     label: "Pulse market list ready",
