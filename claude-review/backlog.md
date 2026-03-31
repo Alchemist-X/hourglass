@@ -1,6 +1,6 @@
 # Backlog — 按优先级排列的待办清单
 
-最后更新：2026-03-31
+最后更新：2026-03-31（session 2 完成后）
 
 ---
 
@@ -16,6 +16,8 @@
 ## P2 — 下一轮
 
 - [x] ~~Auto-redeem：到期市场自动赎回 tokens（赢家拿 USDC，输家清理持仓）~~
+- [ ] neg-risk 订单簿读取修复：`readBook()` 对 neg-risk 市场返回错误价格（raw book bid=0.001），需用 Gamma API bestBid 替代
+- [ ] 启用 position-monitor：先 dry-run 验证一周，确认无误后切实盘
 - [ ] VPS 定时部署：systemd timer 方案实施（文档已就绪 `claude-review/vps-scheduling-plan.md`）
 - [ ] 市场筛选 Phase D：回报时间线 AI 分析（催化事件、edge 持续窗口）
 - [ ] GTC + FOK 混合下单：对收费类别市场实现 Maker 限价单（提案已就绪 `claude-review/gtc-fok-hybrid-proposal.md`）
@@ -62,3 +64,12 @@
 - [x] Filter 前置到候选选择前
 - [x] 项目架构审计 + 历史失败分析
 - [x] VPS 定时方案文档 + 市场筛选策略计划文档
+- [x] 候选选择改为随机抽样 20 个（去掉流动性排序公式）
+- [x] neg-risk 市场 0% 手续费（negRisk 字段全链路 + event 级别传播）
+- [x] SELL avgPrice 解析修复（从 takingAmount/makingAmount 计算）
+- [x] extractProbabilities regex 修复（中文注释 Yes/No 匹配）
+- [x] 实盘平仓 Newsom 2 笔 + 手续费验证（实际 $0 vs 估算 $0.013）
+- [x] 实盘下单 3 笔（麻疹、Rubio、Mets）
+- [x] Polymarket 分类标签速查文档（98 个标签 + 手续费率表）
+- [x] 独立持仓监控器 position-monitor（30% 止损，model-free，默认关闭）
+- [x] 手续费模块测试补全（negRisk lookup/verify/netEdge 5 个新测试）
