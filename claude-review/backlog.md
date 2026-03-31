@@ -15,6 +15,7 @@
 
 ## P2 — 下一轮
 
+- [x] ~~Auto-redeem：到期市场自动赎回 tokens（赢家拿 USDC，输家清理持仓）~~
 - [ ] VPS 定时部署：systemd timer 方案实施（文档已就绪 `claude-review/vps-scheduling-plan.md`）
 - [ ] 市场筛选 Phase D：回报时间线 AI 分析（催化事件、edge 持续窗口）
 - [ ] GTC + FOK 混合下单：对收费类别市场实现 Maker 限价单（提案已就绪 `claude-review/gtc-fok-hybrid-proposal.md`）
