@@ -38,6 +38,7 @@ function createConfig(tempDir: string): OrchestratorConfig {
     providerTimeoutSeconds: 0,
     pulseFetchTimeoutSeconds: 300,
     pulseTimeoutMode: "default",
+    pulseAiPrescreen: false,
     pulse: {
       sourceRepo: "all-polymarket-skill",
       sourceRepoDir: tempDir,

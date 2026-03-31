@@ -36,6 +36,7 @@ function createConfig(repoRoot: string, artifactStorageRoot: string): Orchestrat
     providerTimeoutSeconds: 0,
     pulseFetchTimeoutSeconds: 300,
     pulseTimeoutMode: "default",
+    pulseAiPrescreen: false,
     pulse: {
       sourceRepo: "all-polymarket-skill",
       sourceRepoDir: path.join(repoRoot, "vendor", "repos", "all-polymarket-skill"),

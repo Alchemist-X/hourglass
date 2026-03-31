@@ -99,6 +99,7 @@ export interface OrchestratorConfig {
   providerTimeoutSeconds: number;
   pulseFetchTimeoutSeconds: number;
   pulseTimeoutMode: PulseTimeoutMode;
+  pulseAiPrescreen: boolean;
   pulse: PulseConfig;
   providers: Record<string, SkillProviderConfig>;
 }
@@ -159,6 +160,7 @@ export function loadConfig(): OrchestratorConfig {
     providerTimeoutSeconds: readNumber("PROVIDER_TIMEOUT_SECONDS", 0),
     pulseFetchTimeoutSeconds: readNumber("PULSE_FETCH_TIMEOUT_SECONDS", 300),
     pulseTimeoutMode: readEnum("PULSE_TIMEOUT_MODE", "default", pulseTimeoutModes),
+    pulseAiPrescreen: readString("PULSE_AI_PRESCREEN", "false") === "true",
     pulse: {
       sourceRepo: pulseSourceRepo,
       sourceRepoDir: path.resolve(readString("PULSE_SOURCE_REPO_DIR", defaultPulseSourceRepoDir)),

@@ -10,6 +10,7 @@ import { combineTextMetrics, formatTextMetrics, measureText, readTextMetrics } f
 import type { ProgressReporter } from "../lib/terminal-progress.js";
 import { resolveProviderSkillSettings } from "../runtime/skill-settings.js";
 import type { PulseBucketStat, PulseCandidate, PulseFetchConfig, PulseStatsBundle } from "./market-pulse.js";
+import { preScreenCandidates, type PreScreenResult, type PreScreenSummary } from "./pulse-prescreen.js";
 
 interface PulseResearchOrderbook {
   outcomeLabel: string;
@@ -52,6 +53,15 @@ interface FullPulseContext {
   risk_flags: string[];
   candidates: PulseCandidate[];
   research_candidates: PulseResearchCandidate[];
+  pre_screen?: {
+    enabled: boolean;
+    results: PreScreenResult[];
+    trade_count: number;
+    skip_count: number;
+    elapsed_ms: number;
+    failed: boolean;
+    failure_reason?: string;
+  };
 }
 
 interface FullPulsePaths {
@@ -1159,11 +1169,52 @@ export async function buildFullPulseArchive(input: {
   absoluteJsonPath: string;
 }> {
   const paths = resolveFullPulsePaths(input.config, input.locale);
-  const selectedCandidates = selectResearchCandidates(input.candidates, input.config.pulse.reportCandidates);
+
+  // Phase C: optional AI pre-screening before deep research selection
+  let preScreenSummary: PreScreenSummary | null = null;
+  let researchPool: readonly PulseCandidate[] = input.candidates;
+
+  if (input.config.pulseAiPrescreen && input.candidates.length > 0) {
+    input.progress?.stage({
+      percent: 21,
+      label: "AI pre-screen starting",
+      detail: `${input.candidates.length} candidates to classify`
+    });
+    preScreenSummary = await preScreenCandidates({
+      candidates: input.candidates,
+      provider: input.provider,
+      config: input.config,
+      progress: input.progress
+    });
+
+    if (!preScreenSummary.failed) {
+      const tradeSlugs = new Set(
+        preScreenSummary.results
+          .filter((r) => r.suitable)
+          .map((r) => r.marketSlug)
+      );
+      const filtered = input.candidates.filter((c) => tradeSlugs.has(c.marketSlug));
+      // Only use filtered list if at least one candidate survives
+      if (filtered.length > 0) {
+        researchPool = filtered;
+        input.progress?.stage({
+          percent: 23,
+          label: "AI pre-screen filtered candidates",
+          detail: `${input.candidates.length} -> ${filtered.length} after pre-screen (${preScreenSummary.skipCount} skipped)`
+        });
+      } else {
+        input.progress?.info(
+          "AI pre-screen skipped all candidates; falling back to full candidate list"
+        );
+      }
+    }
+  }
+
+  const selectedCandidates = selectResearchCandidates([...researchPool], input.config.pulse.reportCandidates);
   input.progress?.stage({
     percent: 24,
     label: "Selected pulse research candidates",
-    detail: `${selectedCandidates.length} candidates for deep research`
+    detail: `${selectedCandidates.length} candidates for deep research${preScreenSummary && !preScreenSummary.failed ? ` (from ${researchPool.length} after pre-screen)` : ""}`
   });
   let completedResearch = 0;
   const researchCandidates = await Promise.all(
@@ -1209,7 +1260,20 @@ export async function buildFullPulseArchive(input: {
     },
     risk_flags: input.riskFlags,
     candidates: input.candidates,
-    research_candidates: researchCandidates
+    research_candidates: researchCandidates,
+    ...(preScreenSummary
+      ? {
+          pre_screen: {
+            enabled: true,
+            results: preScreenSummary.results,
+            trade_count: preScreenSummary.tradeCount,
+            skip_count: preScreenSummary.skipCount,
+            elapsed_ms: preScreenSummary.elapsedMs,
+            failed: preScreenSummary.failed,
+            ...(preScreenSummary.failureReason ? { failure_reason: preScreenSummary.failureReason } : {})
+          }
+        }
+      : {})
   };
 
   const absoluteJsonPath = await writeStoredArtifact(
