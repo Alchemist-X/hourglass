@@ -4,8 +4,12 @@ import type { PublicPosition } from "@autopoly/contracts";
 import { formatUsd } from "../lib/format";
 import { useLocale } from "../lib/locale-context";
 import type { ActivityItem } from "../lib/pnl-calculator";
-import { buildPnlTimeline, calculatePnl } from "../lib/pnl-calculator";
+import { calculatePnl } from "../lib/pnl-calculator";
 import { usePollingJson } from "../lib/use-polling";
+
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
 
 interface SpectatorActivity {
   type: string;
@@ -19,6 +23,18 @@ interface SpectatorActivity {
   timestamp_utc?: string;
   transaction_hash?: string | null;
 }
+
+interface EquitySnapshot {
+  timestamp: string;
+  total_equity_usd: number;
+  cash_usd: number;
+  positions_value_usd: number;
+  open_positions: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
 function toActivityItem(event: SpectatorActivity): ActivityItem {
   return {
@@ -68,6 +84,10 @@ function formatTimestamp(iso: string): string {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
+/* ------------------------------------------------------------------ */
+
 export function DashboardEquityChart({
   initialActivities,
   initialPositions
@@ -76,6 +96,15 @@ export function DashboardEquityChart({
   initialPositions: PublicPosition[];
 }) {
   const { t } = useLocale();
+
+  // Equity snapshots (for the chart line — always correct total equity)
+  const { data: equityHistory } = usePollingJson<EquitySnapshot[]>(
+    "/equity-history.json",
+    [],
+    60_000
+  );
+
+  // Activities + positions (for the headline PNL number only)
   const { data: rawActivities } = usePollingJson<SpectatorActivity[]>(
     "/api/public/activity",
     initialActivities,
@@ -89,22 +118,17 @@ export function DashboardEquityChart({
 
   const activityItems = rawActivities.map(toActivityItem);
 
-  const currentValue = positions.reduce(
-    (sum, p) => sum + (p.current_value_usd ?? 0),
-    0
-  );
-
   const pnlBreakdown = calculatePnl({
     activities: activityItems,
     positions: positions as any
   });
 
-  const timeline = buildPnlTimeline({
-    activities: activityItems,
-    currentValue
-  });
+  // Chart data from equity history snapshots
+  const sortedSnapshots = [...equityHistory].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
 
-  const hasData = timeline.length >= 2;
+  const hasData = sortedSnapshots.length >= 2;
 
   if (!hasData) {
     return (
@@ -117,44 +141,42 @@ export function DashboardEquityChart({
     );
   }
 
-  const pnlValues = timeline.map((p) => p.pnl);
-  const high = Math.max(...pnlValues);
-  const low = Math.min(...pnlValues);
-  const latest = pnlValues[pnlValues.length - 1] ?? 0;
-  const isUp = latest >= 0;
+  const equityValues = sortedSnapshots.map((s) => s.total_equity_usd);
+  const high = Math.max(...equityValues);
+  const low = Math.min(...equityValues);
+
+  // Headline PNL from cash-flow calculation (always correct)
+  const headlinePnl = pnlBreakdown.totalPnl;
+  const isUp = headlinePnl >= 0;
 
   const svgWidth = 720;
   const svgHeight = 240;
   const padding = 20;
 
-  const linePath = buildPath(pnlValues, svgWidth, svgHeight, padding);
+  const linePath = buildPath(equityValues, svgWidth, svgHeight, padding);
   const fillPath = `${linePath} L ${svgWidth} ${svgHeight} L 0 ${svgHeight} Z`;
 
-  // Zero line position
-  const allMin = Math.min(...pnlValues);
-  const allMax = Math.max(...pnlValues);
+  const allMin = Math.min(...equityValues);
+  const allMax = Math.max(...equityValues);
   const allRange = Math.max(0.01, allMax - allMin);
   const drawHeight = svgHeight - padding * 2;
-  const zeroY =
-    allMin <= 0 && allMax >= 0
-      ? padding + drawHeight - ((0 - allMin) / allRange) * drawHeight
-      : null;
 
-  // Time labels
-  const labelCount = Math.min(5, timeline.length);
+  // Time labels from equity history
+  const labelCount = Math.min(5, sortedSnapshots.length);
   const labels: Array<{ x: number; text: string }> = [];
   for (let i = 0; i < labelCount; i++) {
     const idx = Math.floor(
-      (i / Math.max(1, labelCount - 1)) * (timeline.length - 1)
+      (i / Math.max(1, labelCount - 1)) * (sortedSnapshots.length - 1)
     );
-    const x = (idx / Math.max(1, timeline.length - 1)) * svgWidth;
-    labels.push({ x, text: formatTimestamp(timeline[idx]!.timestamp) });
+    const x = (idx / Math.max(1, sortedSnapshots.length - 1)) * svgWidth;
+    labels.push({ x, text: formatTimestamp(sortedSnapshots[idx]!.timestamp) });
   }
 
   // Latest dot
+  const latestEquity = equityValues[equityValues.length - 1] ?? 0;
   const lastCx = svgWidth;
   const lastCy =
-    padding + drawHeight - ((latest - allMin) / allRange) * drawHeight;
+    padding + drawHeight - ((latestEquity - allMin) / allRange) * drawHeight;
 
   return (
     <section className="dash-panel dash-chart-panel dash-chart-prominent">
@@ -162,7 +184,7 @@ export function DashboardEquityChart({
         <h2>
           {t.pnl_label}{" "}
           <span className={isUp ? "dash-positive" : "dash-negative"} style={{ fontSize: "20px", fontWeight: 700 }}>
-            {isUp ? "+" : ""}{formatUsd(latest)}
+            {isUp ? "+" : ""}{formatUsd(headlinePnl)}
           </span>
         </h2>
         <div className="dash-panel-meta">
@@ -177,7 +199,7 @@ export function DashboardEquityChart({
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="dash-chart"
           role="img"
-          aria-label="P&L chart"
+          aria-label="Equity curve"
         >
           <defs>
             <linearGradient id="dash-pnl-fill" x1="0" x2="0" y1="0" y2="1">
@@ -197,19 +219,6 @@ export function DashboardEquityChart({
               />
             </linearGradient>
           </defs>
-
-          {/* Zero line */}
-          {zeroY != null && (
-            <line
-              x1="0"
-              y1={zeroY}
-              x2={svgWidth}
-              y2={zeroY}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth="1"
-              strokeDasharray="4 4"
-            />
-          )}
 
           {/* Fill area */}
           <path d={fillPath} fill="url(#dash-pnl-fill)" />
