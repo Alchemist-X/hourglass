@@ -131,6 +131,44 @@ pnpm pulse:recommend -- --category sports
 
 ---
 
+## 推荐阶段的手续费计算
+
+每次 AI 推荐市场时，系统会对每个候选市场执行以下手续费计算流程：
+
+1. **获取市场的手续费类别**：从市场的 `categorySlug`（如 politics、sports、crypto）和 `negRisk` 标志确定费率参数
+2. **查表计算费率**：在 `CATEGORY_FEE_PARAMS` 中查找对应的 `feeRate` 和 `exponent`
+3. **计算买入手续费**：`entryFee = shares × price × feeRate × (price × (1 - price))^exponent`
+4. **计算卖出手续费**：同公式，用退出价格代入（持有到结算则免退出费）
+5. **计算净 edge**：`netEdge = grossEdge - entryFeePct`（持有到结算）或 `grossEdge - entryFeePct - exitFeePct`（中途卖出）
+
+### 手续费率表（2026-03-31 更新）
+
+| 类别 | feeRate | exponent | 价格 0.5 时峰值费率 | 适用标签 |
+|------|---------|----------|-------------------|---------|
+| **neg-risk 市场** | **0** | 0 | **0%** | 所有多结果事件（选举、FIFA 等 `negRisk=true`） |
+| geopolitics | 0 | 0 | 0% | 地缘政治 |
+| sports | 0.03 | 1 | 0.75% | 体育 |
+| economics | 0.03 | 0.5 | 0.75% | 经济 |
+| tech | 0.04 | 1 | 1.0% | 科技、AI |
+| politics | 0.04 | 1 | 1.0% | 政治（非 neg-risk 的二元市场） |
+| finance | 0.04 | 1 | 1.0% | 金融 |
+| culture | 0.05 | 1 | 1.25% | 文化娱乐 |
+| crypto | 0.072 | 1 | 1.8% | 加密货币 |
+| other | 0.20 | 2 | 5.0% | 未分类 |
+
+**关键发现**：`negRisk=true` 的多结果市场（选举提名、世界杯冠军等）在 Polymarket 上**不收手续费**。已通过实盘交易验证（2026-03-31）。
+
+### 手续费对 edge 的影响示例
+
+假设 AI 认为某 politics 市场 Yes 的真实概率是 55%，当前市价 40%：
+- Gross edge = 55% - 40% = **15%**
+- 如果是 `negRisk=true`（如选举提名）：net edge = 15% - 0% = **15%**（无损耗）
+- 如果是 `negRisk=false`（如普通政治市场）：entry fee = 0.04 × (0.4 × 0.6) = 0.96% → net edge = 15% - 0.96% = **14.04%**
+
+代码位置：`services/orchestrator/src/runtime/pulse-entry-planner.ts:329-334`
+
+---
+
 ## 注意事项
 
 - 可交易候选数会随 Polymarket 市场动态变化，本表为某一时刻的快照。

@@ -131,6 +131,44 @@ Type weight affects candidate ranking score (`score = log10(liquidity) * log10(v
 
 ---
 
+## Fee Calculation During Recommendation
+
+For each candidate market, the system calculates trading fees as part of the recommendation flow:
+
+1. **Determine fee category**: from the market's `categorySlug` (e.g. politics, sports, crypto) and `negRisk` flag
+2. **Look up fee parameters**: find `feeRate` and `exponent` in `CATEGORY_FEE_PARAMS`
+3. **Calculate entry fee**: `entryFee = shares × price × feeRate × (price × (1 - price))^exponent`
+4. **Calculate exit fee**: same formula with exit price (free if held to settlement)
+5. **Calculate net edge**: `netEdge = grossEdge - entryFeePct` (hold to settlement) or `grossEdge - entryFeePct - exitFeePct` (early exit)
+
+### Fee Rate Table (updated 2026-03-31)
+
+| Category | feeRate | exponent | Peak Fee @ 0.5 | Applicable Tags |
+|----------|---------|----------|---------------|-----------------|
+| **neg-risk markets** | **0** | 0 | **0%** | All multi-outcome events (elections, FIFA, etc. with `negRisk=true`) |
+| geopolitics | 0 | 0 | 0% | Geopolitics |
+| sports | 0.03 | 1 | 0.75% | Sports |
+| economics | 0.03 | 0.5 | 0.75% | Economics |
+| tech | 0.04 | 1 | 1.0% | Tech, AI |
+| politics | 0.04 | 1 | 1.0% | Politics (non-neg-risk binary markets) |
+| finance | 0.04 | 1 | 1.0% | Finance |
+| culture | 0.05 | 1 | 1.25% | Culture |
+| crypto | 0.072 | 1 | 1.8% | Crypto |
+| other | 0.20 | 2 | 5.0% | Uncategorized |
+
+**Key finding**: Multi-outcome `negRisk=true` markets (election nominations, World Cup winner, etc.) have **zero taker fees** on Polymarket. Verified via live trade (2026-03-31).
+
+### Fee Impact on Edge — Example
+
+Suppose AI estimates a politics market Yes probability at 55%, current market price 40%:
+- Gross edge = 55% - 40% = **15%**
+- If `negRisk=true` (e.g. election nomination): net edge = 15% - 0% = **15%** (no drag)
+- If `negRisk=false` (plain political binary): entry fee = 0.04 × (0.4 × 0.6) = 0.96% → net edge = 15% - 0.96% = **14.04%**
+
+Code location: `services/orchestrator/src/runtime/pulse-entry-planner.ts:329-334`
+
+---
+
 ## Notes
 
 - Tradeable candidate counts change dynamically with Polymarket market activity. This table is a point-in-time snapshot.
