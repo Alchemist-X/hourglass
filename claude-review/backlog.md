@@ -10,8 +10,8 @@
 
 ## P1 — 本轮应做
 
-- [ ] 用 `--category tech` 和 `--category sports` 重新验证 filter（现在是前置过滤，应该能看到结果了）
-- [ ] Vercel 重新部署（PNL 修复 + 最新代码）
+- [x] ~~用 `--category tech` 和 `--category sports` 重新验证 filter（前置过滤已确认：sports=266、tech=8 候选可用）~~
+- [x] ~~Vercel 重新部署（production 构建成功，线上页面 + API 验证通过）~~
 
 ## P2 — 下一轮
 
@@ -48,6 +48,8 @@
 - [x] Monthly Return 排序 + 20% batch cap + resolutionSource 标注
 - [x] 前端暗色仪表盘 + 中英文切换 + 投资理念板块
 - [x] Vercel 部署成功
+- [x] Vercel 部署验证（2026-03-31，线上页面 + API 正常）
+- [x] Filter 前置过滤验证（--category tech/sports，59 个单元测试 + 数据验证）
 - [x] 实盘下单成功（伊朗市场 3 笔）
 - [x] Fallback 删除
 - [x] Claude Code provider 跑通完整 Pulse 渲染
