@@ -133,7 +133,8 @@ function extractCurrencyValue(value: string | null) {
 
 function extractProbabilities(body: string) {
   const result = new Map<string, { marketProb: number; aiProb: number }>();
-  const regex = /^\|\s*(Yes|No)\s*\|\s*([0-9.]+)%\s*\|\s*([0-9.]+)%\s*(?:\|.*)?$/gim;
+  // Allow any characters (e.g. Chinese annotations) between Yes/No and the next pipe
+  const regex = /^\|\s*(Yes|No)[^|]*\|\s*([0-9.]+)%\s*\|\s*([0-9.]+)%\s*(?:\|.*)?$/gim;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(body)) !== null) {
     result.set(match[1]!.toLowerCase(), {
