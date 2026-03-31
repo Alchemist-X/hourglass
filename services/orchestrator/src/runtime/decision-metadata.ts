@@ -47,6 +47,10 @@ export interface PulseEntryPlan {
   monthlyReturn: number;
   daysToResolution: number;
   resolutionSource: "market" | "estimated";
+  entryFeePct: number;
+  roundTripFeePct: number;
+  netEdge: number;
+  categorySlug: string | null;
   confidence: TradeDecision["confidence"];
   thesisMd: string;
   sources: TradeDecision["sources"];

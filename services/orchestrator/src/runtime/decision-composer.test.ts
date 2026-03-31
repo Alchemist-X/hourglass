@@ -74,6 +74,10 @@ function createEntry(tokenId: string): PulseEntryPlan {
     monthlyReturn: 0.007,
     daysToResolution: 90,
     resolutionSource: "market" as const,
+    entryFeePct: 0,
+    roundTripFeePct: 0,
+    netEdge: 0.07,
+    categorySlug: null,
     confidence: "medium",
     thesisMd: "Open it.",
     sources: [

@@ -102,6 +102,10 @@ function createEntryPlan(input: {
     monthlyReturn: 0.007,
     daysToResolution: 90,
     resolutionSource: "market" as const,
+    entryFeePct: 0,
+    roundTripFeePct: 0,
+    netEdge: input.aiProb - input.marketProb,
+    categorySlug: null,
     confidence: input.confidence ?? "medium",
     thesisMd: "Pulse thesis",
     sources: [

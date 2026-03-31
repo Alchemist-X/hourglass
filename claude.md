@@ -6,6 +6,14 @@
 
 最后更新：2026-03-29
 
+## 0. 自动提交与进度管理
+
+- 完成改动后自动 commit + push，不要等用户提醒。
+- 维护按优先级排列的待办清单在 `claude-review/backlog.md`（P0/P1/P2/P3 分级）。
+- 每当用户询问"进度如何"或类似问题时，必须读取并展示 `claude-review/backlog.md` 的当前状态。
+- 每完成一项，更新 backlog 标记为 done。
+- 每次 session 结束时更新 backlog，确保下次无缝衔接。
+
 ## 1. 语言与文档
 
 - 代码注释统一使用英文。
@@ -203,3 +211,4 @@
 - 部署失败 = 改动未完成。必须修复构建错误后重新推送。
 - 推荐流程：`pnpm build`（本地验证）→ `git push` → `npx vercel --prod` → 验证线上页面。
 - 如果 lockfile 过期导致构建失败，先 `pnpm install --no-frozen-lockfile` 更新 lockfile 再推。
+

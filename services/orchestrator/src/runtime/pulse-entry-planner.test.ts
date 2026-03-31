@@ -449,3 +449,137 @@ describe("buildPulseEntryPlans top-4 selection", () => {
     expect(plans[1]?.marketSlug).toBe("market-1");
   });
 });
+
+describe("buildPulseEntryPlans fee integration", () => {
+  it("populates fee fields from category slug and uses netEdge for ranking", () => {
+    const markdown = [
+      "## 1. Demo market question",
+      "",
+      "**Link:** https://example.com/demo-market",
+      "",
+      "| Direction | Buy No |",
+      "| Suggested Size | 10% |",
+      "| Confidence | medium |",
+      "",
+      "| No | 58% | 63% |",
+      "",
+      "### Reasoning",
+      "Testing fee integration."
+    ].join("\n");
+
+    const candidates = [
+      {
+        question: "Demo market question",
+        eventSlug: "demo-event",
+        marketSlug: "demo-market",
+        url: "https://example.com/demo-market",
+        liquidityUsd: 10000,
+        volume24hUsd: 1000,
+        outcomes: ["Yes", "No"],
+        outcomePrices: [0.42, 0.58],
+        clobTokenIds: ["token-yes", "token-no"],
+        endDate: "2026-12-31T00:00:00Z",
+        bestBid: 0.41,
+        bestAsk: 0.43,
+        spread: 0.02,
+        categorySlug: "politics",
+        categoryLabel: "Politics",
+        categorySource: null,
+        tags: [] as Array<{ slug: string; label: string }>
+      }
+    ];
+
+    const plans = buildPulseEntryPlans({
+      context: createContext(markdown, { candidates }),
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(plans).toHaveLength(1);
+    const plan = plans[0]!;
+    expect(plan.categorySlug).toBe("politics");
+
+    // politics at p=0.58: feePct = 0.04 * (0.58 * 0.42)^1 = 0.04 * 0.2436 = 0.009744
+    expect(plan.entryFeePct).toBeCloseTo(0.009744, 4);
+
+    // round-trip at same price: 2 * 0.009744 = 0.019488
+    expect(plan.roundTripFeePct).toBeCloseTo(0.019488, 4);
+
+    // gross edge = 0.05, net edge = 0.05 - 0.009744 = 0.040256
+    expect(plan.netEdge).toBeCloseTo(0.040256, 4);
+
+    // monthlyReturn uses netEdge: 0.040256 / (289/30) = 0.004179...
+    expect(plan.monthlyReturn).toBeCloseTo(0.040256 / (289 / 30), 4);
+  });
+
+  it("ranks fee-free geopolitics higher than fee-heavy crypto at same gross edge", () => {
+    const candidates = [
+      {
+        question: "Crypto market",
+        eventSlug: "crypto-event",
+        marketSlug: "crypto-market",
+        url: "https://example.com/crypto-market",
+        liquidityUsd: 10000,
+        volume24hUsd: 1000,
+        outcomes: ["Yes", "No"],
+        outcomePrices: [0.40, 0.60],
+        clobTokenIds: ["token-yes-c", "token-no-c"],
+        endDate: "2026-12-31T00:00:00Z",
+        bestBid: 0.39,
+        bestAsk: 0.41,
+        spread: 0.02,
+        categorySlug: "crypto",
+        categoryLabel: "Crypto",
+        categorySource: null,
+        tags: [] as Array<{ slug: string; label: string }>
+      },
+      {
+        question: "Geo market",
+        eventSlug: "geo-event",
+        marketSlug: "geo-market",
+        url: "https://example.com/geo-market",
+        liquidityUsd: 10000,
+        volume24hUsd: 1000,
+        outcomes: ["Yes", "No"],
+        outcomePrices: [0.40, 0.60],
+        clobTokenIds: ["token-yes-g", "token-no-g"],
+        endDate: "2026-12-31T00:00:00Z",
+        bestBid: 0.39,
+        bestAsk: 0.41,
+        spread: 0.02,
+        categorySlug: "geopolitics",
+        categoryLabel: "Geopolitics",
+        categorySource: null,
+        tags: [] as Array<{ slug: string; label: string }>
+      }
+    ];
+
+    const sections = candidates.map((c) => [
+      `## ${c.question}`,
+      "",
+      `**Link:** ${c.url}`,
+      "| Direction | Buy No |",
+      "| Suggested Size | 5% |",
+      "| Confidence | medium |",
+      "",
+      "| No | 60% | 70% |",
+      "",
+      "### Reasoning",
+      "Same edge, different fees."
+    ].join("\n"));
+
+    const markdown = sections.join("\n\n");
+
+    const plans = buildPulseEntryPlans({
+      context: createContext(markdown, { candidates, totalEquityUsd: 100 }),
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(plans).toHaveLength(2);
+    // Geopolitics (no fee) should rank higher than crypto (1.8% peak fee)
+    expect(plans[0]!.marketSlug).toBe("geo-market");
+    expect(plans[1]!.marketSlug).toBe("crypto-market");
+    expect(plans[0]!.netEdge).toBeGreaterThan(plans[1]!.netEdge);
+  });
+});

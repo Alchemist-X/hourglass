@@ -1,4 +1,10 @@
 import type { TradeDecision } from "@autopoly/contracts";
+import {
+  calculateFeePct,
+  calculateNetEdge,
+  calculateRoundTripFeePct,
+  lookupCategoryFeeParams
+} from "../lib/fees.js";
 import { calculateQuarterKelly } from "../lib/risk.js";
 import type { RuntimeExecutionContext } from "./agent-runtime.js";
 import type { PulseEntryPlan } from "./decision-metadata.js";
@@ -158,8 +164,9 @@ export function calculateMonthlyReturn(input: {
   marketProb: number;
   endDate: string;
   nowMs?: number;
+  edgeOverride?: number;
 }): { monthlyReturn: number; daysToResolution: number; resolutionSource: "market" | "estimated" } {
-  const edge = input.aiProb - input.marketProb;
+  const edge = input.edgeOverride ?? (input.aiProb - input.marketProb);
   const nowMs = input.nowMs ?? Date.now();
   const endMs = new Date(input.endDate).getTime();
   const hasValidEndDate = Number.isFinite(endMs) && endMs > 0;
@@ -319,11 +326,19 @@ export function buildPulseEntryPlans(input: {
       }
     ];
 
+    const categorySlug = candidate.categorySlug ?? null;
+    const feeParams = lookupCategoryFeeParams(categorySlug);
+    const grossEdge = aiProb - marketProb;
+    const entryFeePct = roundPct(calculateFeePct(marketProb, feeParams));
+    const roundTripFee = roundPct(calculateRoundTripFeePct(marketProb, marketProb, feeParams));
+    const netEdge = roundPct(calculateNetEdge(grossEdge, marketProb, feeParams));
+
     const { monthlyReturn, daysToResolution, resolutionSource } = calculateMonthlyReturn({
       aiProb,
       marketProb,
       endDate: candidate.endDate,
-      nowMs: input.nowMs
+      nowMs: input.nowMs,
+      edgeOverride: netEdge
     });
 
     plans.push({
@@ -342,6 +357,10 @@ export function buildPulseEntryPlans(input: {
       monthlyReturn,
       daysToResolution,
       resolutionSource,
+      entryFeePct,
+      roundTripFeePct: roundTripFee,
+      netEdge,
+      categorySlug,
       confidence: normalizeConfidence(confidenceRaw ?? "low"),
       thesisMd,
       sources,

@@ -109,10 +109,15 @@ function buildEntryLineZh(plan: PulseEntryPlan) {
   const liquidityCappedUsd = plan.liquidityCapUsd != null
     ? Math.min(plan.decision.notional_usd, plan.liquidityCapUsd)
     : plan.decision.notional_usd;
+  const grossEdge = plan.aiProb - plan.marketProb;
   const parts = [
     `- ${plan.marketSlug}`,
+    `Edge: +${formatPct(grossEdge)} (net +${formatPct(plan.netEdge)} after ${formatPct(plan.entryFeePct)} fee)`,
     `1/4 Kelly ${formatPct(plan.quarterKellyPct)} -> ${formatUsd(plan.decision.notional_usd)}`
   ];
+  if (plan.categorySlug) {
+    parts.push(`类别: ${plan.categorySlug} (${formatPct(plan.roundTripFeePct)} 往返费率)`);
+  }
   if (plan.liquidityCapUsd != null) {
     parts.push(`流动性上限 ${formatUsd(plan.liquidityCapUsd)}`);
     if (liquidityCappedUsd + 1e-9 < plan.decision.notional_usd) {
@@ -130,10 +135,15 @@ function buildEntryLineEn(plan: PulseEntryPlan) {
   const liquidityCappedUsd = plan.liquidityCapUsd != null
     ? Math.min(plan.decision.notional_usd, plan.liquidityCapUsd)
     : plan.decision.notional_usd;
+  const grossEdge = plan.aiProb - plan.marketProb;
   const parts = [
     `- ${plan.marketSlug}`,
+    `Edge: +${formatPct(grossEdge)} (net +${formatPct(plan.netEdge)} after ${formatPct(plan.entryFeePct)} fee)`,
     `Quarter Kelly ${formatPct(plan.quarterKellyPct)} -> ${formatUsd(plan.decision.notional_usd)}`
   ];
+  if (plan.categorySlug) {
+    parts.push(`Category: ${plan.categorySlug} (${formatPct(plan.roundTripFeePct)} round-trip fee)`);
+  }
   if (plan.liquidityCapUsd != null) {
     parts.push(`liquidity cap ${formatUsd(plan.liquidityCapUsd)}`);
     if (liquidityCappedUsd + 1e-9 < plan.decision.notional_usd) {
@@ -294,13 +304,15 @@ function buildReviewMarkdown(input: {
     ])
   );
   const entryTableZh = buildMarkdownTable(
-    ["市场", "方向", "市场价", "AI", "Edge", "1/4 Kelly", "建议金额", "流动性上限"],
+    ["市场", "方向", "市场价", "AI", "Edge", "Net Edge", "费率", "1/4 Kelly", "建议金额", "流动性上限"],
     entryPlans.slice(0, 8).map((plan) => [
       plan.marketSlug,
       `买入 ${plan.outcomeLabel}`,
       formatPct(plan.marketProb),
       formatPct(plan.aiProb),
       formatSignedPct(plan.aiProb - plan.marketProb),
+      formatSignedPct(plan.netEdge),
+      formatPct(plan.entryFeePct),
       formatPct(plan.quarterKellyPct),
       formatUsd(plan.decision.notional_usd),
       plan.liquidityCapUsd == null ? "无" : formatUsd(plan.liquidityCapUsd)
@@ -319,13 +331,15 @@ function buildReviewMarkdown(input: {
     ])
   );
   const entryTableEn = buildMarkdownTable(
-    ["Market", "Direction", "Market", "AI", "Edge", "Quarter Kelly", "Suggested Notional", "Liquidity Cap"],
+    ["Market", "Direction", "Market", "AI", "Edge", "Net Edge", "Fee", "Quarter Kelly", "Suggested Notional", "Liquidity Cap"],
     entryPlans.slice(0, 8).map((plan) => [
       plan.marketSlug,
       `Buy ${plan.outcomeLabel}`,
       formatPct(plan.marketProb),
       formatPct(plan.aiProb),
       formatSignedPct(plan.aiProb - plan.marketProb),
+      formatSignedPct(plan.netEdge),
+      formatPct(plan.entryFeePct),
       formatPct(plan.quarterKellyPct),
       formatUsd(plan.decision.notional_usd),
       plan.liquidityCapUsd == null ? "none" : formatUsd(plan.liquidityCapUsd)
