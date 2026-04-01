@@ -16,7 +16,7 @@
 ## P2 — 下一轮
 
 - [ ] 更好的信息收集能力：结合 6551MCP、Word Monitor 以及方程式新闻 API 等
-- [ ] Resolution Rule 推理强化：当前模型读到了结算规则但推理权重不足。需要在 prompt 中强制要求"先基于 resolution rule 的字面门槛推导触发概率，再看实际事件动态"
+- [ ] **Resolution 提升专项**：见下方独立章节
 
 - [x] ~~Auto-redeem：到期市场自动赎回 tokens（赢家拿 USDC，输家清理持仓）~~
 - [x] ~~neg-risk 订单簿读取验证：py-clob-client 已正确处理 neg-risk complement，无需修复（raw CLOB API 有问题但代码不用它）~~
@@ -26,6 +26,39 @@
 - [x] ~~GTC + FOK 混合下单：fee>0 + open + spread<5% → GTC 限价单，5 分钟 fallback FOK~~
 - [x] ~~卖出前校验链上 ERC1155 余额（CTF balanceOf via Polygon RPC，fail-open）~~
 - [ ] 启用 `PULSE_AI_PRESCREEN=true` 并实测效果
+
+## Resolution 提升专项
+
+> 核心原则：**你评估的是 Resolution Rule 中规定的事件会发生的概率，不是语言直觉上"这件事"会发生的概率。**
+
+### 问题
+
+当前模型会读取 resolution rule，但推理时经常偏离 rule 的字面定义，转而评估底层事件本身。
+
+典型错误案例（2026-04-01 Trump/Iran）：
+- Resolution rule："Trump 正式公开宣布军事行动已结束" → Yes
+- 模型评估了"军事行动是否真的会结束"（增兵、拒绝停火）
+- 但 rule 只要求"宣布"——Trump 发一条 Truth Social 就够了
+- 模型没有单独评估"Trump 发一条宣布胜利的帖子"的概率
+
+### 待实施改进
+
+- [ ] **Prompt 硬规则**：在 SKILL.md 中增加强制推理步骤——"当 resolution rule 的触发门槛低于事件本身复杂度时（如社交媒体帖子即可触发），必须单独评估触发行为的概率，而非底层事件的概率"
+- [ ] **Resolution Rule 深度阅读**：对每个候选市场的 resolution rule，要求模型逐条拆解触发条件（谁、做什么、通过什么渠道、什么算/什么不算），并在证据链第 0 条明确列出
+- [ ] **Resolution 相关信息搜索强化**：不仅抓 Polymarket 页面的 rules.description，还要主动搜索 resolution source 指定的外部数据源（如 AP、官方网站、数据 API）来验证当前状态
+- [ ] **Resolution 门槛分类标签**：给每个市场标注 resolution 门槛类型（低门槛：声明/帖子 | 中门槛：官方数据发布 | 高门槛：多源共识/法律判决），不同类型采用不同推理框架
+- [ ] **回测验证**：用历史已结算市场验证改进后的推理准确率，特别是低门槛 resolution 的案例
+
+### 低门槛 Resolution 的推理框架（待写入 prompt）
+
+```
+1. 逐条列出 resolution rule 的触发条件
+2. 评估：触发行为需要谁做什么？门槛有多低？
+3. 评估：历史上这个人/机构做过类似行为吗？频率如何？
+4. 单独给出"触发行为发生的概率"
+5. 才去看底层事件的实际动态，作为辅助调整
+6. 最终概率 = 以触发行为概率为锚，底层动态作修正
+```
 
 ## P3 — 后续考虑
 
