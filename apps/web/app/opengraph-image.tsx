@@ -28,7 +28,7 @@ export default function OGImage() {
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            marginBottom: "24px",
+            marginBottom: "40px",
             padding: "8px 20px",
             borderRadius: "24px",
             border: "1px solid rgba(56, 189, 248, 0.3)",
@@ -41,36 +41,30 @@ export default function OGImage() {
           WORLD&apos;S FIRST AUTONOMOUS POLYMARKET AGENT
         </div>
 
-        {/* Title */}
+        {/* Subtitle */}
         <div
           style={{
-            fontSize: "72px",
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.1,
+            fontSize: "36px",
+            color: "#e2e8f0",
             textAlign: "center",
-            marginBottom: "20px",
-            background: "linear-gradient(to right, #ffffff, #94a3b8)",
-            backgroundClip: "text",
-            color: "transparent",
+            lineHeight: 1.6,
+            maxWidth: "900px",
+            fontWeight: 500,
           }}
         >
-          AutoPoly
+          AI autonomous trading on prediction market
         </div>
-
-        {/* Subtitle */}
         <div
           style={{
             fontSize: "28px",
             color: "#94a3b8",
             textAlign: "center",
-            lineHeight: 1.5,
-            maxWidth: "800px",
+            lineHeight: 1.6,
+            maxWidth: "900px",
+            marginTop: "12px",
           }}
         >
-          AI-powered prediction market trading.
-          <br />
-          Full-market coverage. Long-horizon reasoning.
+          5000+ markets coverage. Long-horizon reasoning.
         </div>
 
         {/* Bottom stats */}
@@ -78,7 +72,7 @@ export default function OGImage() {
           style={{
             display: "flex",
             gap: "48px",
-            marginTop: "40px",
+            marginTop: "48px",
             fontSize: "16px",
             color: "#64748b",
             letterSpacing: "0.05em",
@@ -87,10 +81,6 @@ export default function OGImage() {
           <div style={{ display: "flex", gap: "8px" }}>
             <span style={{ color: "#22c55e" }}>LIVE</span>
             <span>TRADING</span>
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <span>7800+</span>
-            <span>MARKETS SCANNED</span>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <span>24/7</span>
