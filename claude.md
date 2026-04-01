@@ -81,6 +81,13 @@
   - `pulse-direct`（House Direct）
 - 任何一次执行都要在输出中明确当前使用的 `execution mode` 与 `decision strategy`。
 
+## 5.5 Resolution Rule 是唯一的概率评估锚点（最高优先级）
+
+- **当 AI 推荐"事件是否会发生"时，评估的必须是 Resolution Rule 中规定的事件是否会发生，不是语言直觉上"这件事"会不会发生。**
+- Resolution Rule 的触发条件可能比事件本身宽松得多（一条帖子即可触发）或严格得多（需要多方确认），AI 必须基于 rule 的字面定义来估算概率。
+- 推理顺序：先拆解 Resolution Rule 的触发条件 → 评估触发条件被满足的概率 → 底层事件动态仅作为辅助修正。
+- 禁止跳过 Resolution Rule 直接评估底层事件概率。
+
 ## 6. 状态一致性偏好
 
 - 本地测试应坚持单一状态源，不允许隐式切换多个 state 文件。
