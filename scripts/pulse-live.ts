@@ -455,6 +455,56 @@ async function executePlans(input: {
         continue;
       }
     }
+    // GTC limit order path: place limit → poll → fallback to FOK if unfilled
+    if (plan.orderType === "GTC" && plan.gtcLimitPrice != null) {
+      const { executeLimitOrder, getOrderStatus, cancelOrder } = await import("../services/executor/src/lib/polymarket-sdk.ts");
+      const gtcSize = plan.executionAmount / plan.gtcLimitPrice;
+      console.log(`[INFO] GTC limit order: ${plan.marketSlug} | price=${plan.gtcLimitPrice} | size=${gtcSize.toFixed(1)} shares`);
+      const gtcResult = await executeLimitOrder(input.executorConfig, {
+        tokenId: plan.tokenId,
+        side: plan.side,
+        price: plan.gtcLimitPrice,
+        size: Math.floor(gtcSize)
+      });
+      if (gtcResult.ok && gtcResult.orderId) {
+        // Poll for fill (30s intervals, up to 5 minutes)
+        const GTC_POLL_INTERVAL_MS = 30_000;
+        const GTC_MAX_WAIT_MS = 300_000;
+        const startMs = Date.now();
+        let filled = false;
+        while (Date.now() - startMs < GTC_MAX_WAIT_MS) {
+          await new Promise((r) => setTimeout(r, GTC_POLL_INTERVAL_MS));
+          const status = await getOrderStatus(input.executorConfig, gtcResult.orderId);
+          console.log(`[INFO] GTC poll: ${plan.marketSlug} | status=${status.status} | filled=${status.filledSize}`);
+          if (status.status === "matched" || status.status === "filled") {
+            filled = true;
+            executed.push({
+              ...plan,
+              orderId: gtcResult.orderId,
+              ok: true,
+              avgPrice: plan.gtcLimitPrice,
+              filledNotionalUsd: plan.executionAmount,
+              rawResponse: status.rawResponse
+            });
+            break;
+          }
+          if (status.status === "canceled") {
+            break;
+          }
+        }
+        if (!filled) {
+          // Cancel unfilled GTC and fall through to FOK
+          console.log(`[INFO] GTC timeout — cancelling and falling back to FOK: ${plan.marketSlug}`);
+          await cancelOrder(input.executorConfig, gtcResult.orderId);
+        }
+        if (filled) {
+          continue;
+        }
+      }
+      // GTC failed or timed out — fall through to FOK below
+      console.log(`[INFO] FOK fallback: ${plan.marketSlug}`);
+    }
+
     const result = await executeMarketOrder(input.executorConfig, {
       tokenId: plan.tokenId,
       side: plan.side,

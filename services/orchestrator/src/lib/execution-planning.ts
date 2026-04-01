@@ -28,6 +28,78 @@ export interface PlannedExecution {
   bestBid: number | null;
   minOrderSize: number | null;
   exchangeMinNotionalUsd: number | null;
+  orderType: "FOK" | "GTC";
+  gtcLimitPrice: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// GTC order type decision
+// ---------------------------------------------------------------------------
+
+const MAX_SPREAD_FOR_GTC = 0.05;
+
+/**
+ * Decide whether to use GTC (limit) or FOK (market) order.
+ *
+ * GTC is used when:
+ * - The action is "open" (new position, no urgency)
+ * - The market has taker fees (feeRate > 0 and not negRisk)
+ * - The spread is reasonable (< 5%)
+ *
+ * FOK is used for everything else: close, reduce, stop-loss, fee-free
+ * markets, or wide spreads.
+ */
+export function chooseOrderType(input: {
+  action: TradeDecision["action"];
+  side: TradeDecision["side"];
+  bestBid: number | null;
+  bestAsk: number | null;
+  negRisk?: boolean;
+  feeRate?: number;
+}): { orderType: "FOK" | "GTC"; gtcLimitPrice: number | null } {
+  // Always FOK for time-critical actions
+  if (input.action === "close" || input.action === "reduce") {
+    return { orderType: "FOK", gtcLimitPrice: null };
+  }
+
+  // Only consider GTC for opens (BUY side)
+  if (input.action !== "open" || input.side !== "BUY") {
+    return { orderType: "FOK", gtcLimitPrice: null };
+  }
+
+  // Fee-free markets: no savings from GTC
+  if (input.negRisk || (input.feeRate != null && input.feeRate === 0)) {
+    return { orderType: "FOK", gtcLimitPrice: null };
+  }
+
+  const bid = input.bestBid;
+  const ask = input.bestAsk;
+  if (bid == null || ask == null || bid <= 0 || ask <= 0) {
+    return { orderType: "FOK", gtcLimitPrice: null };
+  }
+
+  const spread = (ask - bid) / ask;
+  if (spread > MAX_SPREAD_FOR_GTC) {
+    return { orderType: "FOK", gtcLimitPrice: null };
+  }
+
+  // Calculate limit price based on spread width
+  let limitPrice: number;
+  if (spread <= 0.01) {
+    // Tight spread: bid + 1 tick (aggressive, likely to fill quickly)
+    limitPrice = bid + 0.001;
+  } else if (spread <= 0.03) {
+    // Normal spread: mid-price
+    limitPrice = (bid + ask) / 2;
+  } else {
+    // Wide spread: bid + 30% of spread (conservative)
+    limitPrice = bid + (ask - bid) * 0.3;
+  }
+
+  // Round to 3 decimal places (Polymarket tick size)
+  limitPrice = Math.round(limitPrice * 1000) / 1000;
+
+  return { orderType: "GTC", gtcLimitPrice: limitPrice };
 }
 
 export interface SkippedDecision {
@@ -249,6 +321,15 @@ export async function buildExecutionPlan(input: {
         continue;
       }
 
+      const orderDecision = chooseOrderType({
+        action: decision.action,
+        side: decision.side,
+        bestBid: book.bestBid ?? null,
+        bestAsk: book.bestAsk ?? null,
+        negRisk: (decision as any).negRisk,
+        feeRate: (decision as any).feeRate
+      });
+
       plans.push({
         action: decision.action,
         marketSlug: decision.market_slug,
@@ -265,7 +346,9 @@ export async function buildExecutionPlan(input: {
         bestAsk: book.bestAsk ?? null,
         bestBid: book.bestBid ?? null,
         minOrderSize: book.minOrderSize ?? null,
-        exchangeMinNotionalUsd
+        exchangeMinNotionalUsd,
+        orderType: orderDecision.orderType,
+        gtcLimitPrice: orderDecision.gtcLimitPrice
       });
 
       projectedTotalExposureUsd += plannedNotionalUsd;
@@ -318,7 +401,9 @@ export async function buildExecutionPlan(input: {
       bestAsk: book?.bestAsk ?? null,
       bestBid: book?.bestBid ?? null,
       minOrderSize: book?.minOrderSize ?? null,
-      exchangeMinNotionalUsd: null
+      exchangeMinNotionalUsd: null,
+      orderType: "FOK",
+      gtcLimitPrice: null
     });
   }
 

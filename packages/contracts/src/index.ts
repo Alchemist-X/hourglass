@@ -7,7 +7,7 @@ export type PublicRunStatus = z.infer<typeof publicRunStatusSchema>;
 
 export const actionSchema = z.enum(["open", "close", "reduce", "hold", "skip"]);
 export const sideSchema = z.enum(["BUY", "SELL"]);
-export const orderTypeSchema = z.literal("FOK");
+export const orderTypeSchema = z.enum(["FOK", "GTC"]);
 export const confidenceSchema = z.enum(["low", "medium", "medium-high", "high"]);
 export const executionUnitSchema = z.enum(["usd", "shares"]);
 

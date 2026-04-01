@@ -157,6 +157,104 @@ export async function executeMarketOrder(
   };
 }
 
+// ---------------------------------------------------------------------------
+// GTC (Good Till Cancelled) limit orders
+// ---------------------------------------------------------------------------
+
+export interface LimitOrderResult {
+  ok: boolean;
+  orderId: string | null;
+  price: number;
+  size: number;
+  rawResponse: unknown;
+}
+
+/**
+ * Place a GTC limit order on the CLOB.
+ *
+ * Unlike FOK market orders, GTC orders sit on the book until filled or
+ * cancelled. They avoid taker fees (and may earn maker rebates) but are
+ * not guaranteed to fill.
+ */
+export async function executeLimitOrder(
+  config: ExecutorConfig,
+  signal: { tokenId: string; side: "BUY" | "SELL"; price: number; size: number }
+): Promise<LimitOrderResult> {
+  const client = await getClobClient(config);
+  if (!client) {
+    return {
+      ok: true,
+      orderId: `mock-gtc-${randomUUID()}`,
+      price: signal.price,
+      size: signal.size,
+      rawResponse: null
+    };
+  }
+
+  const response = await (client as any).createAndPostOrder(
+    {
+      tokenID: signal.tokenId,
+      price: signal.price,
+      size: signal.size,
+      side: signal.side === "BUY" ? Side.BUY : Side.SELL
+    },
+    undefined,
+    OrderType.GTC
+  );
+
+  return {
+    ok: Boolean((response as any)?.orderID),
+    orderId: (response as any)?.orderID ?? null,
+    price: signal.price,
+    size: signal.size,
+    rawResponse: response
+  };
+}
+
+/**
+ * Cancel an open GTC order by its order ID.
+ */
+export async function cancelOrder(
+  config: ExecutorConfig,
+  orderId: string
+): Promise<{ ok: boolean; rawResponse: unknown }> {
+  const client = await getClobClient(config);
+  if (!client) {
+    return { ok: true, rawResponse: null };
+  }
+
+  try {
+    const response = await (client as any).cancelOrder({ orderID: orderId });
+    return { ok: true, rawResponse: response };
+  } catch (err) {
+    return { ok: false, rawResponse: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export type OrderStatus = "live" | "matched" | "filled" | "canceled" | "delayed" | "unknown";
+
+/**
+ * Query the current status of an order.
+ */
+export async function getOrderStatus(
+  config: ExecutorConfig,
+  orderId: string
+): Promise<{ status: OrderStatus; filledSize: number; rawResponse: unknown }> {
+  const client = await getClobClient(config);
+  if (!client) {
+    return { status: "filled", filledSize: 0, rawResponse: null };
+  }
+
+  try {
+    const order = await (client as any).getOrder(orderId);
+    const status = String((order as any)?.status ?? "unknown").toLowerCase() as OrderStatus;
+    const filledSize = Number((order as any)?.size_matched ?? (order as any)?.filledSize ?? 0);
+    return { status, filledSize, rawResponse: order };
+  } catch {
+    return { status: "unknown", filledSize: 0, rawResponse: null };
+  }
+}
+
 export async function readBook(config: ExecutorConfig, tokenId: string): Promise<BookSnapshot | null> {
   const client = await getClobClient(config);
   if (!client) {
