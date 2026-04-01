@@ -4,6 +4,10 @@ import { buildPaperOrderResult } from "@autopoly/contracts";
 import { Wallet } from "ethers";
 import type { ExecutorConfig } from "../config.js";
 
+// Polymarket Conditional Tokens Framework (ERC1155) on Polygon
+const CTF_CONTRACT = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045";
+const DEFAULT_POLYGON_RPC = "https://polygon-bor-rpc.publicnode.com";
+
 export interface BookSnapshot {
   bestBid: number;
   bestAsk: number;
@@ -288,4 +292,97 @@ export async function computeAvgCost(config: ExecutorConfig, tokenId: string): P
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// On-chain ERC1155 balance verification
+// ---------------------------------------------------------------------------
+
+/**
+ * Query the on-chain ERC1155 balance for a specific CTF token.
+ *
+ * Uses `balanceOf(address, uint256)` (selector 0x00fdd58e) on the
+ * Conditional Tokens Framework contract.  This is the ground-truth
+ * balance — if it disagrees with Polymarket's data API, the on-chain
+ * value is authoritative.
+ *
+ * Returns the raw token balance (in shares, 6 decimal places on Polygon)
+ * or null if the RPC call fails.
+ */
+export async function checkOnChainTokenBalance(
+  ownerAddress: string,
+  tokenId: string
+): Promise<number | null> {
+  const rpcUrl = process.env.POLYGON_RPC_URL?.trim() || DEFAULT_POLYGON_RPC;
+  const owner = ownerAddress.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+
+  // tokenId is a uint256 decimal string — convert to hex, left-pad to 32 bytes
+  let tokenHex: string;
+  try {
+    tokenHex = BigInt(tokenId).toString(16).padStart(64, "0");
+  } catch {
+    return null;
+  }
+
+  // ERC1155 balanceOf(address, uint256) selector = 0x00fdd58e
+  const data = `0x00fdd58e${owner}${tokenHex}`;
+
+  try {
+    const response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_call",
+        params: [{ to: CTF_CONTRACT, data }, "latest"]
+      })
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as {
+      result?: string;
+      error?: { message?: string };
+    };
+    if (payload.error || !payload.result) {
+      return null;
+    }
+    // Result is a hex-encoded uint256.  CTF tokens use 6 decimal places.
+    const raw = BigInt(payload.result);
+    return Number(raw) / 1e6;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Validate that the wallet holds enough tokens on-chain before selling.
+ *
+ * Returns `{ ok, onChainBalance, requestedAmount, shortfall }`.
+ * If the RPC call fails, returns `ok: true` (fail-open to avoid blocking
+ * trades when the RPC is down).
+ */
+export async function validateSellBalance(
+  ownerAddress: string,
+  tokenId: string,
+  requestedShares: number
+): Promise<{
+  ok: boolean;
+  onChainBalance: number | null;
+  requestedAmount: number;
+  shortfall: number;
+}> {
+  const balance = await checkOnChainTokenBalance(ownerAddress, tokenId);
+  if (balance == null) {
+    // RPC unavailable — fail-open
+    return { ok: true, onChainBalance: null, requestedAmount: requestedShares, shortfall: 0 };
+  }
+  const shortfall = Math.max(0, requestedShares - balance);
+  return {
+    ok: shortfall <= 0.01, // tolerance for rounding
+    onChainBalance: balance,
+    requestedAmount: requestedShares,
+    shortfall
+  };
 }

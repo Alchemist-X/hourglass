@@ -22,7 +22,8 @@ import {
   fetchRemotePositions,
   computeAvgCost,
   readBook,
-  executeMarketOrder
+  executeMarketOrder,
+  validateSellBalance
 } from "../services/executor/src/lib/polymarket-sdk.ts";
 import {
   calculatePositionPnlPct,
@@ -184,6 +185,11 @@ async function checkAndAct(
     }
 
     try {
+      const balanceCheck = await validateSellBalance(executorConfig.funderAddress, pos.tokenId, pos.shares);
+      if (!balanceCheck.ok) {
+        log("WARN", `On-chain balance insufficient for ${pos.title}: requested=${pos.shares.toFixed(1)} on-chain=${balanceCheck.onChainBalance?.toFixed(1)} — skipping`);
+        continue;
+      }
       const result = await executeMarketOrder(executorConfig, {
         tokenId: pos.tokenId,
         side: "SELL",

@@ -443,6 +443,18 @@ async function executePlans(input: {
   await verifyFeesForPlans(input.plans, input.executorConfig, input.archiveDir);
   const executed: ExecutedOrderSummary[] = [];
   for (const plan of input.plans) {
+    // For SELL orders, verify on-chain balance before executing
+    if (plan.side === "SELL") {
+      const { validateSellBalance } = await import("../services/executor/src/lib/polymarket-sdk.ts");
+      const check = await validateSellBalance(input.executorConfig.funderAddress, plan.tokenId, plan.executionAmount);
+      if (!check.ok) {
+        console.warn(
+          `[WARN] On-chain balance check failed for ${plan.marketSlug}: ` +
+          `requested=${check.requestedAmount.toFixed(2)} on-chain=${check.onChainBalance?.toFixed(2)} shortfall=${check.shortfall.toFixed(2)} — skipping sell`
+        );
+        continue;
+      }
+    }
     const result = await executeMarketOrder(input.executorConfig, {
       tokenId: plan.tokenId,
       side: plan.side,
