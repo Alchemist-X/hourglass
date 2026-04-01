@@ -15,6 +15,9 @@
 
 ## P2 — 下一轮
 
+- [ ] 更好的信息收集能力：结合 6551MCP、Word Monitor 以及方程式新闻 API 等
+- [ ] Resolution Rule 推理强化：当前模型读到了结算规则但推理权重不足。需要在 prompt 中强制要求"先基于 resolution rule 的字面门槛推导触发概率，再看实际事件动态"
+
 - [x] ~~Auto-redeem：到期市场自动赎回 tokens（赢家拿 USDC，输家清理持仓）~~
 - [x] ~~neg-risk 订单簿读取验证：py-clob-client 已正确处理 neg-risk complement，无需修复（raw CLOB API 有问题但代码不用它）~~
 - [ ] 启用 position-monitor：先 dry-run 验证一周，确认无误后切实盘
