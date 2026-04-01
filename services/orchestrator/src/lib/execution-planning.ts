@@ -57,6 +57,11 @@ export function chooseOrderType(input: {
   negRisk?: boolean;
   feeRate?: number;
 }): { orderType: "FOK" | "GTC"; gtcLimitPrice: number | null } {
+  // GTC disabled by default — set ENABLE_GTC_ORDERS=true to activate
+  if (process.env.ENABLE_GTC_ORDERS !== "true") {
+    return { orderType: "FOK", gtcLimitPrice: null };
+  }
+
   // Always FOK for time-critical actions
   if (input.action === "close" || input.action === "reduce") {
     return { orderType: "FOK", gtcLimitPrice: null };

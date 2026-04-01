@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chooseOrderType } from "./execution-planning.js";
+
+beforeEach(() => {
+  vi.stubEnv("ENABLE_GTC_ORDERS", "true");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("chooseOrderType", () => {
   describe("returns FOK for time-critical actions", () => {
@@ -140,6 +148,20 @@ describe("chooseOrderType", () => {
         side: "BUY",
         bestBid: 0.80,
         bestAsk: null,
+        feeRate: 0.04
+      });
+      expect(result.orderType).toBe("FOK");
+    });
+  });
+
+  describe("disabled by default", () => {
+    it("always returns FOK when ENABLE_GTC_ORDERS is not set", () => {
+      vi.stubEnv("ENABLE_GTC_ORDERS", "");
+      const result = chooseOrderType({
+        action: "open",
+        side: "BUY",
+        bestBid: 0.780,
+        bestAsk: 0.800,
         feeRate: 0.04
       });
       expect(result.orderType).toBe("FOK");
