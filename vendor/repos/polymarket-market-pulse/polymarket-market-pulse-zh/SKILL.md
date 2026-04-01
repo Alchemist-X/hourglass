@@ -107,7 +107,7 @@ cd ~/.claude/skills/api-trade-polymarket/scripts && npx tsx scrape-market.ts --s
 
 - 对每个候选市场，从 `rules.resolution_source` 中提取官方数据源 URL
 - 访问该 URL（或搜索最新数据），获取当前真实状态
-- 将查到的事实作为概率估算的硬约束输入
+- 如果能查到具体数据，将其作为概率估算的硬约束输入；如果数据源不可访问或无明确当前状态，标注"resolution source 当前状态未确认"并在证据链中降低相关主张的权重
 - 在报告中列出：数据源名称 + URL + 查询时间 + 查到的关键数据
 
 示例：
