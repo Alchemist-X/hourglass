@@ -60,6 +60,70 @@
 6. 最终概率 = 以触发行为概率为锚，底层动态作修正
 ```
 
+## poly-pulse Skill 封装专项
+
+> 目标：任意 Claude Code 安装 `poly-pulse` skill 后，一条命令 `/poly-pulse` 即完成"抓市场 → AI 分析 → 实盘下单"全链路。
+
+### 产品定义
+
+- 名称：`poly-pulse`
+- 触发：`/poly-pulse` 或用户说"跑 pulse"/"分析市场"/"下单"
+- 行为：默认实盘下单（不是 recommend-only）
+- 输出：终端打印推荐 + 成交结果 + 持仓变化
+
+### 需要解耦的模块
+
+| 模块 | 当前位置 | Skill 形态 |
+|------|---------|-----------|
+| 市场抓取 | `vendor/.../fetch_markets.py` | 独立 Python 脚本，skill 自带 |
+| AI 分析报告 | `full-pulse.ts` → `claude --print` | 改为 skill 内直接调用 Claude（无需子进程） |
+| 交易计划提取 | `pulse-entry-planner.ts` | 提取为独立 TS 模块 |
+| 风控 | `execution-planning.ts` + `risk.ts` | 提取为独立模块 |
+| CLOB 下单 | `polymarket-sdk.ts` | 提取为独立模块，仅依赖 `@polymarket/clob-client` |
+| 费率表 | `fees.ts` | 提取为独立模块 |
+| 持仓查询 | `fetchRemotePositions` | 提取为独立函数 |
+
+### 去掉的依赖
+
+- ❌ DB / Redis / BullMQ
+- ❌ monorepo workspace 结构
+- ❌ orchestrator / executor 服务拆分
+- ❌ queue-worker / stateful 路径
+
+### 保留的依赖
+
+- ✅ `@polymarket/clob-client`（npm 包）
+- ✅ Python 3（fetch_markets.py）
+- ✅ `.env` 文件（钱包凭证）
+- ✅ Claude Code（skill 宿主）
+
+### 目录结构（预想）
+
+```
+~/.claude/skills/poly-pulse/
+├── SKILL.md                    # Skill 定义 + 触发词
+├── package.json                # 依赖声明
+├── scripts/
+│   ├── fetch-markets.py        # 市场抓取
+│   ├── pulse-run.ts            # 主入口：fetch → analyze → plan → execute
+│   ├── clob-sdk.ts             # CLOB 交互（下单/读书/查持仓）
+│   ├── entry-planner.ts        # 从报告提取计划
+│   ├── risk-guard.ts           # 风控逻辑
+│   └── fees.ts                 # 费率查表
+├── prompts/
+│   ├── pulse-analysis.md       # AI 分析 prompt 模板
+│   └── analysis-framework.md   # 分析框架
+└── references/
+    └── output-template.md      # 报告输出模板
+```
+
+### 分阶段实施
+
+- [ ] Phase 1：提取核心模块为独立文件（不依赖 monorepo imports）
+- [ ] Phase 2：打包为 skill 目录结构，写 SKILL.md
+- [ ] Phase 3：本地测试——在一个干净的 Claude Code 实例上安装并跑通
+- [ ] Phase 4：加 `/poly-pulse --dry-run` 模式和 `/poly-positions` 查持仓
+
 ## P3 — 后续考虑
 
 - [ ] Phase 2 架构简化：删除 stateful 路径、provider-runtime、BullMQ
