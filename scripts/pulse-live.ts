@@ -901,7 +901,9 @@ export async function runPulseLive(args: Args = parseArgs()) {
         return {
           bestAsk: book.bestAsk ?? null,
           bestBid: book.bestBid ?? null,
-          minOrderSize: book.minOrderSize ?? null
+          minOrderSize: book.minOrderSize ?? null,
+          asks: book.asks,
+          bids: book.bids
         };
       }
     });

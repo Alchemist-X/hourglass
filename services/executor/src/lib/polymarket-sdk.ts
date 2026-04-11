@@ -8,12 +8,21 @@ import type { ExecutorConfig } from "../config.js";
 const CTF_CONTRACT = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045";
 const DEFAULT_POLYGON_RPC = "https://polygon-bor-rpc.publicnode.com";
 
+export interface BookLevel {
+  price: number;
+  size: number;
+}
+
 export interface BookSnapshot {
   bestBid: number;
   bestAsk: number;
   minOrderSize?: number | null;
   tickSize?: number | null;
   lastTradePrice?: number | null;
+  /** Full ask-side depth sorted ascending by price (for slippage sizing on BUY). */
+  asks?: BookLevel[];
+  /** Full bid-side depth sorted descending by price (for slippage sizing on SELL). */
+  bids?: BookLevel[];
 }
 
 export interface RemotePosition {
@@ -263,26 +272,36 @@ export async function readBook(config: ExecutorConfig, tokenId: string): Promise
       bestAsk: 0.52,
       minOrderSize: null,
       tickSize: null,
-      lastTradePrice: null
+      lastTradePrice: null,
+      asks: [{ price: 0.52, size: 1000 }],
+      bids: [{ price: 0.48, size: 1000 }]
     };
   }
   const book = await client.getOrderBook(tokenId);
-  const bids = (book as any)?.bids ?? [];
-  const asks = (book as any)?.asks ?? [];
-  if (bids.length === 0 || asks.length === 0) {
+  const rawBids = (book as any)?.bids ?? [];
+  const rawAsks = (book as any)?.asks ?? [];
+  if (rawBids.length === 0 || rawAsks.length === 0) {
     return null;
   }
-  const bestBid = bids.reduce((max: number, level: { price: string | number }) => {
+  const normalizeLevel = (level: { price: string | number; size: string | number }): BookLevel | null => {
     const price = Number(level.price);
-    return Number.isFinite(price) ? Math.max(max, price) : max;
-  }, Number.NEGATIVE_INFINITY);
-  const bestAsk = asks.reduce((min: number, level: { price: string | number }) => {
-    const price = Number(level.price);
-    return Number.isFinite(price) ? Math.min(min, price) : min;
-  }, Number.POSITIVE_INFINITY);
-  if (!Number.isFinite(bestBid) || !Number.isFinite(bestAsk)) {
+    const size = Number(level.size);
+    if (!Number.isFinite(price) || !Number.isFinite(size) || size <= 0) return null;
+    return { price, size };
+  };
+  const askLevels = (rawAsks as any[])
+    .map(normalizeLevel)
+    .filter((l): l is BookLevel => l != null)
+    .sort((a, b) => a.price - b.price);
+  const bidLevels = (rawBids as any[])
+    .map(normalizeLevel)
+    .filter((l): l is BookLevel => l != null)
+    .sort((a, b) => b.price - a.price);
+  if (askLevels.length === 0 || bidLevels.length === 0) {
     return null;
   }
+  const bestAsk = askLevels[0]!.price;
+  const bestBid = bidLevels[0]!.price;
   return {
     bestBid,
     bestAsk,
@@ -294,7 +313,9 @@ export async function readBook(config: ExecutorConfig, tokenId: string): Promise
       : null,
     lastTradePrice: Number.isFinite(Number((book as any)?.last_trade_price))
       ? Number((book as any)?.last_trade_price)
-      : null
+      : null,
+    asks: askLevels,
+    bids: bidLevels
   };
 }
 

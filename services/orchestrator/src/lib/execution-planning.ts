@@ -7,10 +7,68 @@ import { inferPaperSellAmount } from "@autopoly/contracts";
 import type { OrchestratorConfig } from "../config.js";
 import { applyTradeGuardsDetailed, type TradeGuardResult } from "./risk.js";
 
+export interface PlanningOrderBookLevel {
+  price: number;
+  size: number;
+}
+
 export interface PlanningOrderBookSnapshot {
   bestAsk: number | null;
   bestBid: number | null;
   minOrderSize: number | null;
+  /** Ask-side depth sorted ascending, for BUY-side slippage sizing. */
+  asks?: PlanningOrderBookLevel[];
+  /** Bid-side depth sorted descending, for SELL-side slippage sizing. */
+  bids?: PlanningOrderBookLevel[];
+}
+
+// ---------------------------------------------------------------------------
+// Slippage-based order sizing
+// ---------------------------------------------------------------------------
+
+const DEFAULT_MAX_SLIPPAGE_PCT = 0.04;
+
+/**
+ * Compute the maximum BUY notional (USD) that can fill on the current ask
+ * book without exceeding a given price impact relative to best ask.
+ *
+ * Walks ask levels ascending by price, accumulating notional `price * size`
+ * for each level whose price does not exceed `bestAsk * (1 + slippagePct)`.
+ *
+ * Returns 0 when the book is missing or the first level already exceeds the
+ * allowed impact (shouldn't happen by definition, but defensive).
+ */
+export function computeMaxBuyNotionalWithinSlippage(
+  asks: PlanningOrderBookLevel[] | null | undefined,
+  slippagePct: number = DEFAULT_MAX_SLIPPAGE_PCT
+): { maxNotionalUsd: number; worstPrice: number; levelsConsumed: number } {
+  if (!asks || asks.length === 0) {
+    return { maxNotionalUsd: 0, worstPrice: 0, levelsConsumed: 0 };
+  }
+  const bestAsk = asks[0]!.price;
+  if (!(bestAsk > 0)) {
+    return { maxNotionalUsd: 0, worstPrice: 0, levelsConsumed: 0 };
+  }
+  const priceCeiling = bestAsk * (1 + slippagePct);
+
+  let maxNotional = 0;
+  let worstPrice = bestAsk;
+  let levelsConsumed = 0;
+
+  for (const level of asks) {
+    if (level.price > priceCeiling + 1e-9) {
+      break;
+    }
+    maxNotional += level.price * level.size;
+    worstPrice = level.price;
+    levelsConsumed += 1;
+  }
+
+  return {
+    maxNotionalUsd: Number(maxNotional.toFixed(4)),
+    worstPrice,
+    levelsConsumed
+  };
 }
 
 export interface PlannedExecution {
@@ -327,7 +385,17 @@ export async function buildExecutionPlan(input: {
         });
         continue;
       }
-      const plannedNotionalUsd = roundNotional(rawGuardedNotionalUsd);
+      let plannedNotionalUsd = roundNotional(rawGuardedNotionalUsd);
+
+      // Slippage cap: never let the fill price exceed bestAsk * (1 + DEFAULT_MAX_SLIPPAGE_PCT).
+      // If the planned order would eat past the slippage ceiling, compress it to the
+      // max notional that fits within the allowed price impact.
+      const slippageCapResult = computeMaxBuyNotionalWithinSlippage(book.asks ?? null);
+      let slippageCappedNotional: number | null = null;
+      if (slippageCapResult.maxNotionalUsd > 0 && plannedNotionalUsd > slippageCapResult.maxNotionalUsd) {
+        slippageCappedNotional = roundNotional(slippageCapResult.maxNotionalUsd);
+        plannedNotionalUsd = slippageCappedNotional;
+      }
 
       if (isBelowExchangeBuyMinimum({
         notionalUsd: plannedNotionalUsd,
@@ -335,13 +403,20 @@ export async function buildExecutionPlan(input: {
         minOrderSize: book.minOrderSize ?? null
       })) {
         const wasCappedByRisk = plannedNotionalUsd + 1e-9 < roundNotional(decision.notional_usd);
+        const wasCappedBySlippage = slippageCappedNotional != null;
+        let reason: string;
+        if (wasCappedBySlippage) {
+          reason = `blocked_by_slippage_cap: order compressed to ${formatUsd(plannedNotionalUsd)} to stay within ${(DEFAULT_MAX_SLIPPAGE_PCT * 100).toFixed(0)}% slippage on ${book.asks?.length ?? 0} ask levels, but that is below Polymarket minimum ${formatUsd(exchangeMinNotionalUsd ?? 0)}`;
+        } else if (wasCappedByRisk) {
+          reason = `blocked_by_risk_cap:${guardResult.bindingConstraint}: risk limit (${guardResult.bindingConstraint}) caps this order at ${formatUsd(plannedNotionalUsd)}, but ${openExecutionFloorLabel || "the executable minimum"} is ${formatUsd(exchangeMinNotionalUsd ?? 0)} so the Polymarket order would fail`;
+        } else {
+          reason = `blocked_by_exchange_min: Kelly-sized order ${formatUsd(plannedNotionalUsd)} is below Polymarket minimum order size (${book.minOrderSize} shares @ ${formatUsd(book.bestAsk)} ask => ${formatUsd(exchangeMinNotionalUsd ?? 0)} minimum)`;
+        }
         skipped.push({
           action: decision.action,
           marketSlug: decision.market_slug,
           tokenId: decision.token_id,
-          reason: wasCappedByRisk
-            ? `blocked_by_risk_cap:${guardResult.bindingConstraint}: risk limit (${guardResult.bindingConstraint}) caps this order at ${formatUsd(plannedNotionalUsd)}, but ${openExecutionFloorLabel || "the executable minimum"} is ${formatUsd(exchangeMinNotionalUsd ?? 0)} so the Polymarket order would fail`
-            : `blocked_by_exchange_min: Kelly-sized order ${formatUsd(plannedNotionalUsd)} is below Polymarket minimum order size (${book.minOrderSize} shares @ ${formatUsd(book.bestAsk)} ask => ${formatUsd(exchangeMinNotionalUsd ?? 0)} minimum)`
+          reason
         });
         continue;
       }
