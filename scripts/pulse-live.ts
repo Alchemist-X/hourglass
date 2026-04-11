@@ -415,8 +415,9 @@ async function verifyFeesForPlans(
         const discrepancy = verifyFeeEstimate({
           tokenId: plan.tokenId,
           marketSlug: plan.marketSlug,
-          categorySlug: (plan as any).categorySlug ?? null,
-          actualBaseFee: data.base_fee ?? 0
+          categorySlug: plan.categorySlug,
+          actualBaseFee: data.base_fee ?? 0,
+          negRisk: plan.negRisk
         });
         await logFeeDiscrepancyIfNeeded(discrepancy, archiveDir);
         if (discrepancy.mismatch) {
@@ -891,6 +892,7 @@ export async function runPulseLive(args: Args = parseArgs()) {
       overview,
       config: orchestratorConfig,
       minTradeUsd: configuredMinTradeUsd,
+      pulseCandidates: effectivePulse.candidates,
       readBook: async (tokenId) => {
         const book = await readBook(executorConfig, tokenId);
         if (!book) {

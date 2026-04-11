@@ -30,6 +30,8 @@ export interface PlannedExecution {
   exchangeMinNotionalUsd: number | null;
   orderType: "FOK" | "GTC";
   gtcLimitPrice: number | null;
+  categorySlug: string | null;
+  negRisk: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +233,25 @@ export async function buildExecutionPlan(input: {
   >;
   minTradeUsd: number;
   readBook: (tokenId: string) => Promise<PlanningOrderBookSnapshot | null>;
+  /** Optional pulse candidates lookup for fee metadata (categorySlug + negRisk). */
+  pulseCandidates?: Array<{
+    clobTokenIds: string[];
+    categorySlug?: string | null;
+    negRisk?: boolean;
+  }>;
 }) {
+  // Build token_id → candidate map for fee metadata lookup
+  const candidateByToken = new Map<string, { categorySlug: string | null; negRisk: boolean }>();
+  for (const c of input.pulseCandidates ?? []) {
+    for (const tokenId of c.clobTokenIds ?? []) {
+      candidateByToken.set(tokenId, {
+        categorySlug: c.categorySlug ?? null,
+        negRisk: c.negRisk ?? false
+      });
+    }
+  }
+  const feeMetaFor = (tokenId: string) => candidateByToken.get(tokenId) ?? { categorySlug: null, negRisk: false };
+
   const plans: PlannedExecution[] = [];
   const skipped: SkippedDecision[] = [];
   const usePulseDirectEmptyPortfolioGuards =
@@ -326,12 +346,13 @@ export async function buildExecutionPlan(input: {
         continue;
       }
 
+      const feeMeta = feeMetaFor(decision.token_id);
       const orderDecision = chooseOrderType({
         action: decision.action,
         side: decision.side,
         bestBid: book.bestBid ?? null,
         bestAsk: book.bestAsk ?? null,
-        negRisk: (decision as any).negRisk,
+        negRisk: feeMeta.negRisk,
         feeRate: (decision as any).feeRate
       });
 
@@ -353,7 +374,9 @@ export async function buildExecutionPlan(input: {
         minOrderSize: book.minOrderSize ?? null,
         exchangeMinNotionalUsd,
         orderType: orderDecision.orderType,
-        gtcLimitPrice: orderDecision.gtcLimitPrice
+        gtcLimitPrice: orderDecision.gtcLimitPrice,
+        categorySlug: feeMeta.categorySlug,
+        negRisk: feeMeta.negRisk
       });
 
       projectedTotalExposureUsd += plannedNotionalUsd;
@@ -390,6 +413,7 @@ export async function buildExecutionPlan(input: {
       });
       continue;
     }
+    const sellFeeMeta = feeMetaFor(decision.token_id);
     plans.push({
       action: decision.action,
       marketSlug: decision.market_slug,
@@ -408,7 +432,9 @@ export async function buildExecutionPlan(input: {
       minOrderSize: book?.minOrderSize ?? null,
       exchangeMinNotionalUsd: null,
       orderType: "FOK",
-      gtcLimitPrice: null
+      gtcLimitPrice: null,
+      categorySlug: sellFeeMeta.categorySlug,
+      negRisk: sellFeeMeta.negRisk
     });
   }
 
