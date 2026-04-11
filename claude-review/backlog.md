@@ -17,6 +17,7 @@
 
 - [ ] 更好的信息收集能力：结合 6551MCP、Word Monitor 以及方程式新闻 API 等
 - [ ] **Resolution 提升专项**：见下方独立章节
+- [ ] **持仓独立复审专项**：见下方独立章节
 
 - [x] ~~Auto-redeem：到期市场自动赎回 tokens（赢家拿 USDC，输家清理持仓）~~
 - [x] ~~neg-risk 订单簿读取验证：py-clob-client 已正确处理 neg-risk complement，无需修复（raw CLOB API 有问题但代码不用它）~~
@@ -26,6 +27,38 @@
 - [x] ~~GTC + FOK 混合下单：fee>0 + open + spread<5% → GTC 限价单，5 分钟 fallback FOK~~
 - [x] ~~卖出前校验链上 ERC1155 余额（CTF balanceOf via Polygon RPC，fail-open）~~
 - [ ] 启用 `PULSE_AI_PRESCREEN=true` 并实测效果
+
+## 持仓独立复审专项
+
+> 核心问题：**现有持仓的 edge 重新评估不应依赖 pulse 随机抽样是否恰好选中它们。**
+
+### 问题
+
+当前 position-review 模块只在 pulse 刚好为某个持仓对应的市场做过独立分析时，才会产生新的 AI 概率。否则代码直接复制 `market_prob` 作为 `ai_prob`，edge=0，永远返回 hold。实际结果：
+
+- 持仓可能**几周甚至几个月不被重新评估**
+- runtime log 里每个持仓都是 `"No contradictory pulse recommendation was produced..."`
+- close/reduce 阈值（±5% edge）永远不触发
+- **"没有新证据"被错误地等同于"仓位合理"**
+
+这意味着即使一个持仓的 resolution source 数据已经反转，系统也不会主动发现。
+
+### 待实施改进
+
+- [ ] **每次 pulse 强制复审所有现有持仓**：在第 3 步（信息搜集）阶段，对每个持仓单独跑 A0（resolution source 实时查验）+ A1（信息搜集）+ A2（推理），不依赖本轮候选抽样
+- [ ] **持仓独立分析 agent（零上下文）**：对每个持仓单独 spawn 一个 agent，零上下文从 resolution rule 出发独立估概率。和原始开仓时的 AI 概率对比，差距 >10% 就报警
+- [ ] **Resolution Source 周期性查验**：每次 pulse 直接访问所有持仓的 resolution source URL（CDC / FIDE / AP 等），抓当前状态并记录。即使没有新 edge，也要在报告中列出"上次查验时间 + 当前状态"
+- [ ] **Position Review 报告独立章节**：pulse 报告里新增"持仓复审"章节，列出每个持仓的：
+  - 原始开仓理由
+  - 本次独立重估的 AI 概率
+  - resolution source 当前状态
+  - 距结算剩余时间
+  - 建议动作（hold / close / reduce）+ 理由
+- [ ] **失效 thesis 标记**：如果原始开仓 thesis 中引用的关键事实（如"SC 麻疹爆发已结束"）在新一轮查验中不再成立，自动标记为 "stale thesis"，降低对该持仓的置信度
+
+### 核心原则
+
+**持仓复审必须是主动的、独立的、周期性的**，不是 pulse 候选抽样的副作用。
 
 ## Resolution 提升专项
 
