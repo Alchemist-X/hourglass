@@ -146,10 +146,11 @@ function extractProbabilities(body: string) {
 }
 
 function inferOutcomeLabel(direction: string) {
-  if (/买入\s*No|Buy\s*No/i.test(direction)) {
+  // Allow markdown bold markers (**) between the verb and outcome label
+  if (/买入\s*\**\s*No|Buy\s*\**\s*No/i.test(direction)) {
     return "No";
   }
-  if (/买入\s*Yes|Buy\s*Yes/i.test(direction)) {
+  if (/买入\s*\**\s*Yes|Buy\s*\**\s*Yes/i.test(direction)) {
     return "Yes";
   }
   return null;

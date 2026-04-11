@@ -141,6 +141,34 @@ describe("pulse entry planner", () => {
     expect(plans[0]?.monthlyReturn).toBeCloseTo(0.006228, 4);
   });
 
+  it("extracts outcome label even when wrapped in markdown bold markers", () => {
+    // LLM output often uses **No** / **Yes** to emphasize the outcome
+    const markdown = [
+      "## Demo market question",
+      "",
+      "**链接：** https://example.com/demo-market",
+      "",
+      "| 方向 | 买入 **No** @ 限价 0.39（No ask）|",
+      "| 建议仓位 | 6.6% |",
+      "| 置信度 | 低 |",
+      "",
+      "| Yes | 42% | 30% |",
+      "| No | 58% | 70% |",
+      "",
+      "### 推理逻辑",
+      "Bold markdown around No should still parse correctly."
+    ].join("\n");
+
+    const plans = buildPulseEntryPlans({
+      context: createContext(markdown),
+      positionStopLossPct: 0.3,
+      nowMs: FIXED_NOW_MS
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.outcomeLabel).toBe("No");
+  });
+
   it("parses deterministic fallback-style open tables", () => {
     const markdown = [
       "## 1. Demo market question",
