@@ -29,6 +29,7 @@
   - 当前阶段
   - 已耗时
   - 预计超时/剩余信息（若可得）
+- **pulse 运行进度汇报（强制）**：当运行 `pulse:live` 或 `pulse:recommend` 等长任务时，主会话必须通过轮询后台任务输出文件的方式，每 `~2 分钟` 向用户主动汇报一次进度（当前阶段 / 已耗时 / output bytes / 预计剩余）。不要等待用户主动询问。允许用子 agent 或直接读 output file 实现，但必须有持续的可见进度心跳。
 - 终端输出优先彩色、分级（`INFO/WARN/ERR/OK`）。
 - 错误输出必须可执行，并按照“时间戳+错误原因”命名错误归档文件夹，统一存储在 `run-error/` 目录下，至少包含以下内容：
   - 失败阶段（stage）
@@ -87,6 +88,7 @@
 - Resolution Rule 的触发条件可能比事件本身宽松得多（一条帖子即可触发）或严格得多（需要多方确认），AI 必须基于 rule 的字面定义来估算概率。
 - 推理顺序：先拆解 Resolution Rule 的触发条件 → 评估触发条件被满足的概率 → 底层事件动态仅作为辅助修正。
 - 禁止跳过 Resolution Rule 直接评估底层事件概率。
+- **Resolution 信息源存档**：分析 Resolution Rule 时，必须同时记录该 resolution 的验证信息源（resolution source 指定的网站、数据 API、官方页面等），并存入持仓存档或分析报告中。如果 resolution rule 指定了具体数据源（如 CDC case counter、AP/Fox/NBC、FIFA 官方），必须列出这些数据源的可访问 URL，以便后续持仓复审时直接查验当前状态。
 
 ## 6. 状态一致性偏好
 
