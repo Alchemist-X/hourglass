@@ -3461,6 +3461,7 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
 
 .dash-shell {
   position: relative;
+  z-index: 1;
   width: min(1520px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 0 0 64px;
@@ -3484,6 +3485,12 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
   flex-shrink: 0;
 }
 
+.dash-logo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .dash-logo {
   font-family: var(--font-mono), monospace;
   font-size: 1.05rem;
@@ -3492,19 +3499,29 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
   color: #f0f4ff;
 }
 
+.dash-logo-tagline {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: rgba(232, 236, 244, 0.35);
+  text-transform: uppercase;
+}
+
 .dash-logo-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
-  background: rgba(52, 211, 153, 0.15);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(99, 102, 241, 0.18));
   color: #34d399;
   font-family: var(--font-mono), monospace;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   position: relative;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.15), 0 0 24px rgba(52, 211, 153, 0.06);
 }
 
 .dash-logo-badge::before {
@@ -3598,26 +3615,35 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
 /* ---- Thesis section ---- */
 
 .dash-thesis {
-  padding: 24px 28px;
+  padding: 28px 32px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(52, 211, 153, 0.12);
+  background:
+    linear-gradient(135deg, rgba(52, 211, 153, 0.03), rgba(99, 102, 241, 0.02)),
+    rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(12px);
+  animation: dashFadeIn 0.6s ease-out both;
+  animation-delay: 0.1s;
 }
 
 .dash-thesis h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #e8ecf4;
-  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f0f4ff;
+  margin: 0 0 12px;
   letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #34d399, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .dash-thesis > p {
-  color: #8a94a6;
-  font-size: 13.5px;
-  line-height: 1.6;
-  margin: 0 0 18px;
+  color: #a0aab8;
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0 0 20px;
+  max-width: 72ch;
 }
 
 .dash-thesis-points {
@@ -3629,23 +3655,31 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
 .dash-thesis-point {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 10px;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid rgba(52, 211, 153, 0.4);
+  transition: transform 200ms ease-out, border-color 200ms ease-out, background-color 200ms ease-out;
+}
+
+.dash-thesis-point:hover {
+  transform: translateY(-2px);
+  border-left-color: #34d399;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .dash-thesis-point strong {
-  color: #c5cdd8;
-  font-size: 13px;
+  color: #d5dde8;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
 .dash-thesis-point span {
-  color: #6b7589;
+  color: #7b8599;
   font-size: 12.5px;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 @media (max-width: 860px) {
@@ -3883,8 +3917,12 @@ body:has(.bal-preview-flow) .preview-layout-links a:focus-visible {
   border-bottom: none;
 }
 
+.dash-table tbody tr {
+  transition: background-color 180ms ease-out;
+}
+
 .dash-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .dash-cell-title {
@@ -4590,4 +4628,169 @@ body:has(.bal-preview-flow) .dash-topbar {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dashboard fade-in animation                                        */
+/* ------------------------------------------------------------------ */
+
+@keyframes dashFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dash-header {
+  animation: dashFadeIn 0.5s ease-out both;
+}
+
+.dash-chart-panel {
+  animation: dashFadeIn 0.5s ease-out both;
+  animation-delay: 0.05s;
+}
+
+.dash-panel {
+  animation: dashFadeIn 0.5s ease-out both;
+  animation-delay: 0.15s;
+}
+
+.dash-split {
+  animation: dashFadeIn 0.5s ease-out both;
+  animation-delay: 0.2s;
+}
+
+/* ------------------------------------------------------------------ */
+/* Background dot pattern for depth                                   */
+/* ------------------------------------------------------------------ */
+
+.dash-body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='0.6' fill='%23ffffff' fill-opacity='0.025'/%3E%3C/svg%3E");
+  z-index: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Monitoring panel enhancements                                      */
+/* ------------------------------------------------------------------ */
+
+.dash-monitoring-panel {
+  border: 1px solid rgba(52, 211, 153, 0.1);
+}
+
+.dash-monitoring-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-monitoring-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+  animation: dashMonitorPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dashMonitorPulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.08);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Alert cards with severity borders                                  */
+/* ------------------------------------------------------------------ */
+
+.dash-alert-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background-color 120ms, transform 120ms;
+}
+
+.dash-alert-card:hover {
+  transform: translateX(2px);
+}
+
+.dash-alert-card.dash-alert-critical {
+  background: rgba(239, 68, 68, 0.06);
+  border-left: 3px solid rgba(239, 68, 68, 0.6);
+  border-color: rgba(239, 68, 68, 0.12);
+}
+
+.dash-alert-card.dash-alert-warning {
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 3px solid rgba(245, 158, 11, 0.6);
+  border-color: rgba(245, 158, 11, 0.1);
+}
+
+.dash-alert-card.dash-alert-info {
+  background: rgba(59, 130, 246, 0.04);
+  border-left: 3px solid rgba(59, 130, 246, 0.45);
+  border-color: rgba(59, 130, 246, 0.08);
+}
+
+/* ------------------------------------------------------------------ */
+/* Token icon placeholder                                             */
+/* ------------------------------------------------------------------ */
+
+.dash-token-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0b0e14;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Footer                                                             */
+/* ------------------------------------------------------------------ */
+
+.dash-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 0 8px;
+  margin-top: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: rgba(232, 236, 244, 0.25);
+}
+
+.dash-footer-link {
+  color: rgba(52, 211, 153, 0.5);
+  text-decoration: none;
+  transition: color 150ms;
+}
+
+.dash-footer-link:hover {
+  color: #34d399;
 }

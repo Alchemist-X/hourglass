@@ -113,18 +113,18 @@ const en: Dictionary = {
   days_ago: (n) => `${n}d ago`,
   na: "N/A",
 
-  thesis_title: "AVE Claw \u2014 Autonomous DeFi Agent",
+  thesis_title: "AVE Claw \u2014 On-chain Alpha for Prediction Markets",
   thesis_intro:
-    "Hourglass is built for the AVE Claw Hackathon 2026. It autonomously monitors DeFi tokens across multiple chains, detects anomalies and price movements, and generates trading signals using on-chain data analysis and AI reasoning.",
-  thesis_point_1_title: "Multi-chain token monitoring",
+    "On-chain data is the leading indicator for prediction markets. Hourglass harnesses AVE Claw to monitor 130+ chains for whale behavior, price anomalies, and contract risk \u2014 then uses AI to convert on-chain signals into Polymarket trading edge.",
+  thesis_point_1_title: "On-chain signals lead prediction markets",
   thesis_point_1_body:
-    "Continuously scans Ethereum, BSC, Polygon, Arbitrum, and more for price anomalies, whale movements, and liquidity shifts. Reacts in seconds to on-chain events that humans would miss.",
-  thesis_point_2_title: "AI-powered risk assessment",
+    "Whale accumulation, smart-money flows, and liquidity shifts happen on-chain before prediction market prices adjust. AVE Claw detects these signals in real-time across 130+ chains.",
+  thesis_point_2_title: "AVE monitors whales, anomalies & risk",
   thesis_point_2_body:
-    "Each token is evaluated with a multi-factor risk model combining liquidity depth, holder concentration, smart contract audits, and historical volatility to generate confidence-weighted signals.",
-  thesis_point_3_title: "Intelligent position management",
+    "Continuous scanning for whale movements, price anomalies, liquidity shifts, and smart contract risk. Multi-factor risk model generates confidence-weighted signals in seconds.",
+  thesis_point_3_title: "AI converts signals into trading edge",
   thesis_point_3_body:
-    "Automated entry/exit with dynamic stop-losses, position sizing via Kelly criterion, and portfolio rebalancing across chains. The agent manages risk so you don't have to.",
+    "AI reasoning transforms raw on-chain data into actionable Polymarket trades with automated entry/exit, dynamic stop-losses, and Kelly-criterion position sizing.",
 
   cumulative_pnl: "Cumulative P&L",
   equity_curve: "Equity Curve",
@@ -171,8 +171,8 @@ const en: Dictionary = {
   filled: "filled",
   fill_pct: (pct) => `(${pct.toFixed(0)}% fill)`,
 
-  monitoring_title: "Monitoring Alerts",
-  no_alerts: "No recent alerts.",
+  monitoring_title: "AVE Claw Live Monitoring",
+  no_alerts: "All clear \u2014 no anomalies detected.",
 
   lang_label: "EN"
 };
@@ -197,18 +197,18 @@ const zh: Dictionary = {
   days_ago: (n) => `${n}\u5929\u524D`,
   na: "\u65E0",
 
-  thesis_title: "AVE Claw \u2014 \u81EA\u4E3B DeFi \u4EE3\u7406",
+  thesis_title: "AVE Claw \u2014 \u94FE\u4E0A Alpha \u9A71\u52A8\u9884\u6D4B\u5E02\u573A",
   thesis_intro:
-    "Hourglass \u662F\u4E3A AVE Claw Hackathon 2026 \u6253\u9020\u7684\u81EA\u4E3B DeFi \u4EE3\u7406\u3002\u5B83\u8DE8\u591A\u94FE\u76D1\u63A7 DeFi \u4EE3\u5E01\uFF0C\u68C0\u6D4B\u5F02\u5E38\u548C\u4EF7\u683C\u53D8\u52A8\uFF0C\u5229\u7528\u94FE\u4E0A\u6570\u636E\u5206\u6790\u548C AI \u63A8\u7406\u751F\u6210\u4EA4\u6613\u4FE1\u53F7\u3002",
-  thesis_point_1_title: "\u591A\u94FE\u4EE3\u5E01\u76D1\u63A7",
+    "\u94FE\u4E0A\u6570\u636E\u662F\u9884\u6D4B\u5E02\u573A\u7684\u5148\u884C\u6307\u6807\u3002AVE \u76D1\u63A7 130+ \u94FE\u7684\u9CB8\u9C7C\u884C\u4E3A\u3001\u4EF7\u683C\u5F02\u5E38\u3001\u5408\u7EA6\u98CE\u9669\uFF0CAI \u5C06\u94FE\u4E0A\u4FE1\u53F7\u8F6C\u5316\u4E3A Polymarket \u4EA4\u6613 edge\u3002",
+  thesis_point_1_title: "\u94FE\u4E0A\u4FE1\u53F7\u9886\u5148\u9884\u6D4B\u5E02\u573A",
   thesis_point_1_body:
-    "\u6301\u7EED\u626B\u63CF Ethereum\u3001BSC\u3001Polygon\u3001Arbitrum \u7B49\u94FE\u4E0A\u7684\u4EF7\u683C\u5F02\u5E38\u3001\u5DE8\u9CB8\u52A8\u5411\u548C\u6D41\u52A8\u6027\u53D8\u5316\u3002\u79D2\u7EA7\u54CD\u5E94\u94FE\u4E0A\u4E8B\u4EF6\u3002",
-  thesis_point_2_title: "AI \u9A71\u52A8\u7684\u98CE\u9669\u8BC4\u4F30",
+    "\u9CB8\u9C7C\u5EFA\u4ED3\u3001\u806A\u660E\u8D44\u91D1\u6D41\u52A8\u3001\u6D41\u52A8\u6027\u53D8\u5316\u5728\u94FE\u4E0A\u5148\u4E8E\u9884\u6D4B\u5E02\u573A\u4EF7\u683C\u8C03\u6574\u3002AVE Claw \u8DE8 130+ \u94FE\u5B9E\u65F6\u68C0\u6D4B\u8FD9\u4E9B\u4FE1\u53F7\u3002",
+  thesis_point_2_title: "AVE \u76D1\u63A7\u9CB8\u9C7C\u3001\u5F02\u5E38\u3001\u98CE\u9669",
   thesis_point_2_body:
-    "\u6BCF\u4E2A\u4EE3\u5E01\u90FD\u7ECF\u8FC7\u591A\u56E0\u5B50\u98CE\u9669\u6A21\u578B\u8BC4\u4F30\uFF0C\u7ED3\u5408\u6D41\u52A8\u6027\u6DF1\u5EA6\u3001\u6301\u6709\u8005\u96C6\u4E2D\u5EA6\u3001\u667A\u80FD\u5408\u7EA6\u5BA1\u8BA1\u548C\u5386\u53F2\u6CE2\u52A8\u7387\u751F\u6210\u7F6E\u4FE1\u5EA6\u52A0\u6743\u4FE1\u53F7\u3002",
-  thesis_point_3_title: "\u667A\u80FD\u4ED3\u4F4D\u7BA1\u7406",
+    "\u6301\u7EED\u626B\u63CF\u9CB8\u9C7C\u52A8\u5411\u3001\u4EF7\u683C\u5F02\u5E38\u3001\u6D41\u52A8\u6027\u53D8\u5316\u548C\u667A\u80FD\u5408\u7EA6\u98CE\u9669\u3002\u591A\u56E0\u5B50\u98CE\u9669\u6A21\u578B\u79D2\u7EA7\u751F\u6210\u7F6E\u4FE1\u5EA6\u52A0\u6743\u4FE1\u53F7\u3002",
+  thesis_point_3_title: "AI \u5C06\u4FE1\u53F7\u8F6C\u5316\u4E3A\u4EA4\u6613 Edge",
   thesis_point_3_body:
-    "\u81EA\u52A8\u5F00\u4ED3/\u5E73\u4ED3\uFF0C\u52A8\u6001\u6B62\u635F\uFF0C\u57FA\u4E8E Kelly \u516C\u5F0F\u7684\u4ED3\u4F4D\u8C03\u6574\uFF0C\u8DE8\u94FE\u7EC4\u5408\u518D\u5E73\u8861\u3002\u4EE3\u7406\u81EA\u52A8\u7BA1\u7406\u98CE\u9669\u3002",
+    "AI \u63A8\u7406\u5C06\u539F\u59CB\u94FE\u4E0A\u6570\u636E\u8F6C\u5316\u4E3A Polymarket \u4EA4\u6613\uFF0C\u81EA\u52A8\u5F00\u4ED3/\u5E73\u4ED3\u3001\u52A8\u6001\u6B62\u635F\u3001\u57FA\u4E8E Kelly \u516C\u5F0F\u7684\u4ED3\u4F4D\u7BA1\u7406\u3002",
 
   cumulative_pnl: "\u7D2F\u8BA1\u76C8\u4E8F",
   equity_curve: "\u6743\u76CA\u66F2\u7EBF",
@@ -255,8 +255,8 @@ const zh: Dictionary = {
   filled: "\u5DF2\u6210\u4EA4",
   fill_pct: (pct) => `(\u6210\u4EA4 ${pct.toFixed(0)}%)`,
 
-  monitoring_title: "\u76D1\u63A7\u8B66\u62A5",
-  no_alerts: "\u6682\u65E0\u8B66\u62A5\u3002",
+  monitoring_title: "AVE Claw \u5B9E\u65F6\u76D1\u63A7",
+  no_alerts: "\u4E00\u5207\u6B63\u5E38 \u2014 \u672A\u68C0\u6D4B\u5230\u5F02\u5E38\u3002",
 
   lang_label: "\u4E2D"
 };

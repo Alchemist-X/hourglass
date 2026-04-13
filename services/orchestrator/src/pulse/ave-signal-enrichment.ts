@@ -127,6 +127,77 @@ export interface AveEnrichmentClient {
 }
 
 // ---------------------------------------------------------------------------
+// Adapter: AveClient -> AveEnrichmentClient
+// ---------------------------------------------------------------------------
+
+/**
+ * Wraps the concrete AveClient from @autopoly/ave-monitor so it satisfies
+ * the AveEnrichmentClient interface used by the enrichment pipeline.
+ *
+ * Field-name translations:
+ *   AveToken.price           -> AveSearchToken.price_usd
+ *   AveToken.volume_24h      -> AveSearchToken.tx_volume_u_24h
+ *   AveToken.liquidity       -> AveSearchToken.main_pair_tvl
+ *   AveContractRisk.is_mintable -> AveContractRiskRaw.has_mint_function
+ */
+export function adaptAveClient(client: {
+  searchTokens(params: {
+    keyword?: string;
+    chain?: string;
+    limit?: number;
+  }): Promise<
+    Array<{
+      token_address: string;
+      chain: string;
+      token_name: string;
+      token_symbol: string;
+      price?: number;
+      price_change_24h?: number;
+      volume_24h?: number;
+      market_cap?: number;
+      liquidity?: number;
+    }>
+  >;
+  getContractSecurity(tokenId: string): Promise<{
+    risk_level?: string;
+    is_honeypot?: boolean;
+    is_mintable?: boolean;
+    is_open_source?: boolean;
+    buy_tax?: number;
+    sell_tax?: number;
+  }>;
+}): AveEnrichmentClient {
+  return {
+    searchTokens: async (params) => {
+      const tokens = await client.searchTokens(params);
+      return tokens.map((t) => ({
+        token_address: t.token_address,
+        chain: t.chain,
+        token_name: t.token_name,
+        token_symbol: t.token_symbol,
+        price_usd: t.price,
+        price_change_24h: t.price_change_24h,
+        tx_volume_u_24h: t.volume_24h,
+        market_cap: t.market_cap,
+        main_pair_tvl: t.liquidity,
+      }));
+    },
+    getContractSecurity: async (tokenId) => {
+      const risk = await client.getContractSecurity(tokenId);
+      return {
+        risk_level: risk.risk_level,
+        is_honeypot: risk.is_honeypot,
+        has_mint_function: risk.is_mintable,
+        is_open_source: risk.is_open_source,
+        buy_tax: risk.buy_tax,
+        sell_tax: risk.sell_tax,
+        lp_locked: undefined,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Crypto keyword extraction
 // ---------------------------------------------------------------------------
 

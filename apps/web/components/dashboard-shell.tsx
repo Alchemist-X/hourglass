@@ -22,7 +22,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <div className="dash-shell">
       <header className="dash-topbar">
         <div className="dash-topbar-left">
-          <span className="dash-logo">Hourglass</span>
+          <div className="dash-logo-group">
+            <span className="dash-logo">Hourglass</span>
+            <span className="dash-logo-tagline">On-chain Signal x Prediction Market</span>
+          </div>
           <span className="dash-logo-badge">AVE Claw</span>
         </div>
         <nav className="dash-nav">
@@ -43,6 +46,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <LocaleToggle />
       </header>
       <main className="dash-main">{children}</main>
+      <footer className="dash-footer">
+        <span>AVE Claw Hackathon 2026 | Powered by AVE.ai + Polymarket</span>
+        <a
+          href="https://github.com/anthropics/ave-hackathon"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="dash-footer-link"
+        >
+          GitHub
+        </a>
+      </footer>
     </div>
   );
 }

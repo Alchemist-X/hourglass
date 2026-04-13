@@ -23,7 +23,7 @@
 
 ### 需要修改的文件
 
-#### 1. `services/orchestrator/src/runtime/runtime-factory.ts`
+#### 1. `services/orchestrator/src/runtime/runtime-factory.ts` ✅ 已完成
 **改动**：当 `AVE_API_KEY` 存在时，自动升级 `pulse-direct` 为 `AvePolymarketRuntime`
 ```typescript
 // 在 createAgentRuntime() 中添加：
@@ -34,7 +34,7 @@ if (config.decisionStrategy === "pulse-direct" && config.ave.apiKey) {
 ```
 **工作量**：30 分钟
 
-#### 2. 创建 `.env.live`
+#### 2. 创建 `.env.live` ⏳ 等待用户提供钱包
 ```env
 AUTOPOLY_EXECUTION_MODE=live
 PRIVATE_KEY=0x<polygon-wallet-private-key>
@@ -47,12 +47,12 @@ MIN_TRADE_USD=0.01
 ```
 **工作量**：10 分钟
 
-#### 3. 验证 `AveClient` 兼容 `AveEnrichmentClient` 接口
-**文件**：`services/ave-monitor/src/client.ts`
-**改动**：确认返回类型字段名匹配（price_usd, price_change_24h 等），如不匹配需加薄适配层
+#### 3. 验证 `AveClient` 兼容 `AveEnrichmentClient` 接口 ✅ 已完成
+**文件**：`services/orchestrator/src/pulse/ave-signal-enrichment.ts`
+**改动**：适配层已实现，字段名映射完成
 **工作量**：15 分钟
 
-#### 4. 执行实盘
+#### 4. 执行实盘 ⏳ 等待钱包 + AVE API 恢复
 ```bash
 ENV_FILE=.env.live pnpm pulse:live
 ```
@@ -76,17 +76,11 @@ ENV_FILE=.env.live pnpm pulse:live
 
 ### 需要修改的文件
 
-#### 1. `apps/web/app/page.tsx`
-**改动**：替换空的 `PLACEHOLDER_ALERTS` 为真实/模拟告警数据
-```typescript
-// 替换:
-const PLACEHOLDER_ALERTS: readonly AveAlert[] = [];
-
-// 改为: 生成真实感告警（价格异常、鲸鱼活动等）
-```
+#### 1. `apps/web/app/page.tsx` ✅ 已完成
+**改动**：替换空的 `PLACEHOLDER_ALERTS` 为真实感告警数据（价格异常、鲸鱼活动等）
 **工作量**：30 分钟
 
-#### 2. 新建 `apps/web/app/api/public/ave-alerts/route.ts`
+#### 2. 新建 `apps/web/app/api/public/ave-alerts/route.ts` ✅ 已完成
 **功能**：
 - 调用 AVE API 获取 trending tokens
 - 检测 >5% 价格变动 → 生成 price_alert
@@ -94,7 +88,15 @@ const PLACEHOLDER_ALERTS: readonly AveAlert[] = [];
 - 返回 AveAlert[]
 **工作量**：1 小时
 
-#### 3. Vercel 部署
+#### 2.5 Dashboard 视觉优化 ✅ 已完成
+**改动**：
+- 动画效果（gradient badges、pulsing indicators）
+- Thesis section 重写为 prediction market 叙事
+- Footer 添加 hackathon branding
+- `globals.css` 动画 + 视觉打磨
+**工作量**：30 分钟
+
+#### 3. Vercel 部署 ⏳ 等待用户 Vercel 账号
 ```bash
 # 设置环境变量
 vercel env add POLYMARKET_PUBLIC_WALLET_ADDRESS
@@ -106,7 +108,7 @@ vercel deploy --prod --yes -A vercel.json
 ```
 **工作量**：20 分钟
 
-#### 4. 验证
+#### 4. 验证 ⏳ 等待部署
 - [ ] 打开线上 URL
 - [ ] 确认持仓数据显示正确
 - [ ] 确认 AVE 监控面板有告警数据
@@ -118,7 +120,7 @@ vercel deploy --prod --yes -A vercel.json
 
 ---
 
-## 目标 3：展示设计和结果（预计 2 小时）
+## 目标 3：展示设计和结果（预计 2 小时） ⏳ 等待实盘结果
 
 ### 需要修改的文件
 

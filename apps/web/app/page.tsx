@@ -17,15 +17,31 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const PLACEHOLDER_ALERTS: readonly AveAlert[] = [];
+async function fetchAveAlerts(): Promise<readonly AveAlert[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const response = await fetch(`${baseUrl}/api/public/ave-alerts`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await response.json() as { alerts?: AveAlert[] };
+    return data.alerts ?? [];
+  } catch {
+    return [];
+  }
+}
 
 export default async function HomePage() {
-  const [overview, positions, trades, closedPositions, activities] = await Promise.all([
+  const [overview, positions, trades, closedPositions, activities, alerts] = await Promise.all([
     getPublicOverviewData(),
     getPublicPositionsData(),
     getPublicTradesData(),
     getSpectatorClosedPositionsData(),
-    getSpectatorActivityData()
+    getSpectatorActivityData(),
+    fetchAveAlerts()
   ]);
 
   return (
@@ -44,7 +60,7 @@ export default async function HomePage() {
         totalEquityUsd={overview.total_equity_usd}
       />
 
-      <AveMonitoringPanel alerts={PLACEHOLDER_ALERTS} />
+      <AveMonitoringPanel alerts={alerts} />
 
       <div className="dash-split">
         <DashboardPnlSummary

@@ -170,6 +170,9 @@ importers:
 
   services/orchestrator:
     dependencies:
+      '@autopoly/ave-monitor':
+        specifier: workspace:*
+        version: link:../ave-monitor
       '@autopoly/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
