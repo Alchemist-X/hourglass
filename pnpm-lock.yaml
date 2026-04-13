@@ -120,6 +120,21 @@ importers:
 
   packages/terminal-ui: {}
 
+  services/ave-monitor:
+    dependencies:
+      '@autopoly/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@autopoly/terminal-ui':
+        specifier: workspace:*
+        version: link:../../packages/terminal-ui
+      ioredis:
+        specifier: 5.10.0
+        version: 5.10.0
+      zod:
+        specifier: 4.1.12
+        version: 4.1.12
+
   services/executor:
     dependencies:
       '@autopoly/contracts':

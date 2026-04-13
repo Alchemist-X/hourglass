@@ -74,6 +74,14 @@ export interface PulseConfig {
   maxMarkdownChars: number;
 }
 
+export interface AveConfig {
+  apiKey: string;
+  apiBaseUrl: string;
+  monitoringChains: string[];
+  pulseTokenLimit: number;
+  pulseTrendingLimit: number;
+}
+
 export interface OrchestratorConfig {
   repoRoot: string;
   port: number;
@@ -101,6 +109,7 @@ export interface OrchestratorConfig {
   pulseTimeoutMode: PulseTimeoutMode;
   pulseAiPrescreen: boolean;
   pulse: PulseConfig;
+  ave: AveConfig;
   providers: Record<string, SkillProviderConfig>;
 }
 
@@ -176,6 +185,16 @@ export function loadConfig(): OrchestratorConfig {
       minTradeableCandidates: readNumber("PULSE_MIN_TRADEABLE_CANDIDATES", 1),
       maxAgeMinutes: readNumber("PULSE_MAX_AGE_MINUTES", 120),
       maxMarkdownChars: readNumber("PULSE_MAX_MARKDOWN_CHARS", 24000)
+    },
+    ave: {
+      apiKey: readString("AVE_API_KEY", ""),
+      apiBaseUrl: readString("AVE_API_BASE_URL", "https://openapi.avedata.org/api/v1"),
+      monitoringChains: readString("AVE_MONITORING_CHAINS", "ethereum,bsc,polygon,base,solana")
+        .split(",")
+        .map((chain) => chain.trim())
+        .filter((chain) => chain.length > 0),
+      pulseTokenLimit: readNumber("AVE_PULSE_TOKEN_LIMIT", 300),
+      pulseTrendingLimit: readNumber("AVE_PULSE_TRENDING_LIMIT", 50),
     },
     providers: {
       codex: readSkillProviderConfig({

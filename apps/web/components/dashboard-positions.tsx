@@ -55,7 +55,8 @@ export function DashboardPositions({ initialData, totalEquityUsd }: { initialDat
             <thead>
               <tr>
                 <th>{t.col_market}</th>
-                <th>{t.col_side}</th>
+                <th>{t.col_chain}</th>
+                <th>{t.col_direction}</th>
                 <th>{t.col_shares}</th>
                 <th>{t.col_entry}</th>
                 <th>{t.col_current}</th>
@@ -74,14 +75,24 @@ export function DashboardPositions({ initialData, totalEquityUsd }: { initialDat
                 const costBasis = calculatePositionCostBasisUsd(position);
                 const weight = calculatePositionWeightPct(position, totalEquityUsd);
                 const isProfit = pnlUsd >= 0;
+                const direction = position.side === "BUY" ? t.direction_long : t.direction_short;
+                const chain = position.chain ?? "Ethereum";
+                const tokenSymbol = position.token_symbol ?? position.market_slug;
 
                 return (
                   <tr key={position.id}>
                     <td data-label={t.col_market}>
-                      <strong className="dash-cell-title">{position.market_slug}</strong>
-                      <span className="dash-cell-sub">{position.outcome_label}</span>
+                      <strong className="dash-cell-title">{tokenSymbol}</strong>
+                      <span className="dash-cell-sub">{position.market_slug}</span>
                     </td>
-                    <td data-label={t.col_side}>{position.side}</td>
+                    <td data-label={t.col_chain}>
+                      <span className="dash-chain-badge">{chain}</span>
+                    </td>
+                    <td data-label={t.col_direction}>
+                      <span className={`dash-side-tag ${position.side === "BUY" ? "dash-side-buy" : "dash-side-sell"}`}>
+                        {direction}
+                      </span>
+                    </td>
                     <td data-label={t.col_shares}>{position.size.toFixed(2)}</td>
                     <td data-label={t.col_entry}>{position.avg_cost.toFixed(3)}</td>
                     <td data-label={t.col_current}>{position.current_price.toFixed(3)}</td>

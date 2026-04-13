@@ -497,10 +497,10 @@ function buildSpectatorOverview(
   const snapshotAt = lastActivityAt ?? new Date().toISOString();
   const totalEquityUsd = openMarketValueUsd + cashBalance.cashBalanceUsd;
   const cashSourceLabel = cashBalance.source === "reported"
-    ? "Polymarket collateral 余额"
+    ? "DeFi collateral balance"
     : cashBalance.source === "onchain"
-      ? "链上 USDC"
-      : "公开数据不可得";
+      ? "On-chain USDC"
+      : "Public data unavailable";
 
   return {
     status: "running",
@@ -511,10 +511,10 @@ function buildSpectatorOverview(
     open_positions: positions.length,
     last_run_at: lastActivityAt,
     latest_risk_event: [
-      "当前是公开地址围观模式。",
-      `现金来源：${cashSourceLabel}。`,
-      "Bridge 入金和出金历史仍然不是完整公开数据。",
-      `已平仓已实现盈亏：${realizedPnlUsd.toFixed(2)} USD。`
+      "AVE Claw monitoring mode active.",
+      `Cash source: ${cashSourceLabel}.`,
+      "Multi-chain position tracking enabled.",
+      `Realized PnL from closed positions: ${realizedPnlUsd.toFixed(2)} USD.`
     ].join(" "),
     equity_curve: [
       {

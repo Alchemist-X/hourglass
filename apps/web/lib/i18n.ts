@@ -12,6 +12,8 @@ interface Dictionary {
   drawdown: string;
   vs_hwm: string;
   open_positions: string;
+  chains_active: string;
+  monitoring_status: string;
 
   // Status
   status_running: string;
@@ -49,6 +51,9 @@ interface Dictionary {
   positions_profitable: (n: number) => string;
   market_value: string;
   col_market: string;
+  col_token: string;
+  col_chain: string;
+  col_direction: string;
   col_side: string;
   col_shares: string;
   col_entry: string;
@@ -60,6 +65,8 @@ interface Dictionary {
   col_weight: string;
   col_held: string;
   no_open_positions: string;
+  direction_long: string;
+  direction_short: string;
 
   // PNL Summary
   pnl_summary_title: string;
@@ -68,7 +75,7 @@ interface Dictionary {
   realized: string;
   cost_basis: string;
   market_value_label: string;
-  closed_markets: (n: number) => string;
+  closed_positions: (n: number) => string;
   top_movers: string;
 
   // Activity
@@ -77,6 +84,10 @@ interface Dictionary {
   no_recent_trades: string;
   filled: string;
   fill_pct: (pct: number) => string;
+
+  // Monitoring
+  monitoring_title: string;
+  no_alerts: string;
 
   // Language toggle
   lang_label: string;
@@ -89,8 +100,10 @@ const en: Dictionary = {
   drawdown: "Drawdown",
   vs_hwm: "vs HWM",
   open_positions: "Open Positions",
+  chains_active: "Chains",
+  monitoring_status: "Monitoring",
 
-  status_running: "Running",
+  status_running: "Monitoring Active",
   status_paused: "Paused",
   status_halted: "Halted",
   updated: "Updated",
@@ -100,18 +113,18 @@ const en: Dictionary = {
   days_ago: (n) => `${n}d ago`,
   na: "N/A",
 
-  thesis_title: "Why Agents Trade Prediction Markets",
+  thesis_title: "AVE Claw \u2014 Autonomous DeFi Agent",
   thesis_intro:
-    "Built around Market Pulse \u2014 AI autonomously estimates the probability of real-world events, dynamically gathers evidence from information sources, and generates trade signals by comparing its estimates against market-implied odds.",
-  thesis_point_1_title: "Complex reasoning approaching human level",
+    "Hourglass is built for the AVE Claw Hackathon 2026. It autonomously monitors DeFi tokens across multiple chains, detects anomalies and price movements, and generates trading signals using on-chain data analysis and AI reasoning.",
+  thesis_point_1_title: "Multi-chain token monitoring",
   thesis_point_1_body:
-    "Agent reasoning on complex tasks is converging with human ability. Humans still have better information sources \u2014 but that gap can be closed through engineering. The core analytical capability is already there.",
-  thesis_point_2_title: "Broader coverage, faster response",
+    "Continuously scans Ethereum, BSC, Polygon, Arbitrum, and more for price anomalies, whale movements, and liquidity shifts. Reacts in seconds to on-chain events that humans would miss.",
+  thesis_point_2_title: "AI-powered risk assessment",
   thesis_point_2_body:
-    "Agents monitor thousands of markets 24/7, spotting mispricings no individual can track. When news breaks, agents react in seconds; humans need 3+ minutes at best.",
-  thesis_point_3_title: "Blue ocean in political & tech markets",
+    "Each token is evaluated with a multi-factor risk model combining liquidity depth, holder concentration, smart contract audits, and historical volatility to generate confidence-weighted signals.",
+  thesis_point_3_title: "Intelligent position management",
   thesis_point_3_body:
-    "Most prediction market participants lack formal pricing models and fear inventory risk. Political and tech markets remain underserved by systematic strategies \u2014 a rare window for agent-driven alpha.",
+    "Automated entry/exit with dynamic stop-losses, position sizing via Kelly criterion, and portfolio rebalancing across chains. The agent manages risk so you don't have to.",
 
   cumulative_pnl: "Cumulative P&L",
   equity_curve: "Equity Curve",
@@ -125,11 +138,14 @@ const en: Dictionary = {
   positions_open: (n) => `${n} open`,
   positions_profitable: (n) => `${n} profitable`,
   market_value: "market value",
-  col_market: "Market",
+  col_market: "Token",
+  col_token: "Symbol",
+  col_chain: "Chain",
+  col_direction: "Direction",
   col_side: "Side",
-  col_shares: "Shares",
-  col_entry: "Entry",
-  col_current: "Current",
+  col_shares: "Size",
+  col_entry: "Entry Price",
+  col_current: "Current Price",
   col_cost_basis: "Cost Basis",
   col_value: "Value",
   col_unreal_pnl: "Unreal. PnL",
@@ -137,6 +153,8 @@ const en: Dictionary = {
   col_weight: "Weight",
   col_held: "Held",
   no_open_positions: "No open positions.",
+  direction_long: "Long",
+  direction_short: "Short",
 
   pnl_summary_title: "P&L Summary",
   net_pnl: "Net P&L",
@@ -144,7 +162,7 @@ const en: Dictionary = {
   realized: "Realized",
   cost_basis: "Cost Basis",
   market_value_label: "Market Value",
-  closed_markets: (n) => `${n} closed markets`,
+  closed_positions: (n) => `${n} closed positions`,
   top_movers: "Top Movers",
 
   recent_trades: "Recent Trades",
@@ -152,6 +170,9 @@ const en: Dictionary = {
   no_recent_trades: "No recent trades.",
   filled: "filled",
   fill_pct: (pct) => `(${pct.toFixed(0)}% fill)`,
+
+  monitoring_title: "Monitoring Alerts",
+  no_alerts: "No recent alerts.",
 
   lang_label: "EN"
 };
@@ -163,8 +184,10 @@ const zh: Dictionary = {
   drawdown: "\u56DE\u64A4",
   vs_hwm: "\u8DDD\u9AD8\u70B9",
   open_positions: "\u5F00\u4ED3\u6570",
+  chains_active: "\u94FE",
+  monitoring_status: "\u76D1\u63A7",
 
-  status_running: "\u8FD0\u884C\u4E2D",
+  status_running: "\u76D1\u63A7\u4E2D",
   status_paused: "\u5DF2\u6682\u505C",
   status_halted: "\u5DF2\u505C\u673A",
   updated: "\u66F4\u65B0\u4E8E",
@@ -174,18 +197,18 @@ const zh: Dictionary = {
   days_ago: (n) => `${n}\u5929\u524D`,
   na: "\u65E0",
 
-  thesis_title: "\u4E3A\u4EC0\u4E48\u8BA9 Agent \u4EA4\u6613\u9884\u6D4B\u5E02\u573A",
+  thesis_title: "AVE Claw \u2014 \u81EA\u4E3B DeFi \u4EE3\u7406",
   thesis_intro:
-    "\u672C\u7CFB\u7EDF\u57FA\u4E8E Market Pulse \u8FD9\u4E2A\u6838\u5FC3\u7EC4\u4EF6\uFF0C\u8BA9 AI \u81EA\u4E3B\u8BC4\u4F30\u4E8B\u4EF6\u53D1\u751F\u7684\u6982\u7387\uFF0C\u52A8\u6001\u5730\u4ECE\u4FE1\u606F\u6E90\u6536\u96C6\u8BC1\u636E\uFF0C\u7136\u540E\u5C06\u5176\u4E0E\u5E02\u573A\u9690\u542B\u7684\u8D54\u7387\u5BF9\u6BD4\uFF0C\u751F\u6210\u4EA4\u6613\u4FE1\u53F7\u3002",
-  thesis_point_1_title: "\u590D\u6742\u4EFB\u52A1\u63A8\u7406\u80FD\u529B\u8D8B\u8FD1\u4EBA\u7C7B",
+    "Hourglass \u662F\u4E3A AVE Claw Hackathon 2026 \u6253\u9020\u7684\u81EA\u4E3B DeFi \u4EE3\u7406\u3002\u5B83\u8DE8\u591A\u94FE\u76D1\u63A7 DeFi \u4EE3\u5E01\uFF0C\u68C0\u6D4B\u5F02\u5E38\u548C\u4EF7\u683C\u53D8\u52A8\uFF0C\u5229\u7528\u94FE\u4E0A\u6570\u636E\u5206\u6790\u548C AI \u63A8\u7406\u751F\u6210\u4EA4\u6613\u4FE1\u53F7\u3002",
+  thesis_point_1_title: "\u591A\u94FE\u4EE3\u5E01\u76D1\u63A7",
   thesis_point_1_body:
-    "Agent \u5728\u590D\u6742\u4EFB\u52A1\u4E0A\u7684\u63A8\u7406\u80FD\u529B\u5DF2\u7ECF\u63A5\u8FD1\u4EBA\u7C7B\u6C34\u5E73\u3002\u4EBA\u7C7B\u7684\u4F18\u52BF\u4E3B\u8981\u5728\u4E8E\u66F4\u597D\u7684\u4FE1\u606F\u6E90\uFF0C\u4F46\u8FD9\u4E00\u5DEE\u8DDD\u53EF\u4EE5\u901A\u8FC7\u5DE5\u7A0B\u80FD\u529B\u5F25\u5408\u3002\u6838\u5FC3\u5206\u6790\u80FD\u529B\u5DF2\u7ECF\u5230\u4F4D\u3002",
-  thesis_point_2_title: "\u8986\u76D6\u9762\u5E7F\u4E14\u65F6\u6548\u6027\u5F3A",
+    "\u6301\u7EED\u626B\u63CF Ethereum\u3001BSC\u3001Polygon\u3001Arbitrum \u7B49\u94FE\u4E0A\u7684\u4EF7\u683C\u5F02\u5E38\u3001\u5DE8\u9CB8\u52A8\u5411\u548C\u6D41\u52A8\u6027\u53D8\u5316\u3002\u79D2\u7EA7\u54CD\u5E94\u94FE\u4E0A\u4E8B\u4EF6\u3002",
+  thesis_point_2_title: "AI \u9A71\u52A8\u7684\u98CE\u9669\u8BC4\u4F30",
   thesis_point_2_body:
-    "Agent \u80FD 7\u00D724 \u5C0F\u65F6\u540C\u65F6\u76D1\u63A7\u6570\u5343\u4E2A\u5E02\u573A\uFF0C\u53D1\u73B0\u4EFB\u4F55\u4E2A\u4EBA\u65E0\u6CD5\u8DDF\u8E2A\u7684\u5B9A\u4EF7\u5931\u8C03\u3002\u65B0\u95FB\u7206\u53D1\u65F6 Agent \u79D2\u7EA7\u54CD\u5E94\uFF0C\u4EBA\u7C7B\u5219\u81F3\u5C11\u9700\u8981 3 \u5206\u949F\u4EE5\u4E0A\u3002",
-  thesis_point_3_title: "\u90E8\u5206\u5E02\u573A\u4ECD\u5904\u4E8E\u84DD\u6D77",
+    "\u6BCF\u4E2A\u4EE3\u5E01\u90FD\u7ECF\u8FC7\u591A\u56E0\u5B50\u98CE\u9669\u6A21\u578B\u8BC4\u4F30\uFF0C\u7ED3\u5408\u6D41\u52A8\u6027\u6DF1\u5EA6\u3001\u6301\u6709\u8005\u96C6\u4E2D\u5EA6\u3001\u667A\u80FD\u5408\u7EA6\u5BA1\u8BA1\u548C\u5386\u53F2\u6CE2\u52A8\u7387\u751F\u6210\u7F6E\u4FE1\u5EA6\u52A0\u6743\u4FE1\u53F7\u3002",
+  thesis_point_3_title: "\u667A\u80FD\u4ED3\u4F4D\u7BA1\u7406",
   thesis_point_3_body:
-    "\u653F\u6CBB\u548C\u79D1\u6280\u9884\u6D4B\u5E02\u573A\u4E2D\uFF0C\u591A\u6570\u53C2\u4E0E\u8005\u7F3A\u4E4F\u6E05\u6670\u7684\u5B9A\u4EF7\u6A21\u578B\uFF0C\u4E14\u666E\u904D\u754F\u60E7\u5E93\u5B58\u7BA1\u7406\u548C\u9006\u5411\u9009\u62E9\u98CE\u9669\u3002\u7CFB\u7EDF\u5316\u7684 Agent \u4EA4\u6613\u5728\u8FD9\u4E9B\u9886\u57DF\u9762\u4E34\u7684\u7ADE\u4E89\u6781\u5C11\u3002",
+    "\u81EA\u52A8\u5F00\u4ED3/\u5E73\u4ED3\uFF0C\u52A8\u6001\u6B62\u635F\uFF0C\u57FA\u4E8E Kelly \u516C\u5F0F\u7684\u4ED3\u4F4D\u8C03\u6574\uFF0C\u8DE8\u94FE\u7EC4\u5408\u518D\u5E73\u8861\u3002\u4EE3\u7406\u81EA\u52A8\u7BA1\u7406\u98CE\u9669\u3002",
 
   cumulative_pnl: "\u7D2F\u8BA1\u76C8\u4E8F",
   equity_curve: "\u6743\u76CA\u66F2\u7EBF",
@@ -199,9 +222,12 @@ const zh: Dictionary = {
   positions_open: (n) => `${n} \u4E2A\u5F00\u4ED3`,
   positions_profitable: (n) => `${n} \u4E2A\u76C8\u5229`,
   market_value: "\u5E02\u503C",
-  col_market: "\u5E02\u573A",
+  col_market: "\u4EE3\u5E01",
+  col_token: "\u7B26\u53F7",
+  col_chain: "\u94FE",
+  col_direction: "\u65B9\u5411",
   col_side: "\u65B9\u5411",
-  col_shares: "\u4EFD\u989D",
+  col_shares: "\u6570\u91CF",
   col_entry: "\u5165\u573A\u4EF7",
   col_current: "\u5F53\u524D\u4EF7",
   col_cost_basis: "\u6210\u672C",
@@ -211,6 +237,8 @@ const zh: Dictionary = {
   col_weight: "\u6743\u91CD",
   col_held: "\u6301\u4ED3\u65F6\u95F4",
   no_open_positions: "\u6CA1\u6709\u5F00\u4ED3\u4ED3\u4F4D\u3002",
+  direction_long: "\u505A\u591A",
+  direction_short: "\u505A\u7A7A",
 
   pnl_summary_title: "\u76C8\u4E8F\u6458\u8981",
   net_pnl: "\u51C0\u76C8\u4E8F",
@@ -218,7 +246,7 @@ const zh: Dictionary = {
   realized: "\u5DF2\u5B9E\u73B0",
   cost_basis: "\u6210\u672C\u57FA\u7840",
   market_value_label: "\u5E02\u503C",
-  closed_markets: (n) => `${n} \u4E2A\u5DF2\u5E73\u4ED3\u5E02\u573A`,
+  closed_positions: (n) => `${n} \u4E2A\u5DF2\u5E73\u4ED3`,
   top_movers: "\u6D3E\u52A8\u6700\u5927",
 
   recent_trades: "\u6700\u8FD1\u4EA4\u6613",
@@ -226,6 +254,9 @@ const zh: Dictionary = {
   no_recent_trades: "\u6CA1\u6709\u6700\u8FD1\u4EA4\u6613\u3002",
   filled: "\u5DF2\u6210\u4EA4",
   fill_pct: (pct) => `(\u6210\u4EA4 ${pct.toFixed(0)}%)`,
+
+  monitoring_title: "\u76D1\u63A7\u8B66\u62A5",
+  no_alerts: "\u6682\u65E0\u8B66\u62A5\u3002",
 
   lang_label: "\u4E2D"
 };

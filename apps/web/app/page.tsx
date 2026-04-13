@@ -1,3 +1,5 @@
+import type { AveAlert } from "@autopoly/contracts";
+import { AveMonitoringPanel } from "../components/ave-monitoring-panel";
 import { DashboardActivity } from "../components/dashboard-activity";
 import { DashboardEquityChart } from "../components/dashboard-equity-chart";
 import { DashboardHeader } from "../components/dashboard-header";
@@ -14,6 +16,8 @@ import {
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const PLACEHOLDER_ALERTS: readonly AveAlert[] = [];
 
 export default async function HomePage() {
   const [overview, positions, trades, closedPositions, activities] = await Promise.all([
@@ -39,6 +43,8 @@ export default async function HomePage() {
         initialData={positions}
         totalEquityUsd={overview.total_equity_usd}
       />
+
+      <AveMonitoringPanel alerts={PLACEHOLDER_ALERTS} />
 
       <div className="dash-split">
         <DashboardPnlSummary

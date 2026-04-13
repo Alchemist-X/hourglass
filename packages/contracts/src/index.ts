@@ -425,7 +425,7 @@ export const aveAlertSchema = z.object({
   tokenSymbol: z.string(),
   severity: z.enum(["info", "warning", "critical"]),
   message: z.string(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   timestamp: z.string(),
 });
 export type AveAlert = z.infer<typeof aveAlertSchema>;

@@ -4,20 +4,20 @@ import { DashboardShell } from "../components/dashboard-shell";
 import { LocaleProvider } from "../lib/locale-context";
 
 export const metadata: Metadata = {
-  title: "AutoPoly — Autonomous Polymarket Trading Agent",
-  description: "The world's first autonomous AI agent trading on Polymarket. Full-market coverage, long-horizon reasoning, live positions & P&L.",
+  title: "Hourglass — AVE Claw DeFi Agent",
+  description: "Autonomous DeFi agent powered by AVE Claw. Multi-chain token monitoring, anomaly detection, and intelligent position management.",
   metadataBase: new URL("https://autopoly-pizza-spectator.vercel.app"),
   openGraph: {
-    title: "AutoPoly — Autonomous Polymarket Trading Agent",
-    description: "The world's first autonomous AI agent trading on Polymarket. Full-market coverage, long-horizon reasoning, live positions & P&L.",
-    siteName: "AutoPoly",
+    title: "Hourglass — AVE Claw DeFi Agent",
+    description: "Autonomous DeFi agent powered by AVE Claw. Multi-chain token monitoring, anomaly detection, and intelligent position management.",
+    siteName: "Hourglass",
     type: "website",
     locale: "en_US"
   },
   twitter: {
     card: "summary_large_image",
-    title: "AutoPoly — Autonomous Polymarket Trading Agent",
-    description: "The world's first autonomous AI agent trading on Polymarket."
+    title: "Hourglass — AVE Claw DeFi Agent",
+    description: "Autonomous DeFi agent powered by AVE Claw."
   }
 };
 

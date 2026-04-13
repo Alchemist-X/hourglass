@@ -44,6 +44,13 @@ const baseConfig: OrchestratorConfig = {
     maxAgeMinutes: 30,
     maxMarkdownChars: 24000
   },
+  ave: {
+    apiKey: "test-key",
+    apiBaseUrl: "https://openapi.avedata.org/api/v1",
+    monitoringChains: ["ethereum", "bsc", "polygon", "base", "solana"],
+    pulseTokenLimit: 300,
+    pulseTrendingLimit: 50,
+  },
   providers: {
     codex: {
       command: "",

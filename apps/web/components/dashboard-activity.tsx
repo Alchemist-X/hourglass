@@ -27,6 +27,10 @@ function relativeTime(isoString: string): string {
   return `${days}d ago`;
 }
 
+function tradeActionLabel(side: "BUY" | "SELL"): string {
+  return side === "BUY" ? "Opened Long" : "Closed Short";
+}
+
 export function DashboardActivity({ initialData }: { initialData: PublicTrade[] }) {
   const { t } = useLocale();
   const { data } = usePollingJson("/api/public/trades", initialData);
@@ -49,19 +53,22 @@ export function DashboardActivity({ initialData }: { initialData: PublicTrade[] 
             const fillRatio = trade.requested_notional_usd > 0
               ? trade.filled_notional_usd / trade.requested_notional_usd
               : 0;
+            const tokenLabel = trade.token_symbol ?? trade.market_slug;
+            const chainLabel = trade.chain ?? "Ethereum";
 
             return (
               <article key={trade.id} className="dash-activity-row">
                 <div className="dash-activity-main">
                   <span className={`dash-side-tag ${isBuy ? "dash-side-buy" : "dash-side-sell"}`}>
-                    {trade.side}
+                    {tradeActionLabel(trade.side)}
                   </span>
                   <div className="dash-activity-info">
-                    <strong>{trade.market_slug}</strong>
+                    <strong>{tokenLabel}</strong>
                     <span className="dash-activity-detail">
                       {formatUsd(trade.filled_notional_usd)} {t.filled}
                       {trade.avg_price != null ? ` @ ${trade.avg_price.toFixed(3)}` : ""}
                       {fillRatio < 1 ? ` ${t.fill_pct(fillRatio * 100)}` : ""}
+                      {" "}<span className="dash-chain-badge">{chainLabel}</span>
                     </span>
                   </div>
                 </div>

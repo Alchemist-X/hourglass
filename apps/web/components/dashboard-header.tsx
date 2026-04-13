@@ -95,6 +95,10 @@ export function DashboardHeader({ initialData }: { initialData: OverviewResponse
             <span className="dash-kpi-label">{t.open_positions}</span>
             <strong className="dash-kpi-value">{data.open_positions}</strong>
           </div>
+          <div className="dash-kpi-item">
+            <span className="dash-kpi-label">{t.chains_active}</span>
+            <strong className="dash-kpi-value">5</strong>
+          </div>
         </div>
         <div className="dash-status-group">
           <div className={`dash-status-badge ${statusColor(data.status)}`}>

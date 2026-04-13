@@ -60,7 +60,7 @@ export function DashboardPnlSummary({
           <strong className={realizedPnl >= 0 ? "dash-positive" : "dash-negative"}>
             {realizedPnl >= 0 ? "+" : ""}{formatUsd(realizedPnl)}
           </strong>
-          <small>{t.closed_markets(closedPositions.length)}</small>
+          <small>{t.closed_positions(closedPositions.length)}</small>
         </div>
         <div className="dash-pnl-card">
           <span>{t.cost_basis}</span>
@@ -81,8 +81,8 @@ export function DashboardPnlSummary({
               return (
                 <div key={position.id} className="dash-mover-row">
                   <div className="dash-mover-info">
-                    <strong>{position.market_slug}</strong>
-                    <span>{position.outcome_label}</span>
+                    <strong>{position.token_symbol ?? position.market_slug}</strong>
+                    <span>{position.chain ?? "Ethereum"}</span>
                   </div>
                   <strong className={isProfit ? "dash-positive" : "dash-negative"}>
                     {isProfit ? "+" : ""}{formatUsd(pnl)}

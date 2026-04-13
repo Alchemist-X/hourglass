@@ -22,8 +22,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <div className="dash-shell">
       <header className="dash-topbar">
         <div className="dash-topbar-left">
-          <span className="dash-logo">AutoPoly</span>
-          <span className="dash-logo-badge">Live</span>
+          <span className="dash-logo">Hourglass</span>
+          <span className="dash-logo-badge">AVE Claw</span>
         </div>
         <nav className="dash-nav">
           {navItems.map((item) => {
