@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   applyPaperTradeDecision,
+  avePulseCandidateSchema,
+  aveAlertSchema,
+  aveTradingSignalSchema,
   roughLoopRunRecordSchema,
   roughLoopTaskSchema,
   tradeDecisionSetSchema

@@ -1,163 +1,181 @@
-# 项目协作约定（按当前用户偏好）
+# Hourglass — AVE Claw Hackathon 2026 项目约定
 
-> **同步规则：** 本文件（CLAUDE.md）与 AGENTS.md 内容必须保持同步。任何一方有改动时，必须同步更新另一方。
+> **Repo**: https://github.com/Alchemist-X/hourglass
+> **Base**: autonomous-poly-trading（Polymarket 云端交易系统）
+> **最后更新**：2026-04-13
 
-英文版见 [AGENTS.en.md](AGENTS.en.md)。
+英文版见 [claude.en.md](claude.en.md)。
 
-最后更新：2026-03-29
+---
 
-## 0. 自动提交与进度管理
+## 0. Hackathon 上下文
 
-- 完成改动后自动 commit + push，不要等用户提醒。
-- 维护按优先级排列的待办清单在 `claude-review/backlog.md`（P0/P1/P2/P3 分级）。
-- 每当用户询问"进度如何"或类似问题时，必须读取并展示 `claude-review/backlog.md` 的当前状态。
-- 每完成一项，更新 backlog 标记为 done。
-- 每次 session 结束时更新 backlog，确保下次无缝衔接。
+### 时间线
 
-## 1. 语言与文档
+| 节点 | 日期 |
+|------|------|
+| 提交窗口 | Apr 13 – 15, 2026 |
+| 结果公布 | Apr 18, 2026 |
+| 香港 Demo Day | Apr 21, 2026 |
 
-- 代码注释统一使用英文。
-- 面向人阅读的 Markdown 默认中文，并维护英文副本（`*.en.md`）。
-- 中文文件保留主文件名，英文文件使用 `*.en.md`。
-- 如中英文内容存在不一致，以中文为准，英文必须尽快对齐中文。
-- 新增或修改人类可读文档时，中文与英文必须同步更新。
+### 评审权重
 
-## 2. 终端交互偏好
+| 维度 | 权重 |
+|------|------|
+| 创新性 Innovation | 30% |
+| 技术实现 Technical Implementation | 30% |
+| 实用性与商业价值 Practicality & Business Value | **40%** |
 
-- 所有关键流程必须在可见终端输出阶段信息，允许使用subagent“静默长时间运行”，但一定要定期汇报进度。
-- 长任务必须持续输出进度心跳，建议包含：
-  - 当前阶段
-  - 已耗时
-  - 预计超时/剩余信息（若可得）
-- **pulse 运行进度汇报（强制）**：当运行 `pulse:live` 或 `pulse:recommend` 等长任务时，主会话必须通过轮询后台任务输出文件的方式，每 `~2 分钟` 向用户主动汇报一次进度（当前阶段 / 已耗时 / output bytes / 预计剩余）。不要等待用户主动询问。允许用子 agent 或直接读 output file 实现，但必须有持续的可见进度心跳。
-- 终端输出优先彩色、分级（`INFO/WARN/ERR/OK`）。
-- 错误输出必须可执行，并按照“时间戳+错误原因”命名错误归档文件夹，统一存储在 `run-error/` 目录下，至少包含以下内容：
-  - 失败阶段（stage）
-  - 核心上下文（`runId/market/token/requested usd/env/artifact dir`）
-  - 原因摘要
-  - 下一步命令
+### 提交物清单
 
-## 3. 沟通风格偏好
+- [ ] GitHub 代码（可运行、原创）
+- [ ] 文档说明 AVE Skill 使用方式
+- [ ] Demo 视频 ≤ 5 分钟
+- [ ] README 含项目简介、架构图、运行方式
 
-- 默认使用“正常产品经理能理解”的表达，不要用黑话、空话或术语堆砌来糊弄。
-- 可以使用必要的专业术语，但首次出现时要顺手解释清楚它是什么、会影响什么。
-- 每次正式回复或中间进度汇报时，优先先给“人类 review 入口”：
-  - 先告诉用户这次最值得人工核对的 `1-5` 个改动点在哪里
-  - 优先给具体文件和关键段落，而不是先讲抽象总结
-  - 在指出 review 入口后，要紧接着解释：
-    - 这边具体做了什么
-    - 改完后的效果如何
-- 讲方案时优先回答这四件事：
-  - 现在的问题是什么
-  - 会影响什么
-  - 准备怎么处理
-  - 需要用户决定什么
-- 如果必须讨论模型、推理、基础设施或交易执行细节，先给人话结论，再补技术细节。
-- 避免只报名词不报结论；避免把“框架、闭环、抓手、赋能、链路、 埋点”这类词当成答案本身。
+---
 
-## 4. 协作与分工偏好
+## 1. 项目概述
 
-- 默认协作方式：主 agent 先拆任务，再分配给多个 sub-agents 并行推进；主会话负责汇总结果、处理依赖关系、做最终整合与对外沟通。
-- 除非任务非常小、必须串行，或涉及高风险权限操作，否则不要把重活直接堆在主会话里。
-- 默认由 agent 自主做低价值决策，并持续尝试、持续测试，直到问题真正通过；不要把明显可以自行判断的选择反复抛回给用户。
-- 遇到阻塞时，先主动区分问题属于代码、环境、外部服务、权限边界，还是自己判断过于保守，再决定下一步。
-- 只有在涉及外部权限、不可逆风险、资金安全，或产品目标本身不明确时，才停下来请求用户拍板。
-- 默认要定期保存当前进度，不要等到整项任务结束才统一落盘；关键保存点必须记录明确时间戳，便于回溯“最近一次可恢复进度”。
-- 如果距离上一次已保存或已推送的有效进度超过 `12h`，应优先整理当前可用更新并推送到远端，再继续长任务。
+Hourglass 是一个自主 DeFi 交易代理，将 AVE Claw 的 **Monitoring Skills**（资产追踪、价格预警、异常检测）与 **Trading Skills**（信号生成、自动执行、组合管理）结合为 **Complete Application Scenario**。
 
-## 5. 交易与执行偏好
+### 四层架构
 
-- 本仓库支持三条主链路：
-  - `paper`（本地模拟，支持手动确认）
-  - `pulse:live`（无 DB/Redis 依赖，优先用于快速闭环）
-  - `live:test`（带 queue worker + DB/Redis 的完整生产路径）
-- `Preflight` 是必经阶段，不是独立模式。
-- 在 live 路径中：
-  - 默认 fail-fast
-  - 关键失败后应标记 halted（若该路径设计为可 halt）
-  - `collateral=0 且 remote positions=0` 必须拦截（除非明确 recommend-only）
-  - 当内部风控、最小交易额或仓位上限把订单压到低于 Polymarket 可执行门槛时，必须明确预警：告诉用户当前限额会让交易失败，并同时打印内部可执行上限与交易所门槛
-- 决策策略支持：
-  - `provider-runtime`
-  - `pulse-direct`（House Direct）
-- 任何一次执行都要在输出中明确当前使用的 `execution mode` 与 `decision strategy`。
+```
+┌─────────────────────────────────────────────┐
+│  Layer 4: Dashboard + Reports (Next.js 16)  │
+├─────────────────────────────────────────────┤
+│  Layer 3: AVE Claw Trading + Risk Control   │
+│           (replaces Polymarket CLOB)         │
+├─────────────────────────────────────────────┤
+│  Layer 2: AI Decision Engine                │
+│           (Pulse → Strategy Signals)        │
+├─────────────────────────────────────────────┤
+│  Layer 1: AVE Claw Monitoring               │
+│           (replaces Polymarket market fetch) │
+└─────────────────────────────────────────────┘
+```
 
-## 5.5 Resolution Rule 是唯一的概率评估锚点（最高优先级）
+- **Layer 1 — AVE Claw Monitoring**：资产追踪、价格流、异常检测，取代原有 Polymarket 数据抓取。
+- **Layer 2 — AI Decision Engine**：Pulse 分析 → 策略信号生成，保留原有推理管线并接入 AVE 数据源。
+- **Layer 3 — AVE Claw Trading + Risk Control**：信号执行 + 硬风控，取代 Polymarket CLOB 下单。
+- **Layer 4 — Dashboard**：Next.js 16 实时面板，展示持仓、信号、风控状态、历史绩效。
 
-- **当 AI 推荐"事件是否会发生"时，评估的必须是 Resolution Rule 中规定的事件是否会发生，不是语言直觉上"这件事"会不会发生。**
-- Resolution Rule 的触发条件可能比事件本身宽松得多（一条帖子即可触发）或严格得多（需要多方确认），AI 必须基于 rule 的字面定义来估算概率。
-- 推理顺序：先拆解 Resolution Rule 的触发条件 → 评估触发条件被满足的概率 → 底层事件动态仅作为辅助修正。
-- 禁止跳过 Resolution Rule 直接评估底层事件概率。
-- **Resolution 信息源存档**：分析 Resolution Rule 时，必须同时记录该 resolution 的验证信息源（resolution source 指定的网站、数据 API、官方页面等），并存入持仓存档或分析报告中。如果 resolution rule 指定了具体数据源（如 CDC case counter、AP/Fox/NBC、FIFA 官方），必须列出这些数据源的可访问 URL，以便后续持仓复审时直接查验当前状态。
+---
 
-## 6. 状态一致性偏好
+## 2. AVE Claw 集成概览
 
-- 本地测试应坚持单一状态源，不允许隐式切换多个 state 文件。
-- paper 路径统一使用 `AUTOPOLY_LOCAL_STATE_FILE`（或约定默认路径）并在输出中打印。
-- 若检测到状态文件不一致或多地址混用风险，必须明确告警并给出修复建议。
+### Monitoring Skills（Layer 1）
 
-## 7. 可追溯归档
+| Skill | 用途 | 对应原模块 |
+|-------|------|-----------|
+| Asset Tracking | 实时追踪链上资产变动 | Polymarket market fetch |
+| Price Alerts | 价格阈值触发通知 | 市场快照轮询 |
+| Anomaly Detection | 检测异常交易/价格偏离 | 无（新增能力） |
 
-- 所有关键运行必须产出可追溯归档（preflight/recommendation/execution/error）。
-- 失败时必须保留中间产物（checkpoint、temp、provider output 等）供断点续跑。
-- 运行结束后必须输出归档目录与关键文件路径。
+### Trading Skills（Layer 3）
 
-## 8. Illustration 归档目录（Human-AI Certified）
+| Skill | 用途 | 对应原模块 |
+|-------|------|-----------|
+| Signal Generation | 基于监控数据生成交易信号 | Pulse recommendation |
+| Auto Execution | 自动执行交易指令 | Polymarket CLOB executor |
+| Portfolio Management | 持仓再平衡与风控 | Risk guard + position mgr |
 
-- 统一归档目录：`Illustration/`。
-- 需要向用户解释或沉淀的内容（流程图、FAQ、关键机制说明、还有反思）放入该目录。
-- `Illustration/` 文档同样执行双语规则：
-  - 中文主文件（`*.md`）
-  - 英文副本（`*.en.md`）
+### 集成原则
 
-## 9. 当前默认执行基线
+- 所有 AVE Skill 调用必须有 **超时 + 重试 + 降级**。
+- Monitoring 数据流走 **push 模式**（WebSocket/SSE），回退到 polling。
+- Trading 执行走 **request-response**，必须等到链上确认才标记成功。
 
-- 文档语言：中文主文件 + 英文副本。
-- 终端风格：可见进度 + 彩色分级 + 可执行错误信息。
-- 对人沟通：默认说人话，先给人类 review 入口，再说明做了什么、效果如何，最后补结论影响和技术细节。
-- 协作方式：主 agent 默认先拆给 sub-agents 并行推进，主会话负责整合。
-- 交易调试优先：`pulse:live`，再扩展到 `live:test`。
+---
 
-## 10. 前端预览工作流
+## 3. 单仓结构（Monorepo）
 
-- 当用户要求“重做网页”“明显换视觉方向”或“探索前端方案”时，默认不要只产出单一版本；应先并行给出 `3` 个本地可渲染的预览版本，供用户比较后再决定正式替换。
-- 这 `3` 个版本必须在以下层面至少有 `2` 项明显不同：
-  - 信息架构
-  - 视觉语言
-  - 首屏叙事方式
-  - 数据模块优先级
-- 三个版本不能只是换配色或微调间距；必须是人一眼能区分的三种方向。
-- 预览阶段优先复用真实数据层或现有公开接口，不要为了做视觉稿再造一套假后端；如果必须用静态样本，要明确标注。
-- 预览版本应优先放在独立本地路由或独立预览入口下，避免在用户确认前直接覆盖正式页面。
-- 完成三案预览后，主 agent 必须明确向用户说明每一版：
-  - 设计思路是什么
-  - 更适合什么场景
-  - 相比原版改进了什么
-- 用户确认方向后，再把选中的版本提升为正式页面，并继续做细修、响应式和可访问性收尾。
-- 只有在以下情况，才可以跳过“三案预览”直接改单版：
-  - 任务非常小，只是局部修样式
-  - 用户明确要求只做一个版本
-  - 当前页面已被设计系统严格约束，不适合做方向探索
+```
+ave-hackathon/
+├── apps/
+│   └── web/                  # Next.js 16 Dashboard
+├── packages/
+│   ├── contracts/            # 合约类型与 ABI
+│   ├── db/                   # Drizzle ORM schema + migrations
+│   └── terminal-ui/          # CLI 可视化组件
+├── services/
+│   ├── ave-monitor/          # [新增] AVE Claw Monitoring 适配层
+│   ├── executor/             # 交易执行（改造为 AVE Trading）
+│   ├── orchestrator/         # 主调度器
+│   └── rough-loop/           # Pulse 分析管线
+├── skills/                   # AVE Skill 定义与注册
+├── scripts/                  # 运维脚本
+└── docs/                     # 项目文档
+```
 
-## 11. Vercel 部署校验
+### 新增模块：`services/ave-monitor/`
 
-- 对 `apps/web` 的 Vercel 部署，不能只看到 CLI 返回 URL 就宣布完成；必须真实打开部署后的页面做人工可见验收。
-- 每次公开部署后，主 agent 必须至少完成：
-  - 打开真实部署 URL
-  - 截图保存当前线上页面
-  - 把线上截图和本地目标版本或用户指定参考图对比
-  - 核对目标 API 是否返回了预期数据
-- 如果是 spectator mode 页面，必须先检查 `POLYMARKET_PUBLIC_WALLET_ADDRESS` 与 `NEXT_PUBLIC_POLYMARKET_PUBLIC_WALLET_ADDRESS` 是否在目标环境中生效；不要假设 `production` 变量自动覆盖 `preview`。
-- 如果首页本身已经是完整风格页或整页预览，必须同时检查 `layout` 是否还包着 legacy shell，避免旧 hero/导航和新首页叠在一起。
-- 没做过线上截图核验前，不要对用户说”已经和本地一致”。
+职责：封装 AVE Claw Monitoring Skills，对上层暴露统一的数据订阅接口。
 
-## 12. 风控阈值基线（2026-03-29 确认）
+```
+services/ave-monitor/
+├── src/
+│   ├── skills/           # 各 Monitoring Skill 适配器
+│   ├── stream/           # 数据流管理（WebSocket/polling）
+│   ├── transform/        # 原始数据 → 标准化格式
+│   └── index.ts          # 统一导出
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## 4. 技术栈
+
+| 领域 | 技术 | 版本 |
+|------|------|------|
+| Runtime | Node.js | 22+ |
+| Package Manager | pnpm | 10.x |
+| Language | TypeScript | 5.9 |
+| Frontend | Next.js / React | 16 / 19 |
+| API | Fastify | 5 |
+| Queue | BullMQ | 5 |
+| ORM | Drizzle | latest |
+| Validation | Zod | 4 |
+| Testing | Vitest / Playwright | latest |
+
+---
+
+## 5. 语言与文档
+
+- 代码注释统一使用 **英文**。
+- 面向人阅读的 Markdown 默认 **中文**，并维护英文副本（`*.en.md`）。
+- 中英文不一致时以中文为准，英文必须尽快对齐。
+
+---
+
+## 6. 协作与执行模式
+
+### Sub-agent 并行执行
+
+- 主 agent 先拆任务，分配给多个 sub-agents 并行推进。
+- 主会话负责汇总结果、处理依赖、最终整合。
+- 除非任务极小或涉及高风险操作，否则不把重活堆在主会话。
+
+### 自主决策边界
+
+- Agent 自主做低价值决策，持续尝试直到问题通过。
+- 只在涉及 **外部权限、不可逆风险、资金安全、产品目标不明确** 时停下请求用户拍板。
+
+### 进度管理
+
+- 关键保存点必须记录时间戳，便于回溯。
+- 完成改动后及时 commit + push。
+
+---
+
+## 7. 风控基线
+
+### 服务层硬风控（从原系统继承，按 AVE 场景调整）
 
 | 参数 | 默认值 | 说明 |
 |------|-------|------|
-| `PULSE_MIN_FETCHED_MARKETS` | 5000 | Pulse 抓取市场下限 |
-| `PULSE_MIN_TRADEABLE_CANDIDATES` | 1 | 可交易候选最低数量 |
-| `PULSE_MAX_AGE_MINUTES` | 120 | Pulse 快照有效期（分钟） |
 | `MAX_TRADE_PCT` | 15% | 单笔交易占 bankroll 上限 |
 | `MAX_TOTAL_EXPOSURE_PCT` | 80% | 总敞口占 bankroll 上限 |
 | `MAX_EVENT_EXPOSURE_PCT` | 30% | 单事件敞口占 bankroll 上限 |
@@ -165,59 +183,74 @@
 | `MIN_TRADE_USD` | $5 | 最低交易金额 |
 | `DRAWDOWN_STOP_PCT` | 30% | 回撤停机阈值 |
 
-- CLOB token ID 风险标志已移除（坏候选在生成阶段已过滤，不再封杀所有交易）。
-- 以上为代码默认值，可通过环境变量覆盖。
+- 风控拒绝必须返回 **具体约束名称**（max_positions / total_exposure / event_exposure 等），禁止模糊的 "blocked_by_risk_cap"。
+- 当内部限额导致交易低于交易所可执行门槛时，必须预警并打印双方阈值。
 
-## 13. Bankroll 计算规则
+---
 
-- **bankroll = 远程实际余额（现金 + 持仓市值）**，由 Polymarket API 动态获取。
-- `INITIAL_BANKROLL_USD` 仅作为 API 不可用时的 fallback，**不作为上限 cap**。
-- 禁止使用静态配置值覆盖真实 equity。
+## 8. 错误输出规范
 
-## 14. Provider 架构（Framework-Free）
+错误信息必须可执行（actionable），至少包含：
 
-- `AgentRuntimeProvider` 接受任意字符串，不限于 codex/openclaw。
-- `pulse-direct` 策略下不需要任何 provider（默认 `”none”`）。
-- `providers` 字段为 `Record<string, SkillProviderConfig>` 通用 map。
-- 支持 Codex、Claude Code、OpenClaw 或不配置 provider。
+- **失败阶段**（stage）
+- **核心上下文**（runId / market / token / requested USD / env）
+- **原因摘要**
+- **下一步命令**
 
-## 15. 交易拒绝透明化
+错误归档统一存储在 `run-error/` 目录，按"时间戳+错误原因"命名。
 
-- `applyTradeGuardsDetailed()` 必须返回具体的约束分解。
-- 拒绝原因必须指明具体约束名称（max_positions / total_exposure / event_exposure / max_trade_pct / liquidity_cap / min_trade）。
-- 禁止使用模糊的 “blocked_by_risk_cap” 不带具体约束名称。
+---
 
-## 16. Monthly Return 排序与批量上限（2026-03-29）
+## 9. 提交规范
 
-- 每个 entry plan 计算 `monthlyReturn = edge / monthsToResolution`，按此降序排列，取 top 4。
-- 每轮 Pulse 的总下注不超过 bankroll 的 **20%**，超过则等比例缩放。
-- `resolutionSource` 字段标明结算日期来源：`”market”`（Polymarket 实际数据）或 `”estimated”`（缺失时用 180 天估算）。
-- 短期市场（5 分钟/10 分钟涨跌）AI 没有 edge，应在筛选阶段过滤。系统应聚焦 long horizon reasoning。
+```
+<type>: <description>
 
-## 17. 投资理念（写入网页）
+<optional body>
+```
 
-- 人不能实时地盯着所有市场。
-- 哪怕 AI 的能力比人类弱一些，但它在数量上和及时性上弥补了这一点。
-- AI 的优势在于 long horizon reasoning + 全市场覆盖。
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 
-## 18. 部署模式目标（待实现）
+---
 
-- Codex/OpenClaw 部署在远程 VPS，定时执行 Pulse + 下单。
-- 运行范式应为 API Key-free 的 Agentic 模式（框架驱动，非具体 API Key 驱动）。
-- Pulse 报告中的回报时间线分析应由 AI 完成，不仅是机械的 edge/days 计算。
-- 市场筛选阶段应加入 AI 分析，过滤无 edge 的短期市场。
+## 10. Demo 优先级与视频脚本
 
-## 19. 工作流反思（2026-03-29 session）
+### 核心 Demo 场景（按优先级排序）
 
-- **改动未推送 = 未完成**：所有代码改动必须 commit + push + 验证部署后才算完成。本地跑通不等于上线。
-- **recommend-only ≠ 实盘下单**：测试时必须明确区分。如果目标是验证下单，必须跑不带 `--recommend-only` 的命令。
-- **先验证再扩展**：在增加新功能前，应先确保现有流程能真正执行一笔交易（从 Pulse 到下单），再做架构改进。
-- **.env 配置是生命线**：provider 配置（codex command、model）必须在 .env 中正确设置，否则整个链路断裂。
+1. **实时监控 → 信号生成**：AVE Monitoring 检测到价格异常 → Pulse 引擎生成交易信号（展示 Layer 1 → 2）
+2. **自动执行 → 风控拦截**：信号触发自动下单 → 风控规则介入调整仓位（展示 Layer 2 → 3）
+3. **Dashboard 全景**：实时展示持仓、信号流、风控状态、绩效曲线（展示 Layer 4）
+4. **异常检测 → 止损**：Anomaly Detection 触发紧急止损流程（展示完整闭环）
 
-## 20. 部署验证规则（2026-03-30）
+### 视频脚本大纲（≤ 5 分钟）
 
-- 每次 push 代码更新后，必须确保 **Vercel 能部署成功**。
-- 部署失败 = 改动未完成。必须修复构建错误后重新推送。
-- 推荐流程：`pnpm build`（本地验证）→ `git push` → `npx vercel --prod` → 验证线上页面。
-- 如果 lockfile 过期导致构建失败，先 `pnpm install --no-frozen-lockfile` 更新 lockfile 再推。
+| 时段 | 内容 | 时长 |
+|------|------|------|
+| 0:00 – 0:30 | 项目介绍：Hourglass 是什么、解决什么问题 | 30s |
+| 0:30 – 1:30 | 架构总览：四层架构 + AVE Skill 集成方式 | 60s |
+| 1:30 – 3:00 | 实机演示：场景 1 + 场景 2 连续执行 | 90s |
+| 3:00 – 4:00 | Dashboard 展示：实时数据面板 | 60s |
+| 4:00 – 4:45 | 商业价值：为什么 AI + AVE Claw 是 DeFi 交易的未来 | 45s |
+| 4:45 – 5:00 | 总结与展望 | 15s |
 
+### Demo 准备要点
+
+- 必须有 **真实可运行** 的演示，不能只放录屏。
+- Dashboard 需预填合理的历史数据，避免空页面。
+- 演示网络环境提前测试，准备离线回退方案。
+
+---
+
+## 11. 终端交互偏好
+
+- 关键流程必须在终端输出阶段信息。
+- 长任务持续输出进度心跳：当前阶段 / 已耗时 / 预计剩余。
+- 终端输出优先彩色、分级（`INFO / WARN / ERR / OK`）。
+
+---
+
+## 12. 沟通风格
+
+- 默认使用"正常产品经理能理解"的表达。
+- 先给人类 review 入口（具体文件和关键段落），再解释做了什么、效果如何。
+- 讲方案时优先回答：问题是什么 → 影响什么 → 怎么处理 → 需要用户决定什么。

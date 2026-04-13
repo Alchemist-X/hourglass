@@ -39,6 +39,10 @@ export const decisionSchema = z.object({
   event_slug: z.string().min(1),
   market_slug: z.string().min(1),
   token_id: z.string().min(1),
+  token_address: z.string().optional(),
+  chain: z.string().optional(),
+  category: z.string().optional(),
+  token_symbol: z.string().optional(),
   side: sideSchema,
   notional_usd: z.number().positive(),
   order_type: orderTypeSchema,
@@ -108,6 +112,10 @@ export interface PublicPosition {
   event_slug: string;
   market_slug: string;
   token_id: string;
+  token_address?: string;
+  chain?: string;
+  category?: string;
+  token_symbol?: string;
   side: "BUY" | "SELL";
   outcome_label: string;
   size: number;
@@ -124,6 +132,9 @@ export interface PublicTrade {
   id: string;
   market_slug: string;
   token_id: string;
+  token_address?: string;
+  chain?: string;
+  token_symbol?: string;
   status: string;
   side: "BUY" | "SELL";
   requested_notional_usd: number;
@@ -167,6 +178,7 @@ export interface PublicTrackedSource {
   decision_id: string | null;
   event_slug: string;
   market_slug: string;
+  category?: string;
   title: string;
   url: string;
   source_kind: string;
@@ -182,6 +194,7 @@ export interface PublicResolutionCheck {
   id: string;
   event_slug: string;
   market_slug: string;
+  category?: string;
   track_status: string;
   interval_minutes: number;
   next_check_at: string | null;
@@ -386,6 +399,52 @@ export const roughLoopRunRecordSchema = z.object({
   verification: roughLoopVerificationResultSchema.nullable()
 });
 export type RoughLoopRunRecord = z.infer<typeof roughLoopRunRecordSchema>;
+
+// ---------------------------------------------------------------------------
+// AVE Claw – domain-specific schemas
+// ---------------------------------------------------------------------------
+
+export const avePulseCandidateSchema = z.object({
+  tokenAddress: z.string(),
+  chain: z.string(),
+  tokenSymbol: z.string(),
+  currentPrice: z.number(),
+  priceChange24h: z.number(),
+  volume24hUsd: z.number(),
+  liquidityUsd: z.number(),
+  riskLevel: z.string().optional(),
+  categorySlug: z.string().optional(),
+  question: z.string(),
+});
+export type AvePulseCandidate = z.infer<typeof avePulseCandidateSchema>;
+
+export const aveAlertSchema = z.object({
+  type: z.enum(["price_alert", "anomaly", "risk_alert", "whale_movement"]),
+  tokenAddress: z.string(),
+  chain: z.string(),
+  tokenSymbol: z.string(),
+  severity: z.enum(["info", "warning", "critical"]),
+  message: z.string(),
+  data: z.record(z.unknown()).optional(),
+  timestamp: z.string(),
+});
+export type AveAlert = z.infer<typeof aveAlertSchema>;
+
+export const aveTradingSignalSchema = z.object({
+  tokenAddress: z.string(),
+  chain: z.string(),
+  tokenSymbol: z.string(),
+  direction: z.enum(["buy", "sell", "hold"]),
+  confidence: z.number().min(0).max(1),
+  targetPrice: z.number().optional(),
+  stopLoss: z.number().optional(),
+  reasoning: z.string(),
+  sourceAlerts: z.array(z.string()),
+  timestamp: z.string(),
+});
+export type AveTradingSignal = z.infer<typeof aveTradingSignalSchema>;
+
+// ---------------------------------------------------------------------------
 
 export const QUEUES = {
   execution: "execution-jobs"
