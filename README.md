@@ -1,6 +1,7 @@
 # Hourglass
 
-> Autonomous DeFi Trading Agent powered by AVE Claw Skills
+> On-chain Signal-Driven Prediction Market Trading Agent
+> AVE Claw Monitoring + Polymarket Execution
 >
 > AVE Claw Hackathon 2026 Submission | [Chinese Version / 中文版](#chinese-version)
 
@@ -8,9 +9,11 @@
 
 ## What is Hourglass?
 
-Hourglass is an AI-driven autonomous trading agent that unifies AVE Claw's **Monitoring Skills** (asset tracking, price alerts, anomaly detection, contract risk scoring) with **Trading Skills** (signal generation, automated execution, portfolio management) into a single end-to-end system. It continuously scans 130+ blockchains for opportunities, generates trade signals through an AI decision engine, and executes with institutional-grade risk controls enforced at the service layer -- not as prompt suggestions, but as hard-coded rules that cannot be overridden.
+Hourglass is an AI-driven prediction market trading agent that uses **AVE Claw on-chain monitoring as a research/signal layer** and **Polymarket as the execution layer**. The core innovation: using real-time on-chain data (whale movements, price anomalies, contract risks, volume spikes) to gain an informational edge in prediction markets -- quantitative signals that most market participants overlook.
 
-Built on top of a battle-tested Polymarket trading system with 50+ live runs and real-money execution history, Hourglass adapts proven autonomous trading infrastructure to the DeFi ecosystem through deep AVE Claw API integration.
+AVE Claw's **Monitoring Skills** (asset tracking, price alerts, anomaly detection, contract risk scoring) provide the on-chain intelligence. The AI decision engine combines these signals with Polymarket odds to find edge, then executes trades on Polymarket's CLOB with institutional-grade risk controls enforced at the service layer -- not as prompt suggestions, but as hard-coded rules that cannot be overridden.
+
+Built on top of a battle-tested Polymarket trading system with 50+ live runs and real-money execution history, Hourglass adds an AVE Claw signal enrichment layer that transforms on-chain data into prediction market alpha.
 
 ---
 
@@ -20,72 +23,76 @@ Built on top of a battle-tested Polymarket trading system with 50+ live runs and
 ┌──────────────────────────────────────────────────────────────────┐
 │                                                                  │
 │   Layer 4 : Dashboard + Reports              (Next.js 16)        │
-│   Real-time portfolio view, signal stream, risk status, PnL      │
+│   AVE signal feed + Polymarket positions, risk status, PnL       │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   Layer 3 : AVE Claw Trading + Risk Control                      │
-│   Signal execution, hard risk guards, stop-loss, position mgmt   │
+│   Layer 3 : Polymarket CLOB Execution + Risk Control             │
+│   Prediction market orders, hard risk guards, position mgmt     │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │   Layer 2 : AI Decision Engine                                   │
-│   Pulse analysis -> strategy signals -> Kelly sizing             │
+│   AVE signals + Polymarket odds -> find edge -> Kelly sizing     │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   Layer 1 : AVE Claw Monitoring                                  │
-│   Asset discovery, price feeds, anomaly detection, risk scoring  │
+│   Layer 1 : AVE Claw Monitoring (Research Signal Layer)          │
+│   Whale movements, price anomalies, volume spikes, risk scoring  │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Data flows bottom-up**: AVE Monitoring feeds raw market data into the AI engine, which produces trading signals. Those signals pass through hard risk controls before execution, and the dashboard renders everything in real time.
+**Data flows bottom-up**: AVE Claw monitors on-chain activity and feeds signals into the AI engine. The engine combines AVE signals with Polymarket odds to find edge, sizes positions via Kelly criterion, and executes on Polymarket's CLOB after passing through hard risk controls.
 
 | Layer | Role | Key Technology |
 |-------|------|----------------|
-| Layer 1 | Market data ingestion via AVE Claw APIs | Token search, trending, rankings, K-lines, contract security |
-| Layer 2 | AI-powered signal generation and position review | Pulse engine, Kelly criterion sizing, edge-based ranking |
-| Layer 3 | Execution with service-layer risk enforcement | FOK orders, drawdown halt, stop-loss, exposure caps |
-| Layer 4 | Real-time visualization and reporting | Next.js 16, equity charts, activity feeds, run archives |
+| Layer 1 | On-chain signal collection via AVE Claw APIs | Token search, trending, rankings, K-lines, contract security |
+| Layer 2 | AI decision: AVE signals + Polymarket odds = edge | Signal enrichment, Pulse engine, Kelly sizing, edge ranking |
+| Layer 3 | Polymarket CLOB execution with risk enforcement | FOK/GTC orders, drawdown halt, stop-loss, exposure caps |
+| Layer 4 | Real-time visualization and reporting | Next.js 16, AVE signal feed, equity charts, run archives |
 
 ---
 
 ## AVE Claw Skill Integration
 
-Hourglass enters the **Complete Application Scenario** track, combining both Monitoring and Trading skill categories.
+Hourglass enters the **Complete Application Scenario** track. AVE Claw provides the **research/signal layer** (Monitoring Skills), while Polymarket provides the **execution layer** (Trading Skills).
 
-### Monitoring Skills Used
+### Monitoring Skills -- On-Chain Research Signals
 
-| Skill | AVE API Endpoint | What It Does in Hourglass |
-|-------|-----------------|---------------------------|
-| **Asset Tracking** | `GET /v2/tokens` -- token search across 130+ chains | Discovers tradeable tokens, replaces legacy market-fetch pipeline |
-| | `GET /v2/tokens/{token-id}` -- token detail | Deep-dives into candidate tokens for Pulse research reports |
-| | `GET /v2/tokens/trending` -- trending tokens | Surfaces momentum opportunities for the AI engine |
-| **Price Alerts** | `POST /v2/tokens/price` -- batch price query (up to 200) | Real-time portfolio valuation and threshold-based alerts |
-| **Anomaly Detection** | `GET /v2/txs/{pair-id}` -- transaction monitoring | Detects whale movements and unusual trading patterns |
-| **Risk Assessment** | `GET /v2/contracts/{token-id}` -- contract security scan | Honeypot detection, ownership analysis, rug-pull risk scoring |
+| Skill | AVE API Endpoint | How It Creates Prediction Market Edge |
+|-------|-----------------|---------------------------------------|
+| **Asset Tracking** | `GET /v2/tokens` -- token search across 130+ chains | Finds on-chain data for tokens mentioned in prediction markets (e.g., BTC data for "Will BTC hit $100K?") |
+| | `GET /v2/tokens/{token-id}` -- token detail | Deep-dives into tokens relevant to prediction market questions |
+| | `GET /v2/tokens/trending` -- trending tokens | Detects on-chain momentum that may affect prediction market outcomes |
+| **Price Alerts** | `POST /v2/tokens/price` -- batch price query (up to 200) | Real-time on-chain price signals for crypto-related prediction markets |
+| **Anomaly Detection** | `GET /v2/txs/{pair-id}` -- transaction monitoring | Detects whale movements that may predict prediction market outcomes |
+| **Risk Assessment** | `GET /v2/contracts/{token-id}` -- contract security scan | Contract risk signals affect probability estimates for token-related markets |
 
-### Trading Skills Used
+### Trading Skills -- Polymarket Execution
 
 | Skill | How Hourglass Implements It |
 |-------|----------------------------|
-| **Signal Generation** | AI Pulse engine analyzes monitoring data, ranks candidates by `monthlyReturn = edge / monthsToResolution`, selects top opportunities |
-| **Portfolio Management** | Position review system evaluates existing holdings: hold / reduce / close decisions based on real-time price data from AVE |
-| **Backtesting** | K-line data from `GET /v2/klines/token/{token-id}` (13 intervals from 1min to monthly) feeds historical strategy evaluation |
-| **Market Rankings** | `GET /v2/ranks` integration with Hot / Meme / Gainers / Losers / AI / DeFi topics for candidate filtering |
+| **Signal Generation** | AI engine combines AVE on-chain signals with Polymarket odds to find informational edge |
+| **Signal Enrichment** | `ave-signal-enrichment.ts` extracts crypto keywords from market questions, queries AVE for on-chain context |
+| **Portfolio Management** | Position review system evaluates Polymarket holdings: hold / reduce / close decisions |
+| **Polymarket Execution** | `polymarket-sdk.ts` executes FOK/GTC orders on Polymarket's CLOB |
+| **Backtesting** | K-line data from `GET /v2/klines/token/{token-id}` (13 intervals) validates signal quality |
+| **Market Rankings** | `GET /v2/ranks` integration for trend signals that correlate with prediction market outcomes |
 
 ---
 
 ## Key Features
 
-- **Fully Autonomous**: Runs 24/7 without human intervention -- from market scanning to trade execution
-- **130+ Chain Coverage**: Monitors tokens across all chains supported by AVE Claw
+- **On-Chain Signal Edge**: AVE Claw monitors 130+ chains for whale movements, price anomalies, and contract risks -- signals that most prediction market participants ignore
+- **Polymarket Execution**: Battle-tested CLOB execution with FOK/GTC orders, proven across 50+ live runs
+- **Fully Autonomous**: Runs 24/7 without human intervention -- from on-chain monitoring to prediction market execution
 - **Service-Layer Risk Controls**: Hard-coded guards that cannot be bypassed -- drawdown halt, stop-loss, exposure caps, position limits
-- **AI Decision Engine**: Pulse analysis pipeline with Kelly criterion position sizing and edge-based candidate ranking
-- **Contract Security Screening**: Every candidate token is scanned for honeypots, ownership risks, and suspicious holder distribution via AVE's contract API
-- **Real-Time Dashboard**: Next.js 16 web interface showing live portfolio, signal stream, risk status, and historical performance
-- **Paper Trading Mode**: Full simulation environment with identical risk controls for strategy validation before going live
+- **AI Decision Engine**: Combines AVE on-chain signals with Polymarket odds via Kelly criterion position sizing and edge-based ranking
+- **Smart Keyword Extraction**: Automatically extracts crypto-related tokens from prediction market questions and queries AVE for relevant on-chain data
+- **Contract Security Screening**: Tokens mentioned in prediction markets are scanned for honeypots, ownership risks via AVE's contract API
+- **Real-Time Dashboard**: Next.js 16 web interface showing AVE signal feed, Polymarket positions, risk status, and performance
+- **Paper Trading Mode**: Full simulation environment with identical risk controls for strategy validation
 - **Framework-Agnostic AI**: Supports multiple AI providers (Codex, Claude Code, OpenClaw) via a single environment variable switch
 
 ---
@@ -142,14 +149,15 @@ pnpm dev
 
 ## Demo
 
-The Hourglass demo showcases the complete autonomous trading loop:
+The Hourglass demo showcases the complete on-chain signal to prediction market execution loop:
 
-1. **Market Scanning**: AVE Monitoring Skills discover tokens across multiple chains, filter by trending status, volume, and risk level
-2. **AI Signal Generation**: The Pulse engine analyzes candidates, generates structured trade recommendations with confidence scores and Kelly-optimal position sizes
-3. **Risk Gate**: Every signal passes through hard risk controls -- exposure caps, position limits, contract security checks -- before reaching execution
-4. **Dashboard View**: Real-time web interface displays portfolio equity, active positions, signal history, and risk status
+1. **Polymarket Scanning**: Fetch active prediction markets from Polymarket
+2. **AVE Signal Enrichment**: For crypto-related markets, query AVE Claw for on-chain data -- token prices, whale activity, contract risks, volume anomalies
+3. **AI Decision**: The engine combines AVE on-chain signals with Polymarket odds to estimate true probabilities, finds edge where on-chain data disagrees with market pricing
+4. **Risk Gate**: Every signal passes through hard risk controls -- exposure caps, position limits, stop-loss -- before reaching Polymarket execution
+5. **Dashboard View**: Real-time web interface displays AVE signal feed, Polymarket positions, and risk status
 
-The system produces structured run artifacts (Pulse reports, execution summaries, risk audit logs) archived per run for full auditability.
+The system produces structured run artifacts (Pulse reports, AVE enrichment logs, execution summaries) archived per run for full auditability.
 
 ---
 
@@ -242,16 +250,17 @@ MIT
 
 ### 什么是 Hourglass?
 
-Hourglass 是一个自主 DeFi 交易代理，将 AVE Claw 的监控技能（资产追踪、价格预警、异常检测、合约风险评估）与交易技能（信号生成、自动执行、组合管理）整合为端到端的完整应用场景。系统持续扫描 130+ 条区块链上的机会，通过 AI 决策引擎生成交易信号，并以服务层硬编码风控规则执行交易。
+Hourglass 是一个链上信号驱动的预测市场交易代理。它将 AVE Claw 的链上监控能力作为研究信号层，与 Polymarket 预测市场的 CLOB 执行相结合，利用链上数据（鲸鱼动向、价格异常、合约风险、交易量突变）在预测市场中获取信息优势。
 
 ### 核心特性
 
-- **全自主运行**：7x24 小时从市场扫描到交易执行，无需人工干预
-- **130+ 链覆盖**：通过 AVE Claw 监控所有支持的区块链上的代币
+- **链上信号优势**：AVE Claw 监控 130+ 链的链上活动，提供大多数预测市场参与者忽略的定量信号
+- **Polymarket 执行**：经过 50+ 次生产运行验证的预测市场交易系统，FOK/GTC 订单
+- **全自主运行**：7x24 小时从链上监控到预测市场执行，无需人工干预
 - **服务层硬风控**：回撤停机、止损、敞口上限、持仓数限制，均为不可绕过的硬规则
-- **AI 决策引擎**：Pulse 分析管线 + Kelly 准则仓位计算 + edge 排序
-- **合约安全筛查**：每个候选代币通过 AVE 合约 API 扫描蜜罐、权限风险、持仓异常
-- **实时仪表盘**：Next.js 16 展示持仓、信号流、风控状态、历史绩效
+- **AI 决策引擎**：将 AVE 链上信号与 Polymarket 赔率结合分析 + Kelly 仓位计算
+- **智能关键词提取**：自动从预测市场问题中提取 crypto 关键词，查询 AVE 获取链上数据
+- **实时仪表盘**：Next.js 16 展示 AVE 信号流、Polymarket 持仓、风控状态
 
 ### 快速开始
 
@@ -264,16 +273,15 @@ AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend   # 模拟模式运行
 pnpm dev                                              # 启动仪表盘
 ```
 
-### AVE Claw 技能集成
+### AVE Claw 技能集成（链上信号层）
 
-| 技能类别 | 使用的 API | 用途 |
-|---------|-----------|------|
-| 资产追踪 | `/v2/tokens`, `/v2/tokens/trending` | 发现和追踪链上资产 |
-| 价格预警 | `POST /v2/tokens/price` | 实时价格监控与阈值触发 |
-| 异常检测 | `/v2/txs/{pair-id}` | 检测鲸鱼动向和异常交易模式 |
-| 风险评估 | `/v2/contracts/{token-id}` | 合约安全扫描（蜜罐、权限、跑路风险） |
-| 信号生成 | K 线 + 排名数据 | AI 生成买卖信号 |
-| 组合管理 | 批量价格 + 持仓审查 | 持仓再平衡与风控 |
-| 回测分析 | `/v2/klines` 历史数据 | 策略历史表现评估 |
+| 技能类别 | 使用的 API | 预测市场用途 |
+|---------|-----------|-------------|
+| 资产追踪 | `/v2/tokens`, `/v2/tokens/trending` | 查询预测市场中提到的 Token 的链上状态 |
+| 价格预警 | `POST /v2/tokens/price` | 链上实时价格信号，辅助预测市场概率估计 |
+| 异常检测 | `/v2/txs/{pair-id}` | 鲸鱼动向信号，预测市场结果的领先指标 |
+| 风险评估 | `/v2/contracts/{token-id}` | 合约安全风险影响相关预测市场概率 |
+| 信号富化 | `ave-signal-enrichment.ts` | 从预测市场问题中提取 crypto 关键词，查询 AVE 获取链上信号 |
+| 回测分析 | `/v2/klines` 历史数据 | 验证链上信号与预测市场结果的相关性 |
 
 完整中文文档见 [CLAUDE.md](claude.md)。

@@ -37,29 +37,32 @@
 
 ## 1. 项目概述
 
-Hourglass 是一个自主 DeFi 交易代理，将 AVE Claw 的 **Monitoring Skills**（资产追踪、价格预警、异常检测）与 **Trading Skills**（信号生成、自动执行、组合管理）结合为 **Complete Application Scenario**。
+Hourglass 是一个链上信号驱动的预测市场交易代理。它将 AVE Claw 的 **Monitoring Skills**（资产追踪、价格预警、异常检测、合约风险评估）作为 **研究/信号层**，与 Polymarket 预测市场的 **CLOB 交易执行** 相结合，形成一个 **Complete Application Scenario** —— 利用链上数据在预测市场中获取信息优势。
+
+核心创新：大多数预测市场参与者只关注新闻和情绪。Hourglass 通过 AVE Claw 实时获取链上鲸鱼动向、代币价格异常、合约安全风险、交易量突变等定量信号，将这些链上数据注入 AI 决策引擎，为预测市场的概率估计提供其他参与者忽略的信息边际。
 
 ### 四层架构
 
 ```
 ┌─────────────────────────────────────────────┐
 │  Layer 4: Dashboard + Reports (Next.js 16)  │
+│           AVE 监控信号流 + Polymarket 持仓    │
 ├─────────────────────────────────────────────┤
-│  Layer 3: AVE Claw Trading + Risk Control   │
-│           (replaces Polymarket CLOB)         │
+│  Layer 3: Polymarket CLOB Execution         │
+│           预测市场下单 + 仓位管理 + 硬风控    │
 ├─────────────────────────────────────────────┤
 │  Layer 2: AI Decision Engine                │
-│           (Pulse → Strategy Signals)        │
+│           AVE 信号 + Polymarket 赔率 → 寻边  │
 ├─────────────────────────────────────────────┤
-│  Layer 1: AVE Claw Monitoring               │
-│           (replaces Polymarket market fetch) │
+│  Layer 1: AVE Claw Monitoring (信号层)       │
+│           链上数据信号：鲸鱼、价格、异常、风险 │
 └─────────────────────────────────────────────┘
 ```
 
-- **Layer 1 — AVE Claw Monitoring**：资产追踪、价格流、异常检测，取代原有 Polymarket 数据抓取。
-- **Layer 2 — AI Decision Engine**：Pulse 分析 → 策略信号生成，保留原有推理管线并接入 AVE 数据源。
-- **Layer 3 — AVE Claw Trading + Risk Control**：信号执行 + 硬风控，取代 Polymarket CLOB 下单。
-- **Layer 4 — Dashboard**：Next.js 16 实时面板，展示持仓、信号、风控状态、历史绩效。
+- **Layer 1 — AVE Claw Monitoring（研究信号层）**：资产追踪、价格流、异常检测、合约安全审计。提供链上定量信号，为预测市场决策提供数据基础。
+- **Layer 2 — AI Decision Engine**：将 AVE 链上信号与 Polymarket 赔率结合分析，寻找预测市场中的信息边际，生成交易信号。
+- **Layer 3 — Polymarket CLOB Execution**：在 Polymarket 预测市场上执行交易（FOK/GTC 订单），保留原系统的仓位管理与 6 层服务层硬风控。
+- **Layer 4 — Dashboard**：Next.js 16 实时面板，同时展示 AVE 监控信号流和 Polymarket 持仓状态。
 
 ---
 
