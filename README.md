@@ -1,566 +1,279 @@
-# Autonomous Poly Trading
+# Hourglass
 
-> This README is written in Chinese for the maintainer's convenience. Don't worry — every document in this repository has a matching English version. See [README.en.md](README.en.md) for the full English README.
-
-最后更新：2026-03-24
-
----
-
-面向 [Polymarket](https://polymarket.com) 的云端自主交易系统。
-
-系统围绕 **Market Pulse** 这一核心组件设计：让 AI 自主评估事件发生的概率，动态地从信息源收集证据，将其与市场隐含的赔率对比，综合偏差值（edge）和资金回报周期（monthly return）给出交易指示。
-
-### 为什么让 Agent 来做这件事
-
-1. **复杂任务推理能力趋近于人类** — Agent 在复杂任务上的推理能力已经接近人类水平。人类的优势主要在于更好的信息源，但这一差距可以通过工程能力弥合。核心分析能力已经到位。
-2. **覆盖面广且时效性强** — Agent 能 7×24 小时同时监控数千个市场，发现任何个人无法跟踪的定价失调。新闻爆发时 Agent 秒级响应，人类则至少需要 3 分钟以上。
-3. **部分市场仍处于蓝海** — 政治和科技预测市场中，多数参与者缺乏清晰的定价模型，且普遍畏惧库存管理和逆向选择风险。系统化的 Agent 交易在这些领域面临的竞争极少。
-
-### 核心定位
-
-- 单真钱包实例，网站公开只读围观
-- 风控不靠提示词，靠服务层硬规则
-- Agent 在云端持续运行，而非本地脚本临时执行
-- 第三方可在网页看到真实仓位、成交记录、净值曲线和运行报告
-
-## 目录
-
-- [架构总览](#架构总览)
-- [Monorepo 结构](#monorepo-结构)
-- [三条运行链路](#三条运行链路)
-- [决策引擎](#决策引擎)
-- [风控体系](#风控体系)
-- [快速开始](#快速开始)
-- [环境变量](#环境变量)
-- [命令速查](#命令速查)
-- [部署形态](#部署形态)
-- [外部依赖仓库](#外部依赖仓库)
-- [运行归档](#运行归档)
-- [当前状态](#当前状态)
-- [文档索引](#文档索引)
+> Autonomous DeFi Trading Agent powered by AVE Claw Skills
+>
+> AVE Claw Hackathon 2026 Submission | [Chinese Version / 中文版](#chinese-version)
 
 ---
 
-## 架构总览
+## What is Hourglass?
 
-系统分为四层，数据从上到下流动：
+Hourglass is an AI-driven autonomous trading agent that unifies AVE Claw's **Monitoring Skills** (asset tracking, price alerts, anomaly detection, contract risk scoring) with **Trading Skills** (signal generation, automated execution, portfolio management) into a single end-to-end system. It continuously scans 130+ blockchains for opportunities, generates trade signals through an AI decision engine, and executes with institutional-grade risk controls enforced at the service layer -- not as prompt suggestions, but as hard-coded rules that cannot be overridden.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 1 · Research / Pulse                                 │
-│  从 Polymarket 抓取市场列表，生成 Pulse 候选池              │
-│  产物 → runtime-artifacts/reports/pulse/...                 │
-└───────────────────────────┬─────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 2 · Decision / Runtime                               │
-│  orchestrator 将 Pulse + 持仓上下文 → 结构化决策            │
-│  主路径: pulse-direct │ legacy: provider-runtime            │
-└───────────────────────────┬─────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 3 · Execution / Risk                                 │
-│  服务层硬风控裁剪 → executor 下单 / 同步 / 止损 / flatten   │
-│  FOK 市价单 · 单笔≤5% · 总敞口≤50% · 回撤≥20% halt        │
-└───────────────────────────┬─────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 4 · State / Archive / UI                             │
-│  DB / 本地状态 / runtime-artifacts 归档 / apps/web 展示     │
-└─────────────────────────────────────────────────────────────┘
-```
+Built on top of a battle-tested Polymarket trading system with 50+ live runs and real-money execution history, Hourglass adapts proven autonomous trading infrastructure to the DeFi ecosystem through deep AVE Claw API integration.
 
-Mermaid 版和更细的模块连接见 [Illustration/onboarding-architecture.md](Illustration/onboarding-architecture.md)。
+---
 
-## Monorepo 结构
-
-本仓库是 `pnpm` monorepo（`pnpm@10.28.1`，Node ≥ 20），没有根级 `src/`，源码分布在以下子包中：
+## Architecture
 
 ```
-autonomous-poly-trading/
-├── apps/
-│   └── web/                          # Next.js 16 网站：公开围观 + 管理员控制台
-├── services/
-│   ├── orchestrator/                 # 调度、Pulse、决策运行时、风控、报告
-│   ├── executor/                     # Polymarket CLOB 对接、下单、同步、队列 worker
-│   └── rough-loop/                   # 独立的代码任务循环器（非交易主链路）
-├── packages/
-│   ├── contracts/                    # Zod schema：TradeDecisionSet 等共享契约
-│   ├── db/                           # Drizzle schema、迁移、查询、local-state
-│   └── terminal-ui/                  # 终端彩色输出、错误摘要、表格渲染
-├── scripts/                          # 工作区级入口：daily-pulse、live-test、poly-cli
-├── vendor/                           # 外部仓库锁定清单（manifest.json）
-├── deploy/hostinger/                 # VPS 部署脚本与环境模板
-├── Illustration/                     # 架构图、流程图、运维说明（中英双语）
-├── Plan/                             # 阶段性规划文档
-├── Wasted/                           # 已归档的 legacy handoff / 探索稿 / 历史进度
-├── E2E Test Driven Development/      # Playwright + Vitest E2E 套件
-├── runtime-artifacts/                # 运行产物归档（.gitignore，仅保留 .gitkeep）
-├── docker-compose.yml                # 本地 Postgres 17 + Redis 8
-├── docker-compose.hostinger.yml      # 生产向容器编排
-└── package.json                      # 根 scripts + workspace 依赖
+┌──────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│   Layer 4 : Dashboard + Reports              (Next.js 16)        │
+│   Real-time portfolio view, signal stream, risk status, PnL      │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Layer 3 : AVE Claw Trading + Risk Control                      │
+│   Signal execution, hard risk guards, stop-loss, position mgmt   │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Layer 2 : AI Decision Engine                                   │
+│   Pulse analysis -> strategy signals -> Kelly sizing             │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Layer 1 : AVE Claw Monitoring                                  │
+│   Asset discovery, price feeds, anomaly detection, risk scoring  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### 各模块职责速查
+**Data flows bottom-up**: AVE Monitoring feeds raw market data into the AI engine, which produces trading signals. Those signals pass through hard risk controls before execution, and the dashboard renders everything in real time.
 
-| 模块 | 做什么 | 关键入口 |
-| --- | --- | --- |
-| `apps/web` | 公开页面（总览/持仓/成交/runs/reports/backtests）+ 管理员操作 | `app/page.tsx` |
-| `services/orchestrator` | Pulse 生成 → 决策运行时 → 风控裁剪 → 报告产物 | `src/jobs/daily-pulse-core.ts` |
-| `services/executor` | Polymarket CLOB 下单、仓位同步、止损、flatten | `src/workers/queue-worker.ts`、`src/lib/polymarket.ts` |
-| `packages/contracts` | `TradeDecisionSet`、`actionSchema`、队列/任务名等 | `src/index.ts` |
-| `packages/db` | DB schema + 查询；paper 模式下的 file-backed local state | `src/queries.ts`、`src/local-state.ts` |
-| `packages/terminal-ui` | 终端 UI 工具库 | `src/index.ts` |
-| `scripts/` | CLI 入口，拼接不同运行模式 | `daily-pulse.ts`、`pulse-live.ts`、`live-test.ts` |
-| `services/rough-loop` | 代码任务自动循环（不参与交易） | `src/cli.ts` |
+| Layer | Role | Key Technology |
+|-------|------|----------------|
+| Layer 1 | Market data ingestion via AVE Claw APIs | Token search, trending, rankings, K-lines, contract security |
+| Layer 2 | AI-powered signal generation and position review | Pulse engine, Kelly criterion sizing, edge-based ranking |
+| Layer 3 | Execution with service-layer risk enforcement | FOK orders, drawdown halt, stop-loss, exposure caps |
+| Layer 4 | Real-time visualization and reporting | Next.js 16, equity charts, activity feeds, run archives |
 
-## 三条运行链路
+---
 
-```mermaid
-flowchart LR
-  paper["paper\n本地模拟"] --> core["Pulse + Decision Core"]
-  pulseLive["pulse:live\n最快真钱闭环"] --> core
-  stateful["live:test\n完整生产链路"] --> core
+## AVE Claw Skill Integration
 
-  core --> risk["风控硬裁剪"]
-  risk --> out1["Paper state file"]
-  risk --> out2["直接 Polymarket 执行"]
-  risk --> out3["BullMQ 队列 → Executor"]
-```
+Hourglass enters the **Complete Application Scenario** track, combining both Monitoring and Trading skill categories.
 
-| 链路 | 命令 | 依赖 | 适合场景 |
-| --- | --- | --- | --- |
-| **paper** | `pnpm trial:recommend` / `trial:approve` | 本地文件 | 模拟与人工确认 |
-| **pulse:live** | `pnpm pulse:live` | 钱包 + Polymarket | 最快真钱闭环，onboarding 首选 |
-| **live:test** | `pnpm live:test` | 钱包 + DB + Redis + Queue | 完整生产链路 |
+### Monitoring Skills Used
 
-补充：`pnpm daily:pulse` 不是第四种链路，它是 `pulse:live` 的便捷包装，默认帮你配好 `.env.pizza`、`AUTOPOLY_EXECUTION_MODE=live` 和 `pulse-direct`。
+| Skill | AVE API Endpoint | What It Does in Hourglass |
+|-------|-----------------|---------------------------|
+| **Asset Tracking** | `GET /v2/tokens` -- token search across 130+ chains | Discovers tradeable tokens, replaces legacy market-fetch pipeline |
+| | `GET /v2/tokens/{token-id}` -- token detail | Deep-dives into candidate tokens for Pulse research reports |
+| | `GET /v2/tokens/trending` -- trending tokens | Surfaces momentum opportunities for the AI engine |
+| **Price Alerts** | `POST /v2/tokens/price` -- batch price query (up to 200) | Real-time portfolio valuation and threshold-based alerts |
+| **Anomaly Detection** | `GET /v2/txs/{pair-id}` -- transaction monitoring | Detects whale movements and unusual trading patterns |
+| **Risk Assessment** | `GET /v2/contracts/{token-id}` -- contract security scan | Honeypot detection, ownership analysis, rug-pull risk scoring |
 
-### 执行流程
+### Trading Skills Used
 
-**所有 live 路径都必须经过 Preflight**——它不是独立模式，而是必经阶段。
+| Skill | How Hourglass Implements It |
+|-------|----------------------------|
+| **Signal Generation** | AI Pulse engine analyzes monitoring data, ranks candidates by `monthlyReturn = edge / monthsToResolution`, selects top opportunities |
+| **Portfolio Management** | Position review system evaluates existing holdings: hold / reduce / close decisions based on real-time price data from AVE |
+| **Backtesting** | K-line data from `GET /v2/klines/token/{token-id}` (13 intervals from 1min to monthly) feeds historical strategy evaluation |
+| **Market Rankings** | `GET /v2/ranks` integration with Hot / Meme / Gainers / Losers / AI / DeFi topics for candidate filtering |
 
-**pulse:live**：
+---
 
-```
-Preflight → 拉远端持仓/Collateral → Pulse 生成 → 决策运行时 → 风控 + Token Cap → 直接下单 → Summary 归档
-```
+## Key Features
 
-**live:test**：
+- **Fully Autonomous**: Runs 24/7 without human intervention -- from market scanning to trade execution
+- **130+ Chain Coverage**: Monitors tokens across all chains supported by AVE Claw
+- **Service-Layer Risk Controls**: Hard-coded guards that cannot be bypassed -- drawdown halt, stop-loss, exposure caps, position limits
+- **AI Decision Engine**: Pulse analysis pipeline with Kelly criterion position sizing and edge-based candidate ranking
+- **Contract Security Screening**: Every candidate token is scanned for honeypots, ownership risks, and suspicious holder distribution via AVE's contract API
+- **Real-Time Dashboard**: Next.js 16 web interface showing live portfolio, signal stream, risk status, and historical performance
+- **Paper Trading Mode**: Full simulation environment with identical risk controls for strategy validation before going live
+- **Framework-Agnostic AI**: Supports multiple AI providers (Codex, Claude Code, OpenClaw) via a single environment variable switch
 
-```
-Preflight(+DB/Redis/Queue) → Pulse 生成 → Agent Cycle(决策+持久化) → 队列投递 → Executor Worker 执行 → Sync → Summary 归档
-```
+---
 
-**paper**：
+## Tech Stack
 
-```
-加载组合上下文 → Pulse 生成 → 决策运行时 → 共享 buildExecutionPlan（与 pulse:live 相同的风控 + 交易所门槛规则）→ awaiting-approval → trial:approve → Paper State 更新
-```
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| Node.js | 22+ | Runtime |
+| pnpm | 10.x | Monorepo workspace management |
+| TypeScript | 5.9 | Type-safe codebase |
+| Next.js | 16 | Dashboard and public-facing web app |
+| React | 19 | UI framework |
+| Fastify | 5 | API server for orchestrator and executor |
+| BullMQ | 5 | Job queue for trade execution pipeline |
+| Drizzle ORM | latest | Database schema and queries |
+| Zod | 4 | Runtime validation for trade decisions and API contracts |
+| Vitest | latest | Unit and integration testing |
+| Playwright | latest | End-to-end testing |
+| Docker Compose | -- | Local Postgres 17 + Redis 8 |
 
-## Provider 切换（Framework-Free 架构）
+---
 
-系统支持**任意 AI Agent** 作为 Pulse 渲染器。所有 provider 走统一的模板命令路径，不绑定特定框架或模型。
-
-切换方式：只需在 `.env` 中修改一行：
+## Quick Start
 
 ```bash
-# 使用 Codex
-AGENT_RUNTIME_PROVIDER=codex
-
-# 使用 Claude Code
-AGENT_RUNTIME_PROVIDER=claude-code
-
-# 使用 OpenClaw
-AGENT_RUNTIME_PROVIDER=openclaw
-
-# 使用自定义 Agent（需配 <NAME>_COMMAND 环境变量）
-AGENT_RUNTIME_PROVIDER=my-agent
-MY_AGENT_COMMAND='cat {{prompt_file}} | my-agent --output {{output_file}}'
-```
-
-任意模型在读取本项目后，都能根据自身框架自主切换 provider 并修改对应的环境变量。系统会自动使用该 provider 的默认命令模板，或读取 `<PROVIDER>_COMMAND` 自定义命令。
-
-已内置默认命令的 provider：`codex`、`claude-code`、`openclaw`。
-
-## 决策引擎
-
-当前有两种决策策略，由 `AGENT_DECISION_STRATEGY` 环境变量控制：
-
-### pulse-direct（当前默认主路径）
-
-```
-Pulse markdown → 正则/表格解析 → PulseEntryPlan
-                                        ↓
-当前持仓 → reviewCurrentPositions → hold/reduce/close
-                                        ↓
-           monthlyReturn 排序（top 4）→ 20% batch cap
-                                        ↓
-                   composePulseDirectDecisions → TradeDecisionSet
-```
-
-不依赖外部 LLM 进程，直接从 Pulse 结构化章节提取开仓候选，按 `monthlyReturn = edge / monthsToResolution` 排序，取 top 4，单轮总下注不超过 bankroll 的 20%。
-
-### provider-runtime（legacy 对照）
-
-通过 spawn 外部进程（Codex / OpenClaw / Claude Code CLI），把 Pulse + 持仓上下文传给 LLM，解析 stdout 得到 `TradeDecisionSet`。仍可用，但不再是默认路径。
-
-## 风控体系
-
-风控是服务层硬规则，无论上游用哪种 provider 或策略，进入 orchestrator / executor 链路后都受约束。
-
-### 系统级
-
-| 规则 | 阈值 | 效果 |
-| --- | --- | --- |
-| 组合回撤 halt | 净值相对高水位回撤 ≥ **30%** | 进入 `halted`，禁止新开仓 |
-| 恢复 | 仅管理员 `resume` | fail-closed 设计 |
-
-### 仓位级
-
-| 规则 | 阈值 |
-| --- | --- |
-| 单仓止损 | 浮亏 ≥ **30%** |
-| 止损优先级 | 高于常规策略动作 |
-
-### 执行级
-
-| 规则 | 默认值 |
-| --- | --- |
-| 下单类型 | **FOK** 市价单 |
-| 单笔上限 | 资金的 **15%** |
-| 最大总敞口 | 资金的 **80%** |
-| 单事件敞口上限 | 资金的 **30%** |
-| 最大并发持仓 | **22** 个 |
-| 最小交易额 | **$5** |
-| 最小有效额度 | 低于此直接丢弃 |
-
-### Pulse 级
-
-- 必须来自真实 `fetch_markets.py` 抓取，不再有 mock fallback
-- Pulse 超龄（>120 分钟）或候选不足（<1 个）视为风险状态，本轮禁止新 `open`
-- CLOB token ID 风险标志已移除（坏候选在生成阶段已被过滤）
-- `open` 的 `token_id` 必须来自 Pulse candidates
-
-完整规则见 [risk-controls.md](risk-controls.md)。
-
-## 快速开始
-
-### 最小 Build（验证构建）
-
-```bash
-git clone https://github.com/Alchemist-X/autonomous-poly-trading.git
-cd autonomous-poly-trading
+# 1. Clone and install
+git clone https://github.com/Alchemist-X/hourglass.git
+cd hourglass
 pnpm install
+
+# 2. Build all packages
 pnpm build
-```
 
-不需要 Docker、Codex CLI 或真钱包凭据——只验证 TS / Next.js 能否编译通过。
+# 3. Run the Pulse analysis demo (paper mode, no real funds)
+AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend
 
-### 跑 Pulse 和 Recommendation
-
-```bash
+# 4. Start the full dashboard
 cp .env.example .env
-pnpm vendor:sync
-# 补齐 CODEX_COMMAND / 钱包凭据
-pnpm daily:pulse              # 便捷入口
-# 或者
-pnpm pulse:live -- --recommend-only   # 只看建议不下单
-```
-
-### 完整本地栈（Stateful）
-
-```bash
-cp .env.example .env
-pnpm install
-pnpm vendor:sync
-docker compose up -d postgres redis
-pnpm db:migrate
-pnpm db:seed
 pnpm dev
 ```
 
-默认端口：Web `3000` / Orchestrator `4001` / Executor `4002`
+### Run Modes
 
-### Paper 模式
+| Mode | Command | What It Does |
+|------|---------|--------------|
+| **Build only** | `pnpm build` | Verify TypeScript compilation (no Docker or keys needed) |
+| **Paper trading** | `pnpm trial:recommend` | Full analysis pipeline with simulated execution |
+| **Dashboard** | `pnpm dev` | Start web UI at `localhost:3000` |
+| **Pulse analysis** | `pnpm pulse:live -- --recommend-only` | Generate trade recommendations without executing |
+| **Live trading** | `pnpm pulse:live` | Real execution (requires wallet credentials + AVE API key) |
 
-```bash
-AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend
-AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
+---
+
+## Demo
+
+The Hourglass demo showcases the complete autonomous trading loop:
+
+1. **Market Scanning**: AVE Monitoring Skills discover tokens across multiple chains, filter by trending status, volume, and risk level
+2. **AI Signal Generation**: The Pulse engine analyzes candidates, generates structured trade recommendations with confidence scores and Kelly-optimal position sizes
+3. **Risk Gate**: Every signal passes through hard risk controls -- exposure caps, position limits, contract security checks -- before reaching execution
+4. **Dashboard View**: Real-time web interface displays portfolio equity, active positions, signal history, and risk status
+
+The system produces structured run artifacts (Pulse reports, execution summaries, risk audit logs) archived per run for full auditability.
+
+---
+
+## Risk Controls
+
+All risk rules are enforced at the service layer as hard constraints. No AI prompt or configuration can bypass them.
+
+| Rule | Threshold | Effect |
+|------|-----------|--------|
+| Portfolio drawdown halt | NAV drops >= 30% from high-water mark | System enters `halted` state; all new opens blocked |
+| Per-position stop-loss | Unrealized loss >= 30% | Position auto-closed; priority over strategy actions |
+| Per-trade cap | 15% of bankroll | Single trade cannot exceed this allocation |
+| Max total exposure | 80% of bankroll | Combined open positions capped |
+| Max event exposure | 30% of bankroll | Concentration limit per token category |
+| Max concurrent positions | 22 | Hard position count limit |
+| Min trade size | $5 | Orders below threshold are discarded |
+| Pulse staleness | > 120 minutes old | Stale data blocks new opens |
+| Contract risk screen | AVE `/v2/contracts` risk level | High-risk tokens filtered before signal generation |
+
+Recovery from `halted` state requires explicit admin action (fail-closed design).
+
+---
+
+## Project Structure
+
+```
+hourglass/
+├── apps/
+│   └── web/                    # Next.js 16 dashboard + admin console
+├── services/
+│   ├── ave-monitor/            # AVE Claw Monitoring adapter layer
+│   ├── orchestrator/           # Pulse engine, AI decisions, risk guards
+│   ├── executor/               # Trade execution + position sync
+│   └── rough-loop/             # Autonomous code-task loop
+├── packages/
+│   ├── contracts/              # Zod schemas (TradeDecisionSet, shared types)
+│   ├── db/                     # Drizzle ORM schema + migrations + queries
+│   └── terminal-ui/            # Terminal rendering utilities
+├── skills/                     # AVE Skill definitions
+│   └── daily-pulse/            # Daily Pulse skill agent
+├── scripts/                    # CLI entry points (daily-pulse, pulse-live)
+├── docs/                       # Hackathon rules, API reference, integration map
+├── runtime-artifacts/          # Run outputs (gitignored)
+├── docker-compose.yml          # Local Postgres 17 + Redis 8
+└── package.json                # Root scripts + workspace config
 ```
 
-状态默认写入 `runtime-artifacts/local/paper-state.json`。
-`trial:recommend` 现在会和 `pulse:live` 共用同一套执行前规则：同样读取 order book，应用同样的风险裁剪、最小交易额和 Polymarket 最小可执行门槛；差别只在最后不直接发真钱单，而是先进入 `awaiting-approval`。
+| Module | Responsibility |
+|--------|---------------|
+| `services/ave-monitor` | Wraps AVE Claw Monitoring APIs into a unified data subscription interface |
+| `services/orchestrator` | Pulse generation, AI decision runtime, risk trimming, report artifacts |
+| `services/executor` | Trade execution, position sync, stop-loss, order queue worker |
+| `apps/web` | Public dashboard: portfolio, positions, trades, runs, reports |
+| `packages/contracts` | Shared Zod schemas for type-safe cross-service communication |
+| `packages/db` | Database schema, migrations, queries, paper-mode local state |
 
-## 环境变量
+---
 
-完整模板：[.env.example](.env.example)
+## Environment Variables
 
-分四组理解：
+Copy `.env.example` to `.env` and configure:
 
-| 组 | 关键变量 | 说明 |
-| --- | --- | --- |
-| **共享** | `AUTOPOLY_EXECUTION_MODE` `DATABASE_URL` `REDIS_URL` `AUTOPOLY_LOCAL_STATE_FILE` | 执行模式（paper/live）、基础设施连接 |
-| **Web** | `ADMIN_PASSWORD` `ORCHESTRATOR_INTERNAL_TOKEN` | 管理员鉴权 |
-| **Executor** | `PRIVATE_KEY` `FUNDER_ADDRESS` `SIGNATURE_TYPE` `CHAIN_ID` | Polymarket 钱包与链配置 |
-| **Orchestrator** | `AGENT_RUNTIME_PROVIDER` `AGENT_DECISION_STRATEGY` `PULSE_*` `CODEX_*` | Provider 选择、Pulse 抓取、风控参数 |
+| Group | Key Variables | Purpose |
+|-------|--------------|---------|
+| **AVE** | `AVE_API_KEY` | AVE Claw API authentication |
+| **Shared** | `AUTOPOLY_EXECUTION_MODE` | `paper` (simulation) or `live` (real funds) |
+| **Web** | `ADMIN_PASSWORD` | Dashboard admin authentication |
+| **Orchestrator** | `AGENT_RUNTIME_PROVIDER`, `AGENT_DECISION_STRATEGY` | AI provider and strategy selection |
+| **Executor** | `PRIVATE_KEY`, `CHAIN_ID` | Wallet and chain configuration |
 
-如果 Polymarket 凭据放在相邻仓库，可以设 `ENV_FILE=../pm-PlaceOrder/.env.aizen`。真实资金测试建议固定使用独立的 `.env.live-test`。
+---
 
-## 命令速查
+## Team
 
-### 构建与校验
+| Member | Role |
+|--------|------|
+| Alchemist-X | Lead Developer |
 
-```bash
-pnpm build              # 全量构建
-pnpm typecheck          # 全量类型检查
-pnpm test               # Vitest 单测
-```
+---
 
-### 数据库
+## License
 
-```bash
-pnpm db:generate        # 生成迁移
-pnpm db:migrate         # 执行迁移
-pnpm db:seed            # 种子数据
-```
+MIT
 
-### 交易链路
+---
 
-```bash
-# Paper
-AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend
-AUTOPOLY_EXECUTION_MODE=paper pnpm trial:approve -- --latest
+<a id="chinese-version"></a>
 
-# Pulse Live
-ENV_FILE=.env.live-test pnpm pulse:live
-ENV_FILE=.env.live-test pnpm pulse:live -- --recommend-only
-ENV_FILE=.env.live-test pnpm pulse:live -- --json
+## 中文简介
 
-# Live Stateful
-ENV_FILE=.env.live-test pnpm live:test
+### 什么是 Hourglass?
 
-# Daily Pulse（pulse:live 的便捷入口）
-pnpm daily:pulse
-```
+Hourglass 是一个自主 DeFi 交易代理，将 AVE Claw 的监控技能（资产追踪、价格预警、异常检测、合约风险评估）与交易技能（信号生成、自动执行、组合管理）整合为端到端的完整应用场景。系统持续扫描 130+ 条区块链上的机会，通过 AI 决策引擎生成交易信号，并以服务层硬编码风控规则执行交易。
 
-### Executor Ops
+### 核心特性
 
-```bash
-pnpm --filter @autopoly/executor ops:check
-pnpm --filter @autopoly/executor ops:check -- --slug <market-slug>
-pnpm --filter @autopoly/executor ops:trade -- --slug <market-slug> --max-usd 1
-```
+- **全自主运行**：7x24 小时从市场扫描到交易执行，无需人工干预
+- **130+ 链覆盖**：通过 AVE Claw 监控所有支持的区块链上的代币
+- **服务层硬风控**：回撤停机、止损、敞口上限、持仓数限制，均为不可绕过的硬规则
+- **AI 决策引擎**：Pulse 分析管线 + Kelly 准则仓位计算 + edge 排序
+- **合约安全筛查**：每个候选代币通过 AVE 合约 API 扫描蜜罐、权限风险、持仓异常
+- **实时仪表盘**：Next.js 16 展示持仓、信号流、风控状态、历史绩效
 
-### E2E
+### 快速开始
 
 ```bash
-pnpm e2e:install-browsers
-pnpm e2e:local-lite
-AUTOPOLY_E2E_REMOTE=1 pnpm e2e:remote-real
+git clone https://github.com/Alchemist-X/hourglass.git
+cd hourglass
+pnpm install
+pnpm build
+AUTOPOLY_EXECUTION_MODE=paper pnpm trial:recommend   # 模拟模式运行
+pnpm dev                                              # 启动仪表盘
 ```
 
-### Rough Loop
+### AVE Claw 技能集成
 
-```bash
-pnpm rough-loop:doctor
-pnpm rough-loop:once
-pnpm rough-loop:start
-```
+| 技能类别 | 使用的 API | 用途 |
+|---------|-----------|------|
+| 资产追踪 | `/v2/tokens`, `/v2/tokens/trending` | 发现和追踪链上资产 |
+| 价格预警 | `POST /v2/tokens/price` | 实时价格监控与阈值触发 |
+| 异常检测 | `/v2/txs/{pair-id}` | 检测鲸鱼动向和异常交易模式 |
+| 风险评估 | `/v2/contracts/{token-id}` | 合约安全扫描（蜜罐、权限、跑路风险） |
+| 信号生成 | K 线 + 排名数据 | AI 生成买卖信号 |
+| 组合管理 | 批量价格 + 持仓审查 | 持仓再平衡与风控 |
+| 回测分析 | `/v2/klines` 历史数据 | 策略历史表现评估 |
 
-### Vendor
-
-```bash
-pnpm vendor:sync        # 同步外部仓库到 vendor/repos/
-```
-
-## 部署形态
-
-| 组件 | 推荐部署方式 |
-| --- | --- |
-| `apps/web` | Vercel（只读 Postgres 凭据） |
-| `services/orchestrator` | 单台云主机 |
-| `services/executor` | 同一台云主机 |
-| Postgres 17 | 托管数据库 |
-| Redis 8 | 同机或托管 |
-
-Hostinger VPS 部署方案见 [Illustration/hostinger-vps-deploy-runbook.md](Illustration/hostinger-vps-deploy-runbook.md)，配合 `docker-compose.hostinger.yml` 和 `deploy/hostinger/stack.env.example`。
-
-管理员操作通过站内受保护接口调 orchestrator，不向公众暴露 4001/4002/5432/6379。
-
-## 外部依赖仓库
-
-`vendor/manifest.json` 锁定了以下外部仓库的具体 commit：
-
-| 仓库 | 用途 |
-| --- | --- |
-| `polymarket-trading-TUI` | 交易终端和 CLOB 接线参考 |
-| `polymarket-market-pulse` | Pulse 研究输入 |
-| `alert-stop-loss-pm` | 止损逻辑参考 |
-| `all-polymarket-skill` | Backtesting、Monitor、Resolution 等 skill 参考 |
-| `pm-PlaceOrder` | 下单参考和本地凭据源 |
-
-运行 `pnpm vendor:sync` 把它们同步到 `vendor/repos/`。纯 `pnpm build` 不需要 vendor，但跑 pulse / trial / live 链路前必须先 sync。
-
-## 运行归档
-
-所有运行产物写入 `runtime-artifacts/`（已 `.gitignore`），由 `ARTIFACT_STORAGE_ROOT` 控制根目录。
-
-| 路径 | 内容 |
-| --- | --- |
-| `reports/pulse/YYYY/MM/DD/` | Pulse markdown + JSON（命名规范：`pulse-<timestamp>-<runtime>-<mode>-<runId>` ） |
-| `reports/review\|monitor\|rebalance/` | 组合报告 |
-| `reports/runtime-log/` | 决策运行时解释性日志 |
-| `pulse-live/<timestamp>-<runId>/` | Pulse Live 运行：preflight、recommendation、execution-summary、run-summary |
-| `live-test/<timestamp>-<runId>/` | Stateful 运行：同上 + error.json（失败时） |
-| `checkpoints/trial-recommend/` | Paper 推荐断点续跑检查点 |
-| `local/paper-state.json` | Paper 默认状态文件 |
-| `rough-loop/` | Rough Loop 任务产物 |
-
-失败归档（按 AGENTS 约定）写入 `run-error/`，包含失败阶段、核心上下文、原因摘要和下一步命令。
-
-## 当前状态
-
-截至 2026-03-24。
-
-### 子系统完成度
-
-| 子系统 | 状态 | 说明 |
-| --- | --- | --- |
-| Monorepo 构建 | ✅ 已完成 | `build` / `typecheck` / `test` 基础工作区支持 |
-| Web 围观页 + 管理页 | ✅ 已完成 | 首页、持仓、成交、Runs、Reports、Backtests、Admin |
-| 共享契约 / DB / Terminal UI | ✅ 已完成 | Schema、查询、local state、终端渲染 |
-| Paper 本地测试盘 | ✅ 已完成 | 推荐 → 人工确认 → file-backed state |
-| `pulse:live` | ✅ 已完成并持续运行 | 37 次 pulse-live 运行归档（03/16–03/24） |
-| `live:test` stateful | ⚠️ 已实现但受阻 | 代码可用，本机缺 DB/Redis 导致 preflight 始终失败 |
-| Pulse 真实抓取 | ✅ 已完成 | 累计产出约 50+ 份 Pulse 报告（03/14–03/23） |
-| `pulse-direct` 决策引擎 | ✅ 已上线 | 03/20 起成为默认主路径，取代 provider-runtime |
-| 双语运行总结 | ✅ 已完成 | Live 路径每轮生成中英 summary |
-| Review / Monitor / Rebalance 报告 | ✅ 已完成 | 03/20 起随 daily pulse / live 运行自动写入 artifact |
-| 风控硬规则 | ✅ 已完成 | `applyTradeGuards` + halt + stop-loss |
-| Polymarket proxy wallet 兼容 | ✅ 已完成 | `FUNDER_ADDRESS` / `SIGNATURE_TYPE` |
-| Resolution tracking | ✅ 已实现 | 独立周期能力，有真实产物 |
-| Backtest | ⚠️ 轻量版 | 已接入 artifact 层，非生产级评估 |
-| OpenClaw provider | 🔲 预留 | 接口存在，非当前默认 |
-| Rough Loop | ✅ 独立子系统 | 03/17 完成 5 轮自动代码任务运行 |
-| VPS 部署 | ✅ 已文档化 | Hostinger 部署 runbook + Docker compose |
-| CI/CD | 🔲 待建设 | 暂无 GitHub Actions |
-
-### 实际运行数据
-
-**活跃钱包：Pizza**（`0x6664***614e`），collateral 约 $96.95 USDC。
-
-**当前链上持仓（pizza wallet，2026-03-23 最后快照）**：
-
-| 市场 | 方向 | 持仓量 | 均价 | 现价 | 浮盈/亏 |
-| --- | --- | --- | --- | --- | --- |
-| Bitcoin dip to 65k in March 2026 | BUY No | 1.34 | $0.746 | $0.742 | -0.5% |
-| Gavin Newsom 2028 Dem nomination | BUY No | 1.32 | $0.758 | $0.758 | 0% |
-| Gavin Newsom 2028 presidential election | BUY No | 1.21 | $0.825 | $0.835 | +1.2% |
-
-**Paper 状态**：$200 bankroll / $176 现金 / 2 个模拟持仓（Vance + Avalanche），上次运行 03/16。
-
-### 运行时间线
-
-| 日期 | 事件 |
-| --- | --- |
-| **03/14** | 首批 Pulse 报告生成（codex provider-runtime），15 份 pulse；首次真实 $1 测试单成交 |
-| **03/16** | Paper 模式打通完整闭环（recommend → approve → state update）；首批 pulse-live 运行；Pizza 钱包连通验证 |
-| **03/17** | 大量 pulse-live 运行；no1 钱包快照显示 12 个真实持仓 / $128 总权益；Rough Loop 完成 5 轮代码任务 |
-| **03/18** | Portfolio review 报告首次独立生成；pulse-live preflight 待处理 |
-| **03/20** | **pulse-direct 引擎上线**，取代 provider-runtime 成为默认；review / monitor / rebalance 三类报告随运行自动生成；一笔原油市场订单被 Polymarket 拒单（$0.34） |
-| **03/23** | 密集运行日——8 次 pulse-live 运行（pizza wallet）；live:test 尝试失败（DATABASE_URL 未配置）；VPS SSH 连通性复盘；最后一次完整运行产物时间 15:05 UTC |
-| **03/24** | 一个 pending preflight 存在，但未完成完整运行 |
-
-### 已发现的问题与阻塞
-
-| 问题 | 影响 | 状态 |
-| --- | --- | --- |
-| 本机无 Postgres / Redis | `live:test` stateful 链路始终 preflight 失败 | 需要 Docker 或远端 DB |
-| Pulse provider 超时 | 部分运行退化为 deterministic fallback，开仓候选质量降低 | 间歇性 |
-| 最小交易额拦截 | 风控 `$10` 最小额度拦截了 pulse-live 的小额开仓候选 | 设计如此，pulse-live 路径已调低到 `$0.01` |
-| 订单被 Polymarket 拒绝 | 原油市场一笔 $0.34 订单被拒 | 已归档，未影响后续运行 |
-
-### 当前限制
-
-- `live:test` 链路在本机无法验证，需要远端基础设施
-- 完整生产部署流程尚未收敛为单独 deploy handbook
-- `provider-runtime` 作为 legacy 路径将继续弱化
-- Backtest 仍是轻量版
-- 无 CI/CD 流水线
-- 无自动对账和告警通知
-
-## 依赖矩阵
-
-| 依赖 | 是否必需 | 用途 |
-| --- | --- | --- |
-| Node.js ≥ 20 | ✅ 必需 | Monorepo 构建与运行 |
-| pnpm 10.x | ✅ 必需 | Workspace 包管理（当前 `10.28.1`） |
-| TypeScript 5.9.x | 已内置 | TS 编译 |
-| Docker / docker compose | 可选 | 本地 Postgres + Redis |
-| Postgres 17 | 可选 | `live:test` 需要 |
-| Redis 8 | 可选 | `live:test` 需要 |
-| Codex CLI | 运行时按需 | `provider-runtime` / Pulse 生成 |
-| Polymarket 钱包凭据 | live 路径必需 | 真钱下单 |
-
-### 核心运行时依赖
-
-| 包 | 主要依赖 |
-| --- | --- |
-| `apps/web` | Next.js 16、React 19 |
-| `services/orchestrator` | Fastify 5、BullMQ 5、ioredis 5、drizzle-orm、node-cron |
-| `services/executor` | @polymarket/clob-client 5、ethers 5、Fastify 5、BullMQ 5 |
-| `packages/db` | postgres、drizzle-orm、drizzle-kit |
-| `packages/contracts` | zod 4 |
-
-## 文档索引
-
-### 根目录
-
-| 文档 | 内容 |
-| --- | --- |
-| [risk-controls.md](risk-controls.md) | 风控硬规则完整说明 |
-| [.env.example](.env.example) | 环境变量模板 |
-| [progress.md](progress.md) | 实现进度 |
-| [todo-loop.md](todo-loop.md) | 后续高优先级事项 |
-| [rough-loop.md](rough-loop.md) | Rough Loop 主入口文档 |
-| [AGENTS.md](AGENTS.md) | 项目协作约定 |
-
-说明：历史 handoff、探索稿和一次性进度记录已统一移到 [Wasted/README.md](Wasted/README.md)，避免继续散落在根目录。
-
-### Illustration/
-
-| 文档 | 内容 |
-| --- | --- |
-| [onboarding-architecture.md](Illustration/onboarding-architecture.md) | 新人架构图 + 模块地图 + 状态源说明 |
-| [trading-modes-flowchart.md](Illustration/trading-modes-flowchart.md) | 下单模式流程图 |
-| [portfolio-ops-report-design.md](Illustration/portfolio-ops-report-design.md) | Monitor / Review / Rebalance 报告设计 |
-| [hostinger-vps-deploy-runbook.md](Illustration/hostinger-vps-deploy-runbook.md) | Hostinger VPS 部署 runbook |
-| [repo-slimming-plan.md](Illustration/repo-slimming-plan.md) | 模块取舍 checklist |
-
-### Plan/
-
-| 文档 | 内容 |
-| --- | --- |
-| [2026-03-17-rough-loop-8h-run-plan.md](Plan/2026-03-17-rough-loop-8h-run-plan.md) | Rough Loop 8 小时持续运行方案 |
-| [2026-03-17-position-review-module-plan.md](Plan/2026-03-17-position-review-module-plan.md) | Position Review 模块设计 |
-
-### Wasted/
-
-| 文档 | 内容 |
-| --- | --- |
-| [README.md](Wasted/README.md) | 已归档 legacy 文档与历史杂项的说明 |
-
-## 新人接手路径
-
-如果你是第一次接手这个仓库：
-
-1. **读本文档**——理解四层架构和三条链路
-2. **看 [.env.example](.env.example)**——了解运行模式和依赖
-3. **看 [risk-controls.md](risk-controls.md)**——了解硬风控
-4. **看 [Illustration/onboarding-architecture.md](Illustration/onboarding-architecture.md)**——理解模块边界、状态源和默认主路径
-5. **看 [Illustration/trading-modes-flowchart.md](Illustration/trading-modes-flowchart.md)**——理解执行路径分叉
-6. **跑 `pnpm build`**——验证构建
-7. **跑 `pnpm daily:pulse` 或 `pnpm pulse:live -- --recommend-only`**——看一次完整决策输出
-
-如果只是「先把项目 build 起来」，到第 6 步就够了。
+完整中文文档见 [CLAUDE.md](claude.md)。

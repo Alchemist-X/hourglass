@@ -30,7 +30,8 @@
     "db:generate": "pnpm --filter @autopoly/db drizzle-kit generate",
     "db:migrate": "pnpm --filter @autopoly/db drizzle-kit migrate",
     "db:seed": "pnpm --filter @autopoly/db seed",
-    "vendor:sync": "node scripts/sync-vendors.mjs"
+    "vendor:sync": "node scripts/sync-vendors.mjs",
+    "ave:demo": "tsx scripts/ave-demo.ts"
   },
   "dependencies": {
     "@autopoly/contracts": "workspace:*",
