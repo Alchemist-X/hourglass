@@ -1,0 +1,5 @@
+[ave:recommend] Skipped — requires live .env.live credentials and clean node_modules.
+The live pipeline (ave:recommend / ave:live) has a corrupted mime-db/package.json in node_modules.
+Fix: rm -rf node_modules && pnpm install
+
+Use `pnpm ave:demo` for the demo video recording instead (runs on mock data, no API key needed).
