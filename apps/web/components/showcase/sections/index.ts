@@ -13,3 +13,7 @@ export { TradeHistory } from "./trade-history";
 export { ThinkingTimeline } from "./thinking-timeline";
 export { Architecture } from "./architecture";
 export { FooterSection } from "./footer-section";
+export { ResourcesBar } from "./resources-bar";
+export { MarketList } from "./market-list";
+export { AveApiSection } from "./ave-api-section";
+export { DetailedAnalysis } from "./detailed-analysis";
