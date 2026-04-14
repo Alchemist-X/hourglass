@@ -1,0 +1,296 @@
+"use client";
+
+interface HourglassHeroIllustrationProps {
+  readonly className?: string;
+}
+
+export function HourglassHeroIllustration({
+  className,
+}: HourglassHeroIllustrationProps) {
+  return (
+    <svg
+      viewBox="0 0 600 400"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Hourglass hero illustration: data flows from AVE collection to Polymarket execution"
+    >
+      <defs>
+        <linearGradient id="hh-main-grad" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor="#7B3FE4" />
+          <stop offset="50%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#14B8A6" />
+        </linearGradient>
+        <linearGradient id="hh-glass-grad" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor="#7B3FE4" stopOpacity="0.12" />
+          <stop offset="40%" stopColor="#3B82F6" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="#14B8A6" stopOpacity="0.12" />
+        </linearGradient>
+        <linearGradient id="hh-upper-fill" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor="#7B3FE4" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#7B3FE4" stopOpacity="0.05" />
+        </linearGradient>
+        <linearGradient id="hh-lower-fill" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor="#14B8A6" stopOpacity="0.05" />
+          <stop offset="100%" stopColor="#14B8A6" stopOpacity="0.25" />
+        </linearGradient>
+        <linearGradient id="hh-particle-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7B3FE4" />
+          <stop offset="100%" stopColor="#14B8A6" />
+        </linearGradient>
+        <radialGradient id="hh-glow-purple" cx="50%" cy="30%" r="50%">
+          <stop offset="0%" stopColor="#7B3FE4" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#7B3FE4" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="hh-glow-teal" cx="50%" cy="70%" r="50%">
+          <stop offset="0%" stopColor="#14B8A6" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#14B8A6" stopOpacity="0" />
+        </radialGradient>
+
+        <filter id="hh-glow">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="hh-ethereal">
+          <feGaussianBlur stdDeviation="10" />
+        </filter>
+        <filter id="hh-soft-glow">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        <clipPath id="hh-upper-clip">
+          <path d="M 230 70 L 370 70 L 310 185 L 290 185 Z" />
+        </clipPath>
+        <clipPath id="hh-lower-clip">
+          <path d="M 290 215 L 310 215 L 370 330 L 230 330 Z" />
+        </clipPath>
+      </defs>
+
+      <style>
+        {`
+          @keyframes hh-particle-fall {
+            0% { transform: translateY(0); opacity: 1; }
+            40% { opacity: 1; }
+            100% { transform: translateY(130px); opacity: 0; }
+          }
+          @keyframes hh-particle-fall-2 {
+            0% { transform: translateY(0); opacity: 0.8; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(130px); opacity: 0; }
+          }
+          @keyframes hh-particle-fall-3 {
+            0% { transform: translateY(0); opacity: 0.6; }
+            60% { opacity: 0.6; }
+            100% { transform: translateY(130px); opacity: 0; }
+          }
+          @keyframes hh-accumulate-pulse {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.35; }
+          }
+          @keyframes hh-frame-shimmer {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+          }
+          @keyframes hh-orbit {
+            from { transform: rotate(0deg) translateX(160px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(160px) rotate(-360deg); }
+          }
+          @keyframes hh-orbit-reverse {
+            from { transform: rotate(360deg) translateX(140px) rotate(-360deg); }
+            to { transform: rotate(0deg) translateX(140px) rotate(0deg); }
+          }
+          @keyframes hh-label-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+          }
+          .hh-p1 { animation: hh-particle-fall 2.5s ease-in infinite; }
+          .hh-p2 { animation: hh-particle-fall-2 2.5s ease-in 0.4s infinite; }
+          .hh-p3 { animation: hh-particle-fall-3 2.5s ease-in 0.8s infinite; }
+          .hh-p4 { animation: hh-particle-fall 2.5s ease-in 1.2s infinite; }
+          .hh-p5 { animation: hh-particle-fall-2 2.5s ease-in 1.6s infinite; }
+          .hh-p6 { animation: hh-particle-fall-3 2.5s ease-in 2.0s infinite; }
+          .hh-p7 { animation: hh-particle-fall 3s ease-in 0.2s infinite; }
+          .hh-p8 { animation: hh-particle-fall-2 3s ease-in 1.0s infinite; }
+          .hh-accumulate { animation: hh-accumulate-pulse 3s ease-in-out infinite; }
+          .hh-frame { animation: hh-frame-shimmer 4s ease-in-out infinite; }
+          .hh-orbit-1 { animation: hh-orbit 15s linear infinite; transform-origin: 300px 200px; }
+          .hh-orbit-2 { animation: hh-orbit-reverse 20s linear infinite; transform-origin: 300px 200px; }
+          .hh-label-up { animation: hh-label-float 3s ease-in-out infinite; }
+          .hh-label-down { animation: hh-label-float 3s ease-in-out 1.5s infinite; }
+        `}
+      </style>
+
+      {/* Background ethereal glows */}
+      <ellipse cx="300" cy="130" rx="180" ry="120" fill="url(#hh-glow-purple)" filter="url(#hh-ethereal)" />
+      <ellipse cx="300" cy="280" rx="180" ry="120" fill="url(#hh-glow-teal)" filter="url(#hh-ethereal)" />
+
+      {/* Orbital rings */}
+      <ellipse cx="300" cy="200" rx="160" ry="50" stroke="#7B3FE4" strokeWidth="0.5" fill="none" opacity="0.1" strokeDasharray="4 8" />
+      <ellipse cx="300" cy="200" rx="140" ry="40" stroke="#3B82F6" strokeWidth="0.5" fill="none" opacity="0.08" strokeDasharray="3 6" />
+
+      {/* Orbiting decorative elements */}
+      <g className="hh-orbit-1" opacity="0.4">
+        <circle r="4" fill="#7B3FE4" />
+      </g>
+      <g className="hh-orbit-2" opacity="0.3">
+        <circle r="3" fill="#14B8A6" />
+      </g>
+
+      {/* Hourglass frame */}
+      <g className="hh-frame">
+        {/* Top bar */}
+        <rect x="215" y="60" width="170" height="6" rx="3" fill="url(#hh-main-grad)" opacity="0.6" />
+        {/* Bottom bar */}
+        <rect x="215" y="334" width="170" height="6" rx="3" fill="url(#hh-main-grad)" opacity="0.6" />
+
+        {/* Left frame line */}
+        <path
+          d="M 230 66 L 230 170 Q 230 200 300 200 Q 230 200 230 230 L 230 334"
+          stroke="url(#hh-main-grad)"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* Right frame line */}
+        <path
+          d="M 370 66 L 370 170 Q 370 200 300 200 Q 370 200 370 230 L 370 334"
+          stroke="url(#hh-main-grad)"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
+      </g>
+
+      {/* Hourglass glass fill */}
+      <path
+        d="M 234 70 L 366 70 L 306 185 L 294 185 Z"
+        fill="url(#hh-glass-grad)"
+      />
+      <path
+        d="M 294 215 L 306 215 L 366 330 L 234 330 Z"
+        fill="url(#hh-glass-grad)"
+      />
+
+      {/* Upper chamber content - "AVE data collection" */}
+      <g clipPath="url(#hh-upper-clip)">
+        {/* Data particles in upper chamber (source signals) */}
+        <circle cx="280" cy="95" r="3" fill="#7B3FE4" opacity="0.6" />
+        <circle cx="310" cy="88" r="2.5" fill="#7B3FE4" opacity="0.5" />
+        <circle cx="295" cy="105" r="2" fill="#3B82F6" opacity="0.5" />
+        <circle cx="325" cy="98" r="3" fill="#3B82F6" opacity="0.4" />
+        <circle cx="268" cy="110" r="2.5" fill="#7B3FE4" opacity="0.4" />
+        <circle cx="340" cy="92" r="2" fill="#7B3FE4" opacity="0.3" />
+        <circle cx="300" cy="120" r="2" fill="#3B82F6" opacity="0.4" />
+        <circle cx="315" cy="115" r="2.5" fill="#7B3FE4" opacity="0.35" />
+        <circle cx="275" cy="125" r="1.5" fill="#3B82F6" opacity="0.3" />
+        <circle cx="330" cy="110" r="2" fill="#7B3FE4" opacity="0.3" />
+
+        {/* Mini chart signals inside upper chamber */}
+        <path d="M 270 130 L 280 125 L 290 132 L 300 118 L 310 128 L 320 120 L 330 125" stroke="#7B3FE4" strokeWidth="1" fill="none" opacity="0.25" />
+      </g>
+
+      {/* Neck / convergence zone */}
+      <circle cx="300" cy="200" r="8" fill="url(#hh-main-grad)" opacity="0.3" filter="url(#hh-soft-glow)" />
+      <circle cx="300" cy="200" r="3" fill="white" opacity="0.6" />
+
+      {/* Falling particles through the neck */}
+      <g>
+        <circle cx="298" cy="170" r="2" fill="#7B3FE4" className="hh-p1" />
+        <circle cx="302" cy="168" r="1.5" fill="#3B82F6" className="hh-p2" />
+        <circle cx="300" cy="165" r="2" fill="#7B3FE4" className="hh-p3" />
+        <circle cx="297" cy="172" r="1.5" fill="#3B82F6" className="hh-p4" />
+        <circle cx="303" cy="170" r="1" fill="#14B8A6" className="hh-p5" />
+        <circle cx="299" cy="167" r="1.5" fill="#7B3FE4" className="hh-p6" />
+        <circle cx="301" cy="173" r="1" fill="#3B82F6" className="hh-p7" />
+        <circle cx="300" cy="169" r="1.5" fill="#14B8A6" className="hh-p8" />
+      </g>
+
+      {/* Lower chamber content - "Polymarket execution" */}
+      <g clipPath="url(#hh-lower-clip)">
+        {/* Accumulated signal particles at the bottom */}
+        <g className="hh-accumulate">
+          <ellipse cx="300" cy="315" rx="55" ry="12" fill="#14B8A6" opacity="0.2" />
+          <ellipse cx="300" cy="310" rx="45" ry="8" fill="#14B8A6" opacity="0.15" />
+          <ellipse cx="300" cy="305" rx="35" ry="5" fill="#3B82F6" opacity="0.1" />
+        </g>
+
+        {/* Settled data points */}
+        <circle cx="285" cy="310" r="2" fill="#14B8A6" opacity="0.5" />
+        <circle cx="300" cy="308" r="2.5" fill="#14B8A6" opacity="0.6" />
+        <circle cx="315" cy="312" r="2" fill="#14B8A6" opacity="0.4" />
+        <circle cx="292" cy="315" r="1.5" fill="#3B82F6" opacity="0.4" />
+        <circle cx="308" cy="316" r="2" fill="#14B8A6" opacity="0.5" />
+        <circle cx="275" cy="318" r="2" fill="#14B8A6" opacity="0.3" />
+        <circle cx="325" cy="318" r="1.5" fill="#3B82F6" opacity="0.3" />
+
+        {/* Trade execution indicators */}
+        <g opacity="0.3">
+          <path d="M 270 280 L 280 275 L 280 285 Z" fill="#14B8A6" />
+          <path d="M 310 270 L 320 265 L 320 275 Z" fill="#14B8A6" />
+          <path d="M 290 260 L 300 255 L 300 265 Z" fill="#3B82F6" />
+        </g>
+      </g>
+
+      {/* Left side label - AVE Data Collection */}
+      <g className="hh-label-up">
+        <rect x="80" y="108" width="120" height="28" rx="8" fill="#7B3FE4" opacity="0.06" />
+        <text x="140" y="120" textAnchor="middle" fill="#7B3FE4" fontSize="10" fontWeight="600" opacity="0.7">
+          AVE Data Collection
+        </text>
+        <text x="140" y="132" textAnchor="middle" fill="#7B3FE4" fontSize="7" opacity="0.4">
+          4 Skills / Market Signals
+        </text>
+        {/* Arrow pointing to upper chamber */}
+        <line x1="200" y1="122" x2="228" y2="110" stroke="#7B3FE4" strokeWidth="1" opacity="0.3" strokeDasharray="3 3" />
+      </g>
+
+      {/* Right side label - Polymarket Execution */}
+      <g className="hh-label-down">
+        <rect x="400" y="268" width="130" height="28" rx="8" fill="#14B8A6" opacity="0.06" />
+        <text x="465" y="280" textAnchor="middle" fill="#14B8A6" fontSize="10" fontWeight="600" opacity="0.7">
+          Polymarket Execution
+        </text>
+        <text x="465" y="292" textAnchor="middle" fill="#14B8A6" fontSize="7" opacity="0.4">
+          Automated Trade Placement
+        </text>
+        {/* Arrow pointing to lower chamber */}
+        <line x1="400" y1="282" x2="372" y2="295" stroke="#14B8A6" strokeWidth="1" opacity="0.3" strokeDasharray="3 3" />
+      </g>
+
+      {/* Decorative floating elements around the hourglass */}
+      {/* Top-left data point */}
+      <g opacity="0.3">
+        <circle cx="180" cy="90" r="6" stroke="#7B3FE4" strokeWidth="0.8" fill="none" />
+        <circle cx="180" cy="90" r="2" fill="#7B3FE4" />
+      </g>
+      {/* Top-right data point */}
+      <g opacity="0.25">
+        <circle cx="420" cy="100" r="5" stroke="#3B82F6" strokeWidth="0.8" fill="none" />
+        <circle cx="420" cy="100" r="2" fill="#3B82F6" />
+      </g>
+      {/* Bottom-left */}
+      <g opacity="0.25">
+        <circle cx="190" cy="310" r="5" stroke="#14B8A6" strokeWidth="0.8" fill="none" />
+        <circle cx="190" cy="310" r="2" fill="#14B8A6" />
+      </g>
+      {/* Bottom-right */}
+      <g opacity="0.3">
+        <circle cx="410" cy="300" r="6" stroke="#14B8A6" strokeWidth="0.8" fill="none" />
+        <circle cx="410" cy="300" r="2" fill="#14B8A6" />
+      </g>
+
+      {/* Subtle connecting dots */}
+      <circle cx="160" cy="150" r="1.5" fill="#7B3FE4" opacity="0.2" />
+      <circle cx="440" cy="160" r="1.5" fill="#3B82F6" opacity="0.2" />
+      <circle cx="170" cy="250" r="1.5" fill="#3B82F6" opacity="0.15" />
+      <circle cx="430" cy="240" r="1.5" fill="#14B8A6" opacity="0.15" />
+    </svg>
+  );
+}
