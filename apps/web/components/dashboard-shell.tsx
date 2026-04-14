@@ -6,13 +6,11 @@ import { usePathname } from "next/navigation";
 import { LocaleToggle } from "./locale-toggle";
 
 const navItems = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Terminal" },
   { href: "/positions", label: "Positions" },
   { href: "/pnl", label: "P&L" },
   { href: "/trades", label: "Trades" },
-  { href: "/cashflow", label: "Cashflow" },
   { href: "/runs", label: "Runs" },
-  { href: "/reports", label: "Reports" }
 ];
 
 export function DashboardShell({ children }: { children: ReactNode }) {
@@ -24,9 +22,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <div className="dash-topbar-left">
           <div className="dash-logo-group">
             <span className="dash-logo">Hourglass</span>
-            <span className="dash-logo-tagline">On-chain Signal x Prediction Market</span>
+            <span className="dash-logo-tagline">On-chain Intelligence Terminal</span>
           </div>
-          <span className="dash-logo-badge">AVE Claw</span>
+          <span className="dash-logo-badge">LIVE</span>
         </div>
         <nav className="dash-nav">
           {navItems.map((item) => {
@@ -47,15 +45,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </header>
       <main className="dash-main">{children}</main>
       <footer className="dash-footer">
-        <span>AVE Claw Hackathon 2026 | Powered by AVE.ai + Polymarket</span>
-        <a
-          href="https://github.com/anthropics/ave-hackathon"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="dash-footer-link"
-        >
-          GitHub
-        </a>
+        <span>Hourglass Terminal v1.0 | AVE Claw x Polymarket</span>
       </footer>
     </div>
   );

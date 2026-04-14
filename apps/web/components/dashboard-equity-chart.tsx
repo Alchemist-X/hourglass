@@ -207,14 +207,14 @@ export function DashboardEquityChart({
                 offset="0%"
                 stopColor={
                   isUp
-                    ? "rgba(52, 211, 153, 0.30)"
-                    : "rgba(239, 68, 68, 0.30)"
+                    ? "rgba(0, 255, 136, 0.25)"
+                    : "rgba(255, 51, 102, 0.25)"
                 }
               />
               <stop
                 offset="100%"
                 stopColor={
-                  isUp ? "rgba(52, 211, 153, 0)" : "rgba(239, 68, 68, 0)"
+                  isUp ? "rgba(0, 255, 136, 0)" : "rgba(255, 51, 102, 0)"
                 }
               />
             </linearGradient>
@@ -227,7 +227,7 @@ export function DashboardEquityChart({
           <path
             d={linePath}
             fill="none"
-            stroke={isUp ? "#34d399" : "#ef4444"}
+            stroke={isUp ? "#00ff88" : "#ff3366"}
             strokeWidth="2.5"
             strokeLinejoin="round"
           />
@@ -237,7 +237,7 @@ export function DashboardEquityChart({
             cx={lastCx}
             cy={lastCy}
             r="4"
-            fill={isUp ? "#34d399" : "#ef4444"}
+            fill={isUp ? "#00ff88" : "#ff3366"}
             stroke="rgba(0,0,0,0.3)"
             strokeWidth="1"
           />
