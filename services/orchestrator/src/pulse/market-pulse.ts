@@ -38,6 +38,8 @@ interface RawPulseMarket {
     label?: string | null;
   }>;
   neg_risk?: boolean;
+  fees_enabled?: boolean;
+  fee_schedule?: { fee_rate?: number; exponent?: number };
 }
 
 interface RawPulseBucketStat {
@@ -113,6 +115,10 @@ export interface PulseCandidate {
   categorySource?: string | null;
   tags?: PulseTag[];
   negRisk?: boolean;
+  /** Whether the Gamma API reports fees as enabled for this neg-risk market. */
+  feesEnabled?: boolean;
+  /** Fee schedule from the Gamma API, used when negRisk + feesEnabled. */
+  feeSchedule?: { feeRate: number; exponent: number };
 }
 
 export interface PulseSnapshot {
@@ -213,7 +219,11 @@ function toPulseCandidate(market: RawPulseMarket): PulseCandidate {
           .map((tag) => toPulseTag(tag))
           .filter((tag): tag is PulseTag => tag != null)
       : [],
-    negRisk: typeof market.neg_risk === "boolean" ? market.neg_risk : false
+    negRisk: typeof market.neg_risk === "boolean" ? market.neg_risk : false,
+    feesEnabled: typeof market.fees_enabled === "boolean" ? market.fees_enabled : undefined,
+    feeSchedule: market.fee_schedule?.fee_rate != null
+      ? { feeRate: Number(market.fee_schedule.fee_rate), exponent: Number(market.fee_schedule.exponent ?? 1) }
+      : undefined
   };
 }
 

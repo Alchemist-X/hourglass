@@ -77,17 +77,44 @@ const CATEGORY_ALIASES: ReadonlyArray<{ pattern: string; canonical: string }> = 
  * matches.
  */
 /**
- * Neg-risk (multi-outcome) markets on Polymarket have 0% taker fees.
- * The complement mechanism replaces traditional fee charging.
- * Pass `negRisk: true` to override the category-based lookup.
+ * Neg-risk (multi-outcome) markets on Polymarket usually have 0% taker fees
+ * because the complement mechanism replaces traditional fee charging.
+ *
+ * However, some neg-risk markets (e.g. "Trump AG Pick") have `feesEnabled: true`
+ * with a real fee schedule from the Gamma API.  When `feesEnabled` is explicitly
+ * `true`, the provided `feeSchedule` rate is used instead of assuming 0%.
+ *
+ * Backward-compatible: callers that only pass `{ negRisk: true }` without
+ * `feesEnabled` will still get 0% fees (the legacy behavior).
  */
 const NEG_RISK_FEE_PARAMS: FeeParams = { feeRate: 0, exponent: 0 };
 
+export interface NegRiskFeeOptions {
+  negRisk?: boolean;
+  /**
+   * Whether the Gamma API reports fees as enabled for this market.
+   * Only relevant when `negRisk` is true.  When omitted, defaults to
+   * `false` for backward compatibility.
+   */
+  feesEnabled?: boolean;
+  /**
+   * The fee schedule from the Gamma API (e.g. `{ feeRate: 0.04, exponent: 1 }`).
+   * Used when `negRisk=true` AND `feesEnabled=true`.
+   */
+  feeSchedule?: FeeParams;
+}
+
 export function lookupCategoryFeeParams(
   categorySlug: string | null | undefined,
-  options?: { negRisk?: boolean }
+  options?: NegRiskFeeOptions
 ): FeeParams {
   if (options?.negRisk) {
+    // Some neg-risk markets have fees enabled (e.g. AG Pick = 4%).
+    // Use the provided fee schedule when feesEnabled is explicitly true.
+    if (options.feesEnabled && options.feeSchedule) {
+      return options.feeSchedule;
+    }
+    // feesEnabled not provided or false → legacy 0% behavior
     return NEG_RISK_FEE_PARAMS;
   }
 
@@ -272,8 +299,14 @@ export function verifyFeeEstimate(input: {
   categorySlug: string | null;
   actualBaseFee: number;
   negRisk?: boolean;
+  feesEnabled?: boolean;
+  feeSchedule?: FeeParams;
 }): FeeDiscrepancy {
-  const params = lookupCategoryFeeParams(input.categorySlug, { negRisk: input.negRisk });
+  const params = lookupCategoryFeeParams(input.categorySlug, {
+    negRisk: input.negRisk,
+    feesEnabled: input.feesEnabled,
+    feeSchedule: input.feeSchedule
+  });
   const estimatedHasFee = params.feeRate > 0;
   const actualHasFee = input.actualBaseFee > 0;
 

@@ -103,7 +103,7 @@ const MAX_SPREAD_FOR_GTC = 0.05;
  *
  * GTC is used when:
  * - The action is "open" (new position, no urgency)
- * - The market has taker fees (feeRate > 0 and not negRisk)
+ * - The market has taker fees (feeRate > 0, or negRisk with feesEnabled)
  * - The spread is reasonable (< 5%)
  *
  * FOK is used for everything else: close, reduce, stop-loss, fee-free
@@ -115,6 +115,7 @@ export function chooseOrderType(input: {
   bestBid: number | null;
   bestAsk: number | null;
   negRisk?: boolean;
+  feesEnabled?: boolean;
   feeRate?: number;
 }): { orderType: "FOK" | "GTC"; gtcLimitPrice: number | null } {
   // GTC disabled by default — set ENABLE_GTC_ORDERS=true to activate
@@ -132,8 +133,10 @@ export function chooseOrderType(input: {
     return { orderType: "FOK", gtcLimitPrice: null };
   }
 
-  // Fee-free markets: no savings from GTC
-  if (input.negRisk || (input.feeRate != null && input.feeRate === 0)) {
+  // Fee-free markets: no savings from GTC.
+  // negRisk markets are fee-free UNLESS feesEnabled is explicitly true.
+  const negRiskWithoutFees = input.negRisk && !input.feesEnabled;
+  if (negRiskWithoutFees || (input.feeRate != null && input.feeRate === 0)) {
     return { orderType: "FOK", gtcLimitPrice: null };
   }
 
@@ -291,20 +294,29 @@ export async function buildExecutionPlan(input: {
   > & { fixedOrderShares?: number | null };
   minTradeUsd: number;
   readBook: (tokenId: string) => Promise<PlanningOrderBookSnapshot | null>;
-  /** Optional pulse candidates lookup for fee metadata (categorySlug + negRisk). */
+  /** Optional pulse candidates lookup for fee metadata (categorySlug + negRisk + feesEnabled). */
   pulseCandidates?: Array<{
     clobTokenIds: string[];
     categorySlug?: string | null;
     negRisk?: boolean;
+    feesEnabled?: boolean;
+    feeSchedule?: { feeRate: number; exponent: number };
   }>;
 }) {
   // Build token_id → candidate map for fee metadata lookup
-  const candidateByToken = new Map<string, { categorySlug: string | null; negRisk: boolean }>();
+  const candidateByToken = new Map<string, {
+    categorySlug: string | null;
+    negRisk: boolean;
+    feesEnabled?: boolean;
+    feeSchedule?: { feeRate: number; exponent: number };
+  }>();
   for (const c of input.pulseCandidates ?? []) {
     for (const tokenId of c.clobTokenIds ?? []) {
       candidateByToken.set(tokenId, {
         categorySlug: c.categorySlug ?? null,
-        negRisk: c.negRisk ?? false
+        negRisk: c.negRisk ?? false,
+        feesEnabled: c.feesEnabled,
+        feeSchedule: c.feeSchedule
       });
     }
   }
@@ -439,6 +451,7 @@ export async function buildExecutionPlan(input: {
         bestBid: book.bestBid ?? null,
         bestAsk: book.bestAsk ?? null,
         negRisk: feeMeta.negRisk,
+        feesEnabled: feeMeta.feesEnabled,
         feeRate: (decision as any).feeRate
       });
 
