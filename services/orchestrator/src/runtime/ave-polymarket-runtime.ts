@@ -15,6 +15,7 @@
  * on-chain activity -- providing quantitative signals that others miss.
  */
 
+import type { AveClient, MockAveClient } from "@autopoly/ave-monitor";
 import type { Artifact, TradeDecisionSet } from "@autopoly/contracts";
 import type { OrchestratorConfig } from "../config.js";
 import { buildArtifactRelativePath, writeStoredArtifact } from "../lib/artifacts.js";
@@ -32,6 +33,9 @@ import {
   type AveEnrichmentClient,
   type EnrichedPulseCandidate,
 } from "../pulse/ave-signal-enrichment.js";
+import { matchCryptoMarkets, type MatchedMarket } from "../pulse/ave-market-matcher.js";
+import { generateCryptoSignals, type CryptoSignal } from "../pulse/ave-crypto-signals.js";
+import { buildProbabilityEstimate, type ProbabilityEstimate } from "../pulse/ave-signal-to-probability.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,10 +44,14 @@ import {
 export interface AvePolymarketRuntimeConfig {
   /** AVE API client for on-chain signal enrichment */
   aveClient?: AveEnrichmentClient;
+  /** AVE API client for focused BTC/ETH crypto signal generation */
+  cryptoSignalClient?: AveClient | MockAveClient;
   /** Chains to query for AVE data */
   aveChains?: string[];
   /** Max tokens to search per candidate */
   maxTokensPerCandidate?: number;
+  /** Minimum absolute edge required to proceed with a crypto market (default: 0.02) */
+  minEdge?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +124,12 @@ async function buildRuntimeLogArtifact(input: {
     withAnomalies: number;
     totalSignals: number;
   };
+  focusedPipeline?: {
+    matchedMarkets: number;
+    cryptoSignals: number;
+    estimatesWithEdge: number;
+    minEdge: number;
+  };
 }): Promise<Artifact> {
   const publishedAtUtc = new Date().toISOString();
   const relativePath = buildArtifactRelativePath({
@@ -127,6 +141,17 @@ async function buildRuntimeLogArtifact(input: {
     extension: "md",
   });
 
+  const focusedSection = input.focusedPipeline
+    ? [
+        "",
+        "## Focused BTC/ETH Pipeline",
+        "",
+        `- Matched BTC/ETH price-target markets: ${input.focusedPipeline.matchedMarkets}`,
+        `- Crypto signals generated: ${input.focusedPipeline.cryptoSignals}`,
+        `- Markets with sufficient edge (>= ${input.focusedPipeline.minEdge}): ${input.focusedPipeline.estimatesWithEdge}`,
+      ]
+    : [];
+
   const content = truncate(
     [
       "# AVE + Polymarket Combined Runtime Log",
@@ -134,6 +159,7 @@ async function buildRuntimeLogArtifact(input: {
       "## Pipeline",
       "",
       "1. Fetch Polymarket prediction markets (original market-pulse)",
+      "1b. Focused BTC/ETH pipeline (market match + AVE signals + probability + edge)",
       "2. Enrich candidates with AVE on-chain signals",
       "3. Run AI decision with enriched context",
       "4. Review existing positions",
@@ -148,6 +174,7 @@ async function buildRuntimeLogArtifact(input: {
       `- Markets with risk assessment: ${input.enrichmentSummary.withRiskAssessment}`,
       `- Markets with anomalies: ${input.enrichmentSummary.withAnomalies}`,
       `- Total AVE signals generated: ${input.enrichmentSummary.totalSignals}`,
+      ...focusedSection,
       "",
       "## Decision Statistics",
       "",
@@ -235,30 +262,120 @@ export class AvePolymarketRuntime implements AgentRuntime {
       };
     }
 
+    // --- Step 1b: Focused BTC/ETH Pipeline ---
+    // Filter candidates to BTC/ETH price-target markets, generate
+    // crypto signals via AVE, and compute probability edge.
+    const minEdge = this.aveConfig?.minEdge ?? 0.02;
+    const matchedCryptoMarkets = matchCryptoMarkets(context.pulse.candidates);
+    let focusedEstimates: ProbabilityEstimate[] = [];
+    let cryptoSignals: CryptoSignal[] = [];
+    const focusedMarketSlugs = new Set<string>();
+
+    if (matchedCryptoMarkets.length > 0 && this.aveConfig?.cryptoSignalClient) {
+      console.log(
+        `[ave-polymarket] Focused pipeline: matched ${matchedCryptoMarkets.length} BTC/ETH price-target market(s)`
+      );
+      for (const m of matchedCryptoMarkets) {
+        console.log(
+          `[ave-polymarket]   - ${m.token} ${m.targetDirection} $${m.targetPrice} (${m.daysToResolution}d) :: ${m.candidate.question}`
+        );
+      }
+
+      // Generate crypto signals from AVE (BTC + ETH)
+      const uniqueTokens = [
+        ...new Set(matchedCryptoMarkets.map((m) => m.token)),
+      ];
+      cryptoSignals = await generateCryptoSignals(
+        this.aveConfig.cryptoSignalClient,
+        uniqueTokens
+      );
+
+      for (const sig of cryptoSignals) {
+        console.log(
+          `[ave-polymarket]   AVE signal ${sig.token}: trend=${sig.trendScore.toFixed(3)} whale=${sig.whalePressure.toFixed(3)} sentiment=${sig.sentimentScore.toFixed(3)} overall=${sig.overallScore.toFixed(4)} price=$${sig.price.toFixed(2)}`
+        );
+      }
+
+      // Build a signal lookup by token
+      const signalByToken = new Map<string, CryptoSignal>();
+      for (const sig of cryptoSignals) {
+        signalByToken.set(sig.token, sig);
+      }
+
+      // Calculate edge for each matched market
+      for (const matched of matchedCryptoMarkets) {
+        const signal = signalByToken.get(matched.token);
+        if (!signal) continue;
+
+        const marketImpliedProb = matched.candidate.outcomePrices[0] ?? 0.5;
+
+        const estimate = buildProbabilityEstimate({
+          marketQuestion: matched.candidate.question,
+          token: matched.token,
+          currentPrice: signal.price,
+          targetPrice: matched.targetPrice,
+          targetDirection: matched.targetDirection,
+          aveScore: signal.overallScore,
+          daysToResolution: matched.daysToResolution,
+          marketImpliedProbability: marketImpliedProb,
+        });
+
+        console.log(
+          `[ave-polymarket]   Edge for "${matched.candidate.question}": est=${estimate.estimatedProbability.toFixed(3)} mkt=${estimate.marketImpliedProbability.toFixed(3)} edge=${estimate.edge >= 0 ? "+" : ""}${estimate.edge.toFixed(4)} conf=${estimate.confidence.toFixed(3)}`
+        );
+
+        // Only keep markets with sufficient edge
+        if (Math.abs(estimate.edge) >= minEdge) {
+          focusedEstimates.push(estimate);
+          focusedMarketSlugs.add(matched.candidate.marketSlug);
+        }
+      }
+
+      console.log(
+        `[ave-polymarket] Focused pipeline: ${focusedEstimates.length}/${matchedCryptoMarkets.length} markets pass |edge| >= ${minEdge} threshold`
+      );
+    } else if (matchedCryptoMarkets.length === 0) {
+      console.log(
+        "[ave-polymarket] Focused pipeline: no BTC/ETH price-target markets found, using original enrichment path"
+      );
+    }
+
     // --- Step 2: Build enriched context ---
     // Inject AVE signal summaries into the pulse context so the
     // decision engine can use them. The enrichment data is appended
     // to each candidate's question as additional context.
+    // For focused-pipeline markets, also append the probability estimate.
     const enrichedContext: RuntimeExecutionContext = {
       ...context,
       pulse: {
         ...context.pulse,
         candidates: enrichedCandidates.map((ec) => {
-          if (ec.aveSignals.length === 0) {
-            return ec;
+          // Check if this candidate was enhanced by the focused pipeline
+          const focusedEstimate = focusedEstimates.find(
+            (est) => est.marketQuestion === ec.question
+          );
+          let questionText = ec.question;
+
+          // Append focused pipeline estimate if available
+          if (focusedEstimate) {
+            questionText = `${questionText} [AVE FOCUSED: ${focusedEstimate.token} score=${focusedEstimate.aveScore.toFixed(3)} est_prob=${focusedEstimate.estimatedProbability.toFixed(3)} edge=${focusedEstimate.edge >= 0 ? "+" : ""}${focusedEstimate.edge.toFixed(4)} conf=${focusedEstimate.confidence.toFixed(3)}]`;
           }
-          // Append AVE signal summary to the question text
-          const signalSummary = ec.aveSignals
-            .map((s) => `[AVE ${s.type}] ${s.description}`)
-            .join(" | ");
-          const anomalySummary =
-            ec.aveAnomalies && ec.aveAnomalies.length > 0
-              ? ` | ANOMALIES: ${ec.aveAnomalies.join("; ")}`
-              : "";
-          return {
-            ...ec,
-            question: `${ec.question} [AVE ON-CHAIN: ${signalSummary}${anomalySummary}]`,
-          };
+
+          // Append original enrichment signals if available
+          if (ec.aveSignals.length > 0) {
+            const signalSummary = ec.aveSignals
+              .map((s) => `[AVE ${s.type}] ${s.description}`)
+              .join(" | ");
+            const anomalySummary =
+              ec.aveAnomalies && ec.aveAnomalies.length > 0
+                ? ` | ANOMALIES: ${ec.aveAnomalies.join("; ")}`
+                : "";
+            questionText = `${questionText} [AVE ON-CHAIN: ${signalSummary}${anomalySummary}]`;
+          }
+
+          return questionText !== ec.question
+            ? { ...ec, question: questionText }
+            : ec;
         }),
       },
     };
@@ -300,6 +417,15 @@ export class AvePolymarketRuntime implements AgentRuntime {
       entryCount: entryPlans.length,
       skippedEntryCount: composition.skippedEntries.length,
       enrichmentSummary,
+      focusedPipeline:
+        matchedCryptoMarkets.length > 0
+          ? {
+              matchedMarkets: matchedCryptoMarkets.length,
+              cryptoSignals: cryptoSignals.length,
+              estimatesWithEdge: focusedEstimates.length,
+              minEdge,
+            }
+          : undefined,
     });
 
     const pulseArtifact: Artifact = {
@@ -324,16 +450,20 @@ export class AvePolymarketRuntime implements AgentRuntime {
         "AVE+Polymarket combined runtime:",
         `enriched ${enrichmentSummary.totalCandidates} Polymarket candidates with ${enrichmentSummary.totalSignals} AVE on-chain signals`,
         `(${enrichmentSummary.cryptoRelated} crypto-related, ${enrichmentSummary.withAnomalies} with anomalies).`,
+        matchedCryptoMarkets.length > 0
+          ? `Focused BTC/ETH pipeline: ${matchedCryptoMarkets.length} matched, ${focusedEstimates.length} with edge >= ${minEdge}.`
+          : "Focused BTC/ETH pipeline: no crypto price-target markets found.",
         "Used Position Review + Pulse Entry Planner + Decision Composer",
         "with AVE signal context for improved probability estimation.",
       ].join(" "),
       reasoningMd: [
         "Decision strategy: ave-polymarket (combined pipeline)",
-        "Structure: AVE Enrichment + Position Review + Pulse Entry Planner + Decision Composer",
+        "Structure: AVE Enrichment + Focused BTC/ETH Pipeline + Position Review + Pulse Entry Planner + Decision Composer",
         `Pulse tradeable: ${context.pulse.tradeable ? "yes" : "no"}`,
         `AVE enrichment: ${enrichmentSummary.totalSignals} signals from ${enrichmentSummary.cryptoRelated} crypto-related markets`,
         `AVE anomalies detected: ${enrichmentSummary.withAnomalies}`,
         `AVE risk assessments: ${enrichmentSummary.withRiskAssessment}`,
+        `Focused pipeline: ${matchedCryptoMarkets.length} BTC/ETH markets matched, ${cryptoSignals.length} crypto signals generated, ${focusedEstimates.length} markets with |edge| >= ${minEdge}`,
         `Position reviews: ${positionReviews.length}`,
         `Review actions: hold ${reviewActionCounts.hold} / reduce ${reviewActionCounts.reduce} / close ${reviewActionCounts.close}`,
         `Pulse entry plans: ${entryPlans.length}`,
@@ -343,6 +473,26 @@ export class AvePolymarketRuntime implements AgentRuntime {
       logsMd: JSON.stringify(
         {
           enrichmentSummary,
+          focusedPipeline: {
+            matchedMarkets: matchedCryptoMarkets.length,
+            cryptoSignals: cryptoSignals.map((s) => ({
+              token: s.token,
+              price: s.price,
+              trendScore: s.trendScore,
+              whalePressure: s.whalePressure,
+              sentimentScore: s.sentimentScore,
+              overallScore: s.overallScore,
+            })),
+            estimates: focusedEstimates.map((e) => ({
+              token: e.token,
+              targetPrice: e.targetPrice,
+              direction: e.targetDirection,
+              estimatedProb: e.estimatedProbability,
+              marketProb: e.marketImpliedProbability,
+              edge: e.edge,
+              confidence: e.confidence,
+            })),
+          },
           positionReviews,
           entryPlans,
           skippedEntries: composition.skippedEntries,

@@ -34,6 +34,14 @@ import {
   type AvePosition,
   type AvePositionReview,
 } from "../services/orchestrator/src/review/ave-position-review.ts";
+import {
+  generateCryptoSignals,
+  type CryptoSignal,
+} from "../services/orchestrator/src/pulse/ave-crypto-signals.ts";
+import {
+  buildProbabilityEstimate,
+  type ProbabilityEstimate,
+} from "../services/orchestrator/src/pulse/ave-signal-to-probability.ts";
 
 // ---------------------------------------------------------------------------
 // ANSI helpers (lightweight -- no dependency on terminal-ui internals)
@@ -524,6 +532,89 @@ function printRiskSummary(
   }
 }
 
+function printFocusedPipeline(signals: CryptoSignal[], estimates: ProbabilityEstimate[]): void {
+  sectionHeader("7. Focused BTC/ETH Pipeline -- 4 AVE Skills");
+
+  console.log("");
+  console.log(
+    `  ${bold(color(C.magenta, "\u{1F4CA} \u5B9E\u65F6\u4EF7\u683C \u2192 \u{1F4C8} K\u7EBF\u5206\u6790 \u2192 \u{1F40B} \u9CB8\u9C7C\u8FFD\u8E2A \u2192 \u{1F4C9} \u4E70\u5356\u6BD4 \u2192 \u7EFC\u5408\u5F97\u5206"))}`
+  );
+  console.log("");
+
+  for (const sig of signals) {
+    subHeader(`${sig.token} Signal Breakdown`);
+
+    // Price
+    console.log(`  ${bold("\u{1F4CA} \u5B9E\u65F6\u4EF7\u683C")}  ${color(C.white, formatUsd(sig.price))}`);
+    console.log("");
+
+    // K-line analysis
+    const kl = sig.details.klines;
+    const trendColor = sig.trendScore > 0 ? C.green : sig.trendScore < 0 ? C.red : C.gray;
+    console.log(`  ${bold("\u{1F4C8} K\u7EBF\u5206\u6790 (Trend Score)")}`);
+    console.log(`     MA20: ${formatUsd(kl.ma20)}  |  MA50: ${formatUsd(kl.ma50)}  |  MACD: ${kl.macdSignal}  |  Vol: ${(kl.volatility * 100).toFixed(2)}%`);
+    console.log(`     ${dim("Score:")} ${color(trendColor, bold(sig.trendScore.toFixed(3)))}`);
+    console.log("");
+
+    // Whale tracking
+    const wh = sig.details.whales;
+    const whaleColor = sig.whalePressure > 0 ? C.green : sig.whalePressure < 0 ? C.red : C.gray;
+    console.log(`  ${bold("\u{1F40B} \u9CB8\u9C7C\u8FFD\u8E2A (Whale Pressure)")}`);
+    console.log(`     Buy Vol: ${formatUsd(wh.buyVolume)}  |  Sell Vol: ${formatUsd(wh.sellVolume)}  |  Net Ratio: ${wh.netRatio.toFixed(4)}  |  Large Trades: ${wh.largeTradeCount}`);
+    console.log(`     ${dim("Score:")} ${color(whaleColor, bold(sig.whalePressure.toFixed(3)))}`);
+    console.log("");
+
+    // Buy/sell ratio sentiment
+    const st = sig.details.sentiment;
+    const sentColor = sig.sentimentScore > 0 ? C.green : sig.sentimentScore < 0 ? C.red : C.gray;
+    console.log(`  ${bold("\u{1F4C9} \u4E70\u5356\u6BD4 (Sentiment Score)")}`);
+    console.log(`     5m: ${st.buy5m}B/${st.sell5m}S  |  1h: ${st.buy1h}B/${st.sell1h}S  |  6h: ${st.buy6h}B/${st.sell6h}S`);
+    console.log(`     ${dim("Score:")} ${color(sentColor, bold(sig.sentimentScore.toFixed(3)))}`);
+    console.log("");
+
+    // Overall composite score
+    const overallColor = sig.overallScore > 0 ? C.green : sig.overallScore < 0 ? C.red : C.gray;
+    console.log(`  ${bold("\u{1F3AF} \u7EFC\u5408\u5F97\u5206 (Overall)")}`);
+    console.log(`     ${dim("Formula: trend*0.4 + whale*0.3 + sentiment*0.3")}`);
+    console.log(`     ${color(overallColor, bold(`${sig.overallScore >= 0 ? "+" : ""}${sig.overallScore.toFixed(4)}`))}`);
+  }
+
+  if (estimates.length > 0) {
+    subHeader("Probability Estimates & Edge");
+
+    const header = [
+      padRight("Market", 40),
+      padLeft("Token", 5),
+      padLeft("Target", 10),
+      padLeft("Est.Prob", 8),
+      padLeft("Mkt.Prob", 8),
+      padLeft("Edge", 8),
+      padLeft("Conf", 6),
+    ].join("  ");
+    console.log(`  ${bold(header)}`);
+    console.log(`  ${hr("-", header.length)}`);
+
+    for (const est of estimates) {
+      const edgeColor = Math.abs(est.edge) >= 0.02
+        ? (est.edge > 0 ? C.green : C.red)
+        : C.gray;
+      const question = est.marketQuestion.length > 40
+        ? est.marketQuestion.slice(0, 37) + "..."
+        : est.marketQuestion;
+      const row = [
+        padRight(question, 40),
+        padLeft(est.token, 5),
+        padLeft(`$${est.targetPrice.toLocaleString()}`, 10),
+        padLeft(est.estimatedProbability.toFixed(3), 8),
+        padLeft(est.marketImpliedProbability.toFixed(3), 8),
+        padLeft(color(edgeColor, `${est.edge >= 0 ? "+" : ""}${est.edge.toFixed(4)}`), 8 + 9),
+        padLeft(est.confidence.toFixed(3), 6),
+      ].join("  ");
+      console.log(`  ${row}`);
+    }
+  }
+}
+
 function printFooter(durationMs: number): void {
   console.log("");
   console.log(hr("="));
@@ -598,6 +689,53 @@ async function main(): Promise<void> {
   // Step 6: Print signals and risk summary
   printSignals(entryPlans, reviews);
   printRiskSummary(entryPlans, reviews, positions);
+
+  // Step 7: Focused BTC/ETH pipeline with 4 AVE Skills
+  const focusedClient = new MockAveClient({ volatility: 0.005, seed: 42 });
+  const cryptoSignals = await generateCryptoSignals(focusedClient, ["BTC", "ETH"]);
+
+  // Build mock probability estimates for demo price targets
+  const mockPriceTargets: Array<{
+    question: string;
+    token: string;
+    targetPrice: number;
+    direction: "above" | "below" | "hit";
+    days: number;
+    mktProb: number;
+  }> = [
+    { question: "Will Bitcoin hit $100,000 by end of 2026?", token: "BTC", targetPrice: 100_000, direction: "hit", days: 260, mktProb: 0.62 },
+    { question: "Will Bitcoin price be above $120,000?", token: "BTC", targetPrice: 120_000, direction: "above", days: 180, mktProb: 0.35 },
+    { question: "Will Bitcoin dip below $60,000?", token: "BTC", targetPrice: 60_000, direction: "below", days: 90, mktProb: 0.18 },
+    { question: "Will Ethereum hit $5,000 in 2026?", token: "ETH", targetPrice: 5_000, direction: "hit", days: 260, mktProb: 0.40 },
+    { question: "Will Ethereum price be above $4,000?", token: "ETH", targetPrice: 4_000, direction: "above", days: 120, mktProb: 0.52 },
+    { question: "Will ETH reach $6,000?", token: "ETH", targetPrice: 6_000, direction: "above", days: 300, mktProb: 0.22 },
+    { question: "Will BTC hit $150,000 by 2027?", token: "BTC", targetPrice: 150_000, direction: "hit", days: 365, mktProb: 0.28 },
+  ];
+
+  const signalByToken = new Map<string, CryptoSignal>();
+  for (const sig of cryptoSignals) {
+    signalByToken.set(sig.token, sig);
+  }
+
+  const estimates: ProbabilityEstimate[] = [];
+  for (const target of mockPriceTargets) {
+    const signal = signalByToken.get(target.token);
+    if (!signal) continue;
+    estimates.push(
+      buildProbabilityEstimate({
+        marketQuestion: target.question,
+        token: target.token,
+        currentPrice: signal.price,
+        targetPrice: target.targetPrice,
+        targetDirection: target.direction,
+        aveScore: signal.overallScore,
+        daysToResolution: target.days,
+        marketImpliedProbability: target.mktProb,
+      })
+    );
+  }
+
+  printFocusedPipeline(cryptoSignals, estimates);
 
   const durationMs = Date.now() - startMs;
   printFooter(durationMs);
