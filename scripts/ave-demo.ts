@@ -265,6 +265,46 @@ async function fetchPolymarketCryptoMarkets(): Promise<PulseCandidate[]> {
     }
   }
 
+  // Strategy 3: Directly fetch known high-volume BTC/ETH event slugs. These are
+  // the flagship multi-outcome price markets (e.g. "Bitcoin above __ on April
+  // 14?" / "What price will Bitcoin hit in April?") that carry the deepest
+  // liquidity and are the most realistic demo targets. Fetching by slug
+  // guarantees we capture them regardless of pagination / tag coverage.
+  const CURATED_EVENT_SLUGS = [
+    "bitcoin-above-on-april-14",
+    "bitcoin-above-on-april-15",
+    "bitcoin-price-on-april-14",
+    "what-price-will-bitcoin-hit-in-april-2026",
+    "what-price-will-bitcoin-hit-april-13-19",
+    "bitcoin-up-or-down-on-april-14-2026",
+    "ethereum-above-on-april-14",
+    "what-price-will-ethereum-hit-in-april",
+  ] as const;
+
+  for (const slug of CURATED_EVENT_SLUGS) {
+    try {
+      const url = `https://gamma-api.polymarket.com/events?slug=${slug}`;
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) continue;
+      const events = (await res.json()) as GammaEvent[];
+      for (const event of events) {
+        for (const market of event.markets ?? []) {
+          if (market.active === false || market.closed === true) continue;
+          const q = market.question?.toLowerCase() ?? "";
+          const hasCrypto = /\b(bitcoin|btc|ethereum|eth)\b/i.test(q);
+          if (hasCrypto) {
+            addMarket(market, event.slug);
+          }
+        }
+      }
+    } catch (err) {
+      // Silent: individual slug failures shouldn't break the pipeline.
+    }
+  }
+
   write(`  ${c(C.green, `\u626B\u63CF\u4E86 ${eventsFetched} \u4E2A\u4E8B\u4EF6\uFF0C\u83B7\u53D6\u4E86 ${allRaw.length} \u4E2A BTC/ETH \u76F8\u5173\u5E02\u573A`)}`);
 
   return allRaw.map((m): PulseCandidate => {
@@ -299,23 +339,166 @@ async function fetchPolymarketCryptoMarkets(): Promise<PulseCandidate[]> {
 async function createAveClientWithFallback(): Promise<{
   client: AveClient | MockAveClient;
   isLive: boolean;
+  apiKey: string;
+  baseUrl: string;
+  fallbackReason?: string;
 }> {
   const apiKey = process.env.AVE_API_KEY?.trim() ?? "";
   const baseUrl = process.env.AVE_API_BASE_URL?.trim() ?? "https://openapi.avedata.org/api/v1";
 
   if (!apiKey) {
-    write(`  ${c(C.yellow, "\u26A0\uFE0F  AVE API \u79BB\u7EBF\uFF0C\u4F7F\u7528\u6A21\u62DF\u6570\u636E")}`);
-    return { client: new MockAveClient(), isLive: false };
+    write(`  ${c(C.yellow, "\u26A0\uFE0F  AVE_API_KEY \u672A\u914D\u7F6E\uFF0C\u56DE\u9000\u6A21\u62DF\u6570\u636E")}`);
+    return { client: new MockAveClient(), isLive: false, apiKey, baseUrl, fallbackReason: "AVE_API_KEY missing" };
   }
 
   const realClient = new AveClient({ apiKey, baseUrl, timeout: 15_000 });
   try {
     const chains = await realClient.getSupportedChains();
     write(`  ${c(C.green, `\u2705 AVE API \u5728\u7EBF (${chains.length} \u6761\u94FE\u652F\u6301)`)}`);
-    return { client: realClient, isLive: true };
+    return { client: realClient, isLive: true, apiKey, baseUrl };
   } catch (err) {
-    write(`  ${c(C.yellow, `\u26A0\uFE0F  AVE API \u79BB\u7EBF (${err instanceof Error ? err.message : String(err)})\uFF0C\u4F7F\u7528\u6A21\u62DF\u6570\u636E`)}`);
-    return { client: new MockAveClient(), isLive: false };
+    const reason = err instanceof Error ? err.message : String(err);
+    write(`  ${c(C.yellow, `\u26A0\uFE0F  AVE API \u79BB\u7EBF (${reason})\uFF0C\u4F7F\u7528\u6A21\u62DF\u6570\u636E`)}`);
+    return { client: new MockAveClient(), isLive: false, apiKey, baseUrl, fallbackReason: reason };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Raw AVE API capture helpers
+// ---------------------------------------------------------------------------
+
+interface AveRawCall {
+  readonly method: "GET" | "POST";
+  readonly url: string;
+  readonly status: number;
+  readonly ok: boolean;
+  readonly elapsedMs: number;
+  readonly snippet: string;
+  readonly error?: string;
+}
+
+/**
+ * Truncate a JSON payload to the first N chars for terminal-friendly display.
+ * Preserves basic structural indentation so the snippet is still readable.
+ */
+function jsonSnippet(raw: unknown, maxChars = 420): string {
+  let text: string;
+  try {
+    text = JSON.stringify(raw, null, 2);
+  } catch {
+    text = String(raw);
+  }
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}\n  ... (${text.length - maxChars} \u4F59\u5B57\u8282\u622A\u53BB)`;
+}
+
+/**
+ * Make a single AVE HTTP call, returning both the parsed data and a
+ * metadata record describing the raw request/response. Failures are
+ * captured into the metadata record so the demo can still print them.
+ */
+async function probeAveEndpoint(args: {
+  method: "GET" | "POST";
+  url: string;
+  apiKey: string;
+  body?: unknown;
+}): Promise<AveRawCall> {
+  const started = Date.now();
+  try {
+    const headers: Record<string, string> = {
+      "X-API-KEY": args.apiKey,
+      Accept: "application/json",
+    };
+    if (args.body !== undefined) headers["Content-Type"] = "application/json";
+
+    const response = await fetch(args.url, {
+      method: args.method,
+      headers,
+      body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
+      signal: AbortSignal.timeout(12_000),
+    });
+    const elapsedMs = Date.now() - started;
+    const rawText = await response.text().catch(() => "(unreadable body)");
+    let parsed: unknown = rawText;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      // leave as text
+    }
+    return {
+      method: args.method,
+      url: args.url,
+      status: response.status,
+      ok: response.ok,
+      elapsedMs,
+      snippet: jsonSnippet(parsed),
+    };
+  } catch (err) {
+    const elapsedMs = Date.now() - started;
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      method: args.method,
+      url: args.url,
+      status: 0,
+      ok: false,
+      elapsedMs,
+      snippet: "(no response body)",
+      error: message,
+    };
+  }
+}
+
+/**
+ * Probe the two most load-bearing AVE endpoints (token price + klines)
+ * and return the raw-call records for terminal display. These are the
+ * same endpoints the signal pipeline uses, so printing them gives the
+ * viewer a transparent look at the real network traffic.
+ */
+async function probeAveForDisplay(apiKey: string, baseUrl: string): Promise<AveRawCall[]> {
+  const WBTC = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
+  const cleanBase = baseUrl.replace(/\/+$/, "");
+
+  const priceCall = probeAveEndpoint({
+    method: "GET",
+    url: `${cleanBase}/token/price?token_addresses=${WBTC}`,
+    apiKey,
+  });
+  const klineCall = probeAveEndpoint({
+    method: "GET",
+    url: `${cleanBase}/token/kline/${WBTC}?interval=60&limit=5`,
+    apiKey,
+  });
+
+  return Promise.all([priceCall, klineCall]);
+}
+
+function printAveRawResponses(calls: readonly AveRawCall[], isLive: boolean, fallbackReason?: string): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 AVE API \u539F\u59CB\u54CD\u5E94 ${isLive ? "(\u771F\u5B9E\u6570\u636E)" : "(\u5C1D\u8BD5\u540E\u56DE\u9000)"} ${ "\u2501".repeat(24)}`));
+  write("");
+
+  if (!isLive && fallbackReason) {
+    write(`  ${c(C.yellow, `\u26A0\uFE0F  \u56DE\u9000\u539F\u56E0: ${fallbackReason}`)}`);
+    write(`  ${d("\u4EE5\u4E0B\u4E3A\u5B9E\u9645\u8C03\u7528\u5C1D\u8BD5\u7684\u54CD\u5E94\uFF1A")}`);
+    write("");
+  }
+
+  for (const call of calls) {
+    const statusLabel = call.ok
+      ? c(C.green, `\u2705 ${call.status} OK`)
+      : call.status > 0
+        ? c(C.red, `\u274C ${call.status}`)
+        : c(C.red, `\u274C \u7F51\u7EDC\u5931\u8D25`);
+    write(`  ${cb(C.white, "\u8C03\u7528:")} ${c(C.blue, `${call.method} ${call.url}`)}`);
+    write(`  ${cb(C.white, "\u72B6\u6001:")} ${statusLabel} ${d(`(${call.elapsedMs}ms)`)}`);
+    if (call.error) {
+      write(`  ${c(C.red, `\u9519\u8BEF: ${call.error}`)}`);
+    }
+    write(`  ${cb(C.white, "\u54CD\u5E94\u6570\u636E\uFF08\u622A\u53D6\uFF09:")}`);
+    for (const line of call.snippet.split("\n")) {
+      write(`    ${d(line)}`);
+    }
+    write("");
   }
 }
 
@@ -352,6 +535,99 @@ function printBanner(): void {
   write(cb(C.cyan, bottom));
 }
 
+// ---------------------------------------------------------------------------
+// External resource links -- printed at the top of the demo so viewers can
+// independently verify the live systems (code, dashboard, on-chain profile).
+// ---------------------------------------------------------------------------
+
+const RESOURCE_LINKS = {
+  github: "https://github.com/Alchemist-X/hourglass",
+  dashboard: "https://hourglass-eta.vercel.app",
+  profile: "https://polymarket.com/profile/0xc78873644e582cb950f1af880c4f3ef3c11f2936",
+  profileShort: "https://polymarket.com/profile/0xc78873...2936",
+} as const;
+
+function printResources(): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 \u8D44\u6E90\u94FE\u63A5 ${ "\u2501".repeat(44)}`));
+  write("");
+  write(`  \u{1F4C2} GitHub:     ${c(C.blue, RESOURCE_LINKS.github)}`);
+  write(`  \u{1F310} Dashboard:  ${c(C.blue, RESOURCE_LINKS.dashboard)}`);
+  write(`  \u{1F464} Polymarket: ${c(C.blue, RESOURCE_LINKS.profileShort)}`);
+}
+
+// ---------------------------------------------------------------------------
+// Realistic market filter
+//
+// The Polymarket feed contains joke/long-tail markets like "BTC $1M before
+// GTA VI" or "$500K before Satoshi returns". Those targets are so far from
+// spot price that they are structurally inert for a live demo. We drop:
+//   - targets > 1.5x current price, or < 0.6x current price (too far)
+//   - questions whose text contains known joke/crossover phrases
+//
+// This leaves the realistic "$95K / $100K / $105K this week/month" markets
+// that make up the meaningful trading surface.
+// ---------------------------------------------------------------------------
+
+const MAX_TARGET_RATIO = 1.5;
+const MIN_TARGET_RATIO = 0.6;
+
+const JOKE_PATTERNS: readonly RegExp[] = [
+  /before\s+gta/i,
+  /before\s+satoshi/i,
+  /before\s+half[-\s]?life/i,
+  /gta\s*(vi|6)/i,
+  /satoshi\s+returns/i,
+  // Dollar-amount patterns that are always too far above current BTC for a
+  // demo (the numeric ratio filter catches these too, but the explicit
+  // phrase-based rejection gives a clearer log line for the viewer).
+  /\$\s*1\s*m\b/i,
+  /\$\s*1\s*,?000\s*,?000\b/,
+  /\$\s*500\s*k\b/i,
+  /\$\s*250\s*k\b/i,
+];
+
+interface RealismFilterResult {
+  readonly kept: MatchedMarket[];
+  readonly rejected: Array<{ market: MatchedMarket; reason: string }>;
+}
+
+function filterRealisticMarkets(
+  markets: readonly MatchedMarket[],
+  referencePrice: Record<"BTC" | "ETH", number>,
+): RealismFilterResult {
+  const kept: MatchedMarket[] = [];
+  const rejected: Array<{ market: MatchedMarket; reason: string }> = [];
+
+  for (const market of markets) {
+    const question = market.candidate.question;
+
+    // Joke/phrase rejection
+    const jokeHit = JOKE_PATTERNS.find((pattern) => pattern.test(question));
+    if (jokeHit) {
+      rejected.push({ market, reason: `joke/unrealistic pattern: ${jokeHit.source}` });
+      continue;
+    }
+
+    const spot = referencePrice[market.token];
+    if (spot > 0) {
+      const ratio = market.targetPrice / spot;
+      if (ratio > MAX_TARGET_RATIO) {
+        rejected.push({ market, reason: `target ${ratio.toFixed(2)}x > ${MAX_TARGET_RATIO}x spot` });
+        continue;
+      }
+      if (ratio < MIN_TARGET_RATIO) {
+        rejected.push({ market, reason: `target ${ratio.toFixed(2)}x < ${MIN_TARGET_RATIO}x spot` });
+        continue;
+      }
+    }
+
+    kept.push(market);
+  }
+
+  return { kept, rejected };
+}
+
 function printStep1Markets(matched: readonly MatchedMarket[], totalCandidates: number): void {
   write("");
   write(cb(C.cyan, `\u2501\u2501\u2501 \u7B2C 1 \u6B65\uFF1A\u626B\u63CF Polymarket \u5E02\u573A ${ "\u2501".repeat(22)}`));
@@ -381,6 +657,19 @@ function printStep1Markets(matched: readonly MatchedMarket[], totalCandidates: n
     write(`  \u2502 ${padR(question, MW - 1)}\u2502${padL(vol, 9)} \u2502${padL(odds, 7)} \u2502${padL(endDate, 11)} \u2502`);
   }
   write(`  \u2514${ "\u2500".repeat(MW)}\u2534${ "\u2500".repeat(10)}\u2534${ "\u2500".repeat(8)}\u2534${ "\u2500".repeat(12)}\u2518`);
+
+  // Per-market Polymarket URLs (for manual cross-checking / demo transparency)
+  write("");
+  write(`  ${cb(C.white, "\u{1F517} \u5E02\u573A\u8BE6\u60C5\u94FE\u63A5:")}`);
+  for (const m of matched) {
+    const eventSlug = m.candidate.eventSlug ?? m.candidate.marketSlug ?? "";
+    const url = m.candidate.url ?? `https://polymarket.com/event/${eventSlug}`;
+    const shortQuestion = m.candidate.question.length > 46
+      ? m.candidate.question.slice(0, 43) + "..."
+      : m.candidate.question;
+    write(`    - ${d(shortQuestion)}`);
+    write(`      ${c(C.blue, url)}`);
+  }
 }
 
 function printStep2SignalsMulti(signals: readonly CryptoSignal[], isLive: boolean): void {
@@ -585,6 +874,7 @@ interface TradeOrder {
   readonly market: string;
   readonly price: number;
   readonly shares: number;
+  readonly url: string;
 }
 
 function printStep5RiskControl(trades: readonly TradeOrder[]): void {
@@ -625,10 +915,13 @@ function printStep6Execution(trades: readonly TradeOrder[]): void {
     const cost = trade.price * trade.shares;
     totalDeployed += cost;
     write(`  ${c(C.green, "\u{1F7E2}")} \u8BA2\u5355 ${trade.index}: ${b("\u4E70\u5165")} ${trade.shares} \u4EFD ${d(`"${trade.market}"`)} @ $${trade.price.toFixed(2)} = ${cb(C.white, `$${cost.toFixed(2)}`)}`);
+    write(`      ${c(C.blue, trade.url)}`);
   }
 
   write("");
   write(`  \u603B\u90E8\u7F72: ${cb(C.green, `$${totalDeployed.toFixed(2)}`)} / $${BANKROLL.toFixed(2)} (${(totalDeployed / BANKROLL * 100).toFixed(1)}%)`);
+  write("");
+  write(`  ${d("\u6211\u4EEC\u7684 Polymarket \u4EA4\u6613\u94B1\u5305:")} ${c(C.blue, RESOURCE_LINKS.profile)}`);
 }
 
 function printFooter(tradeCount: number, bullishCount: number, bearishCount: number, minEdge: number, maxEdge: number, marketCount: number): void {
@@ -663,9 +956,10 @@ function printFooter(tradeCount: number, bullishCount: number, bearishCount: num
 
 async function main(): Promise<void> {
   printBanner();
+  printResources();
   await sleep(400);
 
-  // ---- Step 1: Fetch real Polymarket markets ----
+  // ---- Step 0: Fetch real Polymarket markets + AVE connection ----
   write("");
   write(cb(C.cyan, `\u2501\u2501\u2501 \u7B2C 0 \u6B65\uFF1A\u521D\u59CB\u5316 ${ "\u2501".repeat(36)}`));
 
@@ -677,10 +971,57 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Attempt live AVE API first (surfaces errors before filtering/signal work).
+  const { client: aveClient, isLive: aveIsLive, apiKey: aveApiKey, baseUrl: aveBaseUrl, fallbackReason } =
+    await createAveClientWithFallback();
+
+  // Probe the two key AVE endpoints so the demo can show raw response data.
+  // This runs only when we successfully connected AND have a non-empty API key;
+  // otherwise we still run it to surface the actual error response.
+  if (aveApiKey) {
+    const rawCalls = await probeAveForDisplay(aveApiKey, aveBaseUrl);
+    printAveRawResponses(rawCalls, aveIsLive, fallbackReason);
+    await sleep(200);
+  }
+
   // Filter to BTC/ETH price-target markets
-  const matchedMarkets = matchCryptoMarkets(allCandidates);
+  const preliminaryMatches = matchCryptoMarkets(allCandidates);
+
+  // ---- Step 1.5: Generate signals first so we can use spot price to filter ----
+  const preliminaryTokens = [...new Set(preliminaryMatches.map((m) => m.token))];
+  const signals = preliminaryTokens.length > 0
+    ? await generateCryptoSignals(aveClient, preliminaryTokens)
+    : [];
+
+  if (signals.length === 0 && preliminaryMatches.length > 0) {
+    write(c(C.red, "  \u65E0\u6CD5\u751F\u6210 BTC \u6216 ETH \u4FE1\u53F7\u3002\u7BA1\u7EBF\u7EC8\u6B62\u3002"));
+    process.exit(1);
+  }
+
+  const spotPriceByToken: Record<"BTC" | "ETH", number> = {
+    BTC: signals.find((s) => s.token === "BTC")?.price ?? 0,
+    ETH: signals.find((s) => s.token === "ETH")?.price ?? 0,
+  };
+
+  // Apply realism filter (reject joke markets + targets too far from spot).
+  const { kept: matchedMarkets, rejected: rejectedMarkets } =
+    filterRealisticMarkets(preliminaryMatches, spotPriceByToken);
 
   printStep1Markets(matchedMarkets, allCandidates.length);
+
+  if (rejectedMarkets.length > 0) {
+    write("");
+    write(`  ${d(`\u8FC7\u6EE4\u6389 ${rejectedMarkets.length} \u4E2A\u4E0D\u73B0\u5B9E\u5E02\u573A (\u76EE\u6807\u8DDD\u73B0\u4EF7\u592A\u8FDC\u6216\u53CC\u5173\u8BED):`)}`);
+    for (const r of rejectedMarkets.slice(0, 5)) {
+      const q = r.market.candidate.question.length > 50
+        ? r.market.candidate.question.slice(0, 47) + "..."
+        : r.market.candidate.question;
+      write(`    ${c(C.gray, "\u23AF")} ${c(C.gray, q)} ${d(`[${r.reason}]`)}`);
+    }
+    if (rejectedMarkets.length > 5) {
+      write(`    ${d(`... \u5176\u4ED6 ${rejectedMarkets.length - 5} \u4E2A\u5E02\u573A\u540C\u6837\u88AB\u6392\u9664`)}`);
+    }
+  }
   await sleep(300);
 
   // If no matched markets, show all crypto markets for context
@@ -695,11 +1036,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  // ---- Step 2: AVE signal collection ----
-  const { client: aveClient, isLive: aveIsLive } = await createAveClientWithFallback();
-
-  const uniqueTokens = [...new Set(matchedMarkets.map((m) => m.token))];
-  const signals = await generateCryptoSignals(aveClient, uniqueTokens);
+  // ---- Step 2: AVE signal collection (uses signals generated above) ----
 
   if (signals.length === 0) {
     write(c(C.red, "  \u65E0\u6CD5\u751F\u6210 BTC \u6216 ETH \u4FE1\u53F7\u3002\u7BA1\u7EBF\u7EC8\u6B62\u3002"));
@@ -753,6 +1090,17 @@ async function main(): Promise<void> {
   printStep4Edge(sortedEdgeRows);
   await sleep(300);
 
+  // Build a question -> Polymarket URL index from the matched set so we can
+  // annotate executed trades with their on-chain market links.
+  const urlByQuestion = new Map<string, string>();
+  for (const m of matchedMarkets) {
+    const eventSlug = m.candidate.eventSlug ?? m.candidate.marketSlug ?? "";
+    urlByQuestion.set(
+      m.candidate.question,
+      m.candidate.url ?? `https://polymarket.com/event/${eventSlug}`,
+    );
+  }
+
   // ---- Step 5: Risk control ----
   const buyRows = sortedEdgeRows.filter((r) => r.action === "BUY");
   const trades: TradeOrder[] = buyRows.map((row, i) => ({
@@ -760,6 +1108,7 @@ async function main(): Promise<void> {
     market: row.market,
     price: row.mktProb,
     shares: SHARES_PER_TRADE,
+    url: urlByQuestion.get(row.market) ?? "https://polymarket.com",
   }));
 
   printStep5RiskControl(trades);
