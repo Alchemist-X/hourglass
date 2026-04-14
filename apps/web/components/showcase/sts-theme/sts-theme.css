@@ -1,0 +1,615 @@
+/* ============================================================
+   Slay the Spire Theme — Hourglass Hackathon Showcase
+   Complete CSS custom properties, textures, and animations
+   ============================================================ */
+
+/* ---------- 1. Custom Properties ---------- */
+:root {
+  /* Brand colors (Hourglass) */
+  --sts-gold: #d4a574;
+  --sts-gold-light: #e8c9a0;
+  --sts-gold-dark: #b8956a;
+  --sts-blue: #5fa8d3;
+  --sts-blue-dark: #3d7ea8;
+  --sts-purple: #7b2d8e;
+
+  /* Semantic colors */
+  --sts-bull: #2a9d8f;
+  --sts-bull-dark: #1a6b61;
+  --sts-bull-deep: #0e3d38;
+  --sts-bear: #e63946;
+  --sts-bear-dark: #8b1a25;
+  --sts-bear-deep: #4a0e14;
+  --sts-amber: #f4a261;
+  --sts-neutral: #8b8b9e;
+  --sts-neutral-dark: #4a4a5e;
+
+  /* Backgrounds & surfaces */
+  --sts-bg-deep: #0f0f23;
+  --sts-bg-main: #1a1a2e;
+  --sts-bg-card: #16213e;
+  --sts-bg-parchment: #f0e6d3;
+
+  /* Text */
+  --sts-text-cream: #e8e8e8;
+  --sts-text-warm: #fff6e2;
+  --sts-text-muted: #8b8b9e;
+  --sts-text-keyword: #efc851;
+
+  /* Gradients */
+  --sts-grad-gold: linear-gradient(135deg, #d4a574 0%, #b8956a 50%, #d4a574 100%);
+  --sts-grad-rare: linear-gradient(135deg, #5fa8d3 0%, #3d7ea8 50%, #5fa8d3 100%);
+  --sts-grad-orb-bear: radial-gradient(circle, #e63946 0%, #8b1a25 70%, #4a0e14 100%);
+  --sts-grad-orb-bull: radial-gradient(circle, #2a9d8f 0%, #1a6b61 70%, #0e3d38 100%);
+  --sts-grad-orb-neutral: radial-gradient(circle, #8b8b9e 0%, #5a5a6e 70%, #4a4a5e 100%);
+  --sts-grad-bg: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+
+  /* Shadows */
+  --sts-shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(212, 165, 116, 0.15);
+  --sts-shadow-card-hover: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(212, 165, 116, 0.15);
+  --sts-shadow-glow-gold: 0 0 20px rgba(212, 165, 116, 0.3);
+  --sts-shadow-glow-bull: 0 0 16px rgba(42, 157, 143, 0.4);
+  --sts-shadow-glow-bear: 0 0 16px rgba(230, 57, 70, 0.4);
+  --sts-shadow-inner: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* Borders */
+  --sts-border-gold: 2px solid rgba(212, 165, 116, 0.6);
+  --sts-border-signal: 2px solid rgba(230, 57, 70, 0.6);
+  --sts-border-data: 2px solid rgba(42, 157, 143, 0.6);
+  --sts-border-power: 2px solid rgba(95, 168, 211, 0.6);
+  --sts-border-subtle: 1px solid rgba(212, 165, 116, 0.15);
+
+  /* Fonts */
+  --sts-font-title: "Kreon", "Cinzel", Georgia, serif;
+  --sts-font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --sts-font-data: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+
+  /* Spacing */
+  --sts-radius-card: 8px;
+  --sts-radius-sm: 4px;
+  --sts-radius-lg: 12px;
+}
+
+/* ---------- 2. Noise Texture Overlay (CSS-only) ---------- */
+.sts-noise-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.03) 2px,
+      rgba(255, 255, 255, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.02) 2px,
+      rgba(255, 255, 255, 0.02) 4px
+    ),
+    repeating-conic-gradient(
+      rgba(255, 255, 255, 0.04) 0% 25%,
+      transparent 0% 50%
+    );
+  background-size: 4px 4px, 4px 4px, 8px 8px;
+  mix-blend-mode: overlay;
+}
+
+/* ---------- 3. Parchment Texture (CSS-only) ---------- */
+.sts-parchment {
+  background-color: var(--sts-bg-parchment);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(210, 180, 140, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(190, 160, 120, 0.2) 0%, transparent 40%),
+    radial-gradient(ellipse at 60% 80%, rgba(200, 170, 130, 0.25) 0%, transparent 45%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 11px,
+      rgba(139, 109, 76, 0.03) 11px,
+      rgba(139, 109, 76, 0.03) 12px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 23px,
+      rgba(139, 109, 76, 0.02) 23px,
+      rgba(139, 109, 76, 0.02) 24px
+    );
+}
+
+/* ---------- 4. Card Base Styles ---------- */
+.sts-card {
+  position: relative;
+  background: var(--sts-bg-card);
+  border: 2px solid rgba(212, 165, 116, 0.5);
+  border-radius: var(--sts-radius-card);
+  box-shadow: var(--sts-shadow-card);
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sts-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--sts-radius-card);
+  box-shadow: var(--sts-shadow-inner);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Gold metallic shimmer on border */
+.sts-card::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border-radius: var(--sts-radius-card);
+  background: var(--sts-grad-gold);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sts-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sts-shadow-card-hover);
+}
+
+.sts-card:hover::after {
+  opacity: 0.15;
+}
+
+/* Card type borders */
+.sts-card--signal {
+  border-color: rgba(230, 57, 70, 0.5);
+}
+
+.sts-card--data {
+  border-color: rgba(42, 157, 143, 0.5);
+}
+
+.sts-card--power {
+  border-color: rgba(95, 168, 211, 0.5);
+}
+
+/* ---------- 5. Signal Bar Styles ---------- */
+.sts-signal-bar {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.sts-signal-bar__track {
+  position: relative;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(212, 165, 116, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sts-signal-bar__track--sm { height: 8px; }
+.sts-signal-bar__track--md { height: 12px; }
+.sts-signal-bar__track--lg { height: 16px; }
+
+.sts-signal-bar__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    var(--sts-bear) 0%,
+    var(--sts-amber) 50%,
+    var(--sts-bull) 100%
+  );
+  transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sts-signal-bar__marker {
+  position: absolute;
+  top: -6px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--sts-gold);
+  transform: translateX(-5px);
+  filter: drop-shadow(0 0 4px rgba(212, 165, 116, 0.5));
+  transition: left 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sts-signal-bar__label {
+  font-family: var(--sts-font-data);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sts-signal-bar__label--bull { color: var(--sts-bull); }
+.sts-signal-bar__label--bear { color: var(--sts-bear); }
+.sts-signal-bar__label--neutral { color: var(--sts-amber); }
+
+/* ---------- 6. Energy Orb Styles ---------- */
+.sts-energy-orb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow:
+    0 0 10px rgba(0, 0, 0, 0.3),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.15);
+  animation: orbPulse 3s ease-in-out infinite;
+}
+
+.sts-energy-orb--bull {
+  background: var(--sts-grad-orb-bull);
+  box-shadow:
+    0 0 12px rgba(42, 157, 143, 0.5),
+    0 0 24px rgba(42, 157, 143, 0.2),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.15);
+}
+
+.sts-energy-orb--bear {
+  background: var(--sts-grad-orb-bear);
+  box-shadow:
+    0 0 12px rgba(230, 57, 70, 0.5),
+    0 0 24px rgba(230, 57, 70, 0.2),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.15);
+}
+
+.sts-energy-orb--neutral {
+  background: var(--sts-grad-orb-neutral);
+  box-shadow:
+    0 0 8px rgba(139, 139, 158, 0.3),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+.sts-energy-orb__value {
+  font-family: var(--sts-font-title);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  line-height: 1;
+}
+
+/* ---------- 7. HP Bar Styles ---------- */
+.sts-hp-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.sts-hp-bar__icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  filter: drop-shadow(0 0 4px rgba(230, 57, 70, 0.4));
+}
+
+.sts-hp-bar__track {
+  position: relative;
+  flex: 1;
+  height: 20px;
+  background: rgba(230, 57, 70, 0.15);
+  border: 1px solid rgba(230, 57, 70, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sts-hp-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2a9d8f, #34b8a8);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.15);
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sts-hp-bar__fill--low {
+  background: linear-gradient(90deg, #f4a261, #e9c46a);
+}
+
+.sts-hp-bar__fill--critical {
+  background: linear-gradient(90deg, #e63946, #ff6b6b);
+  animation: hpFlash 1s ease-in-out infinite;
+}
+
+.sts-hp-bar__values {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sts-font-data);
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- 8. Typography Classes ---------- */
+.sts-title {
+  font-family: var(--sts-font-title);
+  color: var(--sts-text-warm);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.sts-title--hero {
+  font-size: clamp(36px, 6vw, 64px);
+  letter-spacing: 0.15em;
+  color: var(--sts-gold);
+  text-shadow: 0 2px 12px rgba(212, 165, 116, 0.3);
+}
+
+.sts-title--section {
+  font-size: clamp(24px, 4vw, 36px);
+  letter-spacing: 0.05em;
+}
+
+.sts-title--card {
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 600;
+}
+
+.sts-body {
+  font-family: var(--sts-font-body);
+  color: var(--sts-text-cream);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.sts-body--muted {
+  color: var(--sts-text-muted);
+}
+
+.sts-data {
+  font-family: var(--sts-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.sts-data--lg {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.sts-data--md {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sts-data--sm {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sts-label {
+  font-family: var(--sts-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sts-text-muted);
+}
+
+.sts-keyword {
+  color: var(--sts-text-keyword);
+  font-weight: 600;
+}
+
+/* ---------- 9. Responsive Breakpoints ---------- */
+@media (max-width: 1024px) {
+  .sts-title--hero {
+    font-size: clamp(32px, 5vw, 48px);
+    letter-spacing: 0.1em;
+  }
+}
+
+@media (max-width: 768px) {
+  .sts-title--hero {
+    font-size: clamp(28px, 6vw, 40px);
+    letter-spacing: 0.06em;
+  }
+
+  .sts-title--section {
+    font-size: clamp(20px, 4vw, 28px);
+  }
+
+  .sts-body {
+    font-size: 14px;
+  }
+
+  .sts-data--lg {
+    font-size: 22px;
+  }
+
+  .sts-signal-bar__track--lg { height: 12px; }
+
+  .sts-hp-bar__track {
+    height: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sts-title--hero {
+    font-size: 28px;
+    letter-spacing: 0.04em;
+  }
+
+  .sts-data--lg {
+    font-size: 20px;
+  }
+}
+
+/* ---------- 10. Scroll & Entry Animations ---------- */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardDraw {
+  0% {
+    opacity: 0;
+    transform: translateY(60px) scale(0.9) rotateX(8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.02) rotateX(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+  }
+}
+
+@keyframes orbPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes hpFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes floatParticle {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-100vh) translateX(20px);
+    opacity: 0;
+  }
+}
+
+@keyframes relicGlow {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(212, 165, 116, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(212, 165, 116, 0.6);
+  }
+}
+
+@keyframes relicTrigger {
+  0% { transform: translateX(0); box-shadow: 0 0 8px rgba(230, 57, 70, 0.6); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+  100% { transform: translateX(0); box-shadow: 0 0 12px rgba(230, 57, 70, 0.8); }
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes signalFill {
+  from { width: 50%; }
+}
+
+/* ---------- 11. Utility Classes ---------- */
+.sts-animate-in {
+  animation: fadeSlideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sts-animate-card {
+  animation: cardDraw 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sts-animate-delay-1 { animation-delay: 0.1s; }
+.sts-animate-delay-2 { animation-delay: 0.2s; }
+.sts-animate-delay-3 { animation-delay: 0.3s; }
+.sts-animate-delay-4 { animation-delay: 0.4s; }
+.sts-animate-delay-5 { animation-delay: 0.5s; }
+
+/* Star particle (for hero background) */
+.sts-star-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(212, 165, 116, 0.6);
+  border-radius: 50%;
+  animation: starTwinkle var(--twinkle-duration, 3s) ease-in-out infinite;
+  animation-delay: var(--twinkle-delay, 0s);
+}
+
+/* Gold divider */
+.sts-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.sts-divider::before,
+.sts-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(212, 165, 116, 0.5),
+    transparent
+  );
+}
+
+.sts-divider__text {
+  font-family: var(--sts-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--sts-gold);
+  white-space: nowrap;
+}

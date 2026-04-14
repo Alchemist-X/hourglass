@@ -1,34 +1,45 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { DashboardShell } from "../components/dashboard-shell";
-import { LocaleProvider } from "../lib/locale-context";
 
 export const metadata: Metadata = {
-  title: "Hourglass — AVE Claw DeFi Agent",
-  description: "Autonomous DeFi agent powered by AVE Claw. Multi-chain token monitoring, anomaly detection, and intelligent position management.",
+  title: "Hourglass \u2014 On-chain Signal \u00d7 Prediction Market",
+  description:
+    "Autonomous prediction market trading agent powered by AVE Claw on-chain signals. Whale tracking, trend analysis, anomaly detection, and intelligent position management on Polymarket.",
   metadataBase: new URL("https://autopoly-pizza-spectator.vercel.app"),
   openGraph: {
-    title: "Hourglass — AVE Claw DeFi Agent",
-    description: "Autonomous DeFi agent powered by AVE Claw. Multi-chain token monitoring, anomaly detection, and intelligent position management.",
+    title: "Hourglass \u2014 On-chain Signal \u00d7 Prediction Market",
+    description:
+      "Chain signal-driven prediction market trading agent. AVE Claw Hackathon 2026.",
     siteName: "Hourglass",
     type: "website",
-    locale: "en_US"
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Hourglass — AVE Claw DeFi Agent",
-    description: "Autonomous DeFi agent powered by AVE Claw."
-  }
+    title: "Hourglass \u2014 On-chain Signal \u00d7 Prediction Market",
+    description:
+      "Chain signal-driven prediction market trading agent. AVE Claw Hackathon 2026.",
+  },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="dash-body">
-        <LocaleProvider>
-          <DashboardShell>{children}</DashboardShell>
-        </LocaleProvider>
-      </body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Kreon:wght@300;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
