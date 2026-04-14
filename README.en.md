@@ -3,6 +3,8 @@
 > Autonomous DeFi Trading Agent powered by AVE Claw Skills
 >
 > AVE Claw Hackathon 2026 Submission
+>
+> **Live Demo**: [https://hourglass-eta.vercel.app](https://hourglass-eta.vercel.app)
 
 This is the English version of the README. The primary [README.md](README.md) is English-first with a Chinese summary section at the bottom.
 

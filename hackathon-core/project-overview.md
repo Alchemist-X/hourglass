@@ -3,6 +3,7 @@
 > AVE Claw Hackathon 2026 参赛作品
 > 团队: Alchemist-X
 > 仓库: https://github.com/Alchemist-X/hourglass
+> 在线演示: https://hourglass-eta.vercel.app
 
 ---
 

@@ -1,19 +1,22 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "^/$",
-      "dest": "/apps/web"
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @autopoly/contracts build && pnpm --filter @autopoly/db build && pnpm --filter @autopoly/web build",
+  "outputDirectory": "apps/web/.next",
+  "experimentalServices": {
+    "web": {
+      "entrypoint": "apps/web",
+      "routePrefix": "/",
+      "framework": "nextjs"
     },
-    {
-      "src": "^/(?!apps/web/)(.+)$",
-      "dest": "/apps/web/$1"
+    "executor": {
+      "entrypoint": "services/executor",
+      "routePrefix": "/_/executor"
+    },
+    "orchestrator": {
+      "entrypoint": "services/orchestrator",
+      "routePrefix": "/_/orchestrator"
     }
-  ]
+  }
 }

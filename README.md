@@ -5,6 +5,12 @@
 >
 > AVE Claw Hackathon 2026 Submission | [Chinese Version / 中文版](#chinese-version)
 
+## Live Demo
+
+**Dashboard**: [https://hourglass-eta.vercel.app](https://hourglass-eta.vercel.app)
+
+The live deployment shows real Polymarket positions, AVE signal feeds, risk status, and performance metrics in spectator mode.
+
 ---
 
 ## What is Hourglass?
