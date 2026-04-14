@@ -1,199 +1,156 @@
-# Hourglass 实施路线图
+# Hourglass 黑客松计划（聚焦版）
 
-> 截止时间：2026-04-15
-> 当前状态：代码完成，需要实盘 + 部署 + 展示
-> 最后更新：2026-04-13
-
----
-
-## 三大目标
-
-### 目标 1：实盘交易
-### 目标 2：部署网页
-### 目标 3：展示设计和结果
+> 目标：在 7 个加密价格预测市场上实现 AVE 信号驱动的自主交易
+> 截止：2026-04-15
+> 最后更新：2026-04-14
 
 ---
 
-## 目标 1：实盘交易（预计 2 小时）
+## 一、目标市场
 
-### 当前状态
-系统有两条独立路径，**尚未连接**：
-- **路径 A（已验证）**：`pulse-live.ts` → `PulseDirectRuntime` → Polymarket CLOB 下单 → 真实交易
-- **路径 B（已实现但未接入）**：`AvePolymarketRuntime`（AVE 信号增强 + Polymarket 执行），但 `runtime-factory.ts` 不知道它的存在
+| # | 市场 | 交易量 | 频率 | Token | 我们的 edge |
+|---|------|--------|------|-------|------------|
+| 1 | What price will Bitcoin hit in 2026? | $30.8M | 年度 | BTC | K线多周期趋势 + 鲸鱼积累检测 |
+| 2 | What price will Bitcoin hit in April? | $19.2M | 月度 | BTC | 实时价格 + 买卖比失衡 |
+| 3 | Bitcoin ATH by ___? | $6.1M | 季度 | BTC | K线突破信号 + 长期积累 |
+| 4 | What price will Ethereum hit in April? | $4.2M | 月度 | ETH | ETH 价格 + 买卖比 |
+| 5 | What price will Ethereum hit in 2026? | $4.1M | 年度 | ETH | K线长期趋势 |
+| 6 | When will Bitcoin hit $150k? | $3.1M | 开放 | BTC | 鲸鱼买入趋势 + K线 |
+| 7 | Bitcoin above ___ weekly | $2.9M | 周度 | BTC | 15分钟K线 + 鲸鱼实时交易 |
 
-### 需要修改的文件
+总交易量：$70.4M，全部为 P0 直接 edge 市场
 
-#### 1. `services/orchestrator/src/runtime/runtime-factory.ts` ✅ 已完成
-**改动**：当 `AVE_API_KEY` 存在时，自动升级 `pulse-direct` 为 `AvePolymarketRuntime`
-```typescript
-// 在 createAgentRuntime() 中添加：
-if (config.decisionStrategy === "pulse-direct" && config.ave.apiKey) {
-  const aveClient = new AveClient({ apiKey: config.ave.apiKey });
-  return new AvePolymarketRuntime(config, { aveClient });
-}
+## 二、使用的 AVE Skill（仅 4 个）
+
+| Skill | AVE API | 用途 | 输出 |
+|-------|---------|------|------|
+| 📊 实时价格 | `POST /v2/tokens/price` | BTC/ETH 实时价格监控 | 当前价格 vs 市场赔率隐含价格 |
+| 📈 K线分析 | `GET /v2/klines/token/{id}` | 多周期技术分析(15m/1h/4h/1d/1w) | 趋势方向、支撑阻力、波动率 |
+| 🐋 鲸鱼追踪 | `GET /v2/txs/{pair-id}` | 大额交易检测（>$100K） | 买卖方向压力、积累/派发模式 |
+| 📉 买卖比分析 | `GET /v2/tokens/{id}` | 5m/1h/6h/24h 买卖计数 | 实时链上情绪（买>卖=看涨） |
+
+## 三、信号→交易 管线
+
 ```
-**工作量**：30 分钟
-
-#### 2. 创建 `.env.live` ⏳ 等待用户提供钱包
-```env
-AUTOPOLY_EXECUTION_MODE=live
-PRIVATE_KEY=0x<polygon-wallet-private-key>
-FUNDER_ADDRESS=0x<polygon-wallet-address>
-AVE_API_KEY=2BeMwKSjRPzT7UmKdhV84isFixiGOfpBjxU5RRMkznn9k1ugoZFOH8JTSuB1O5J6
-CHAIN_ID=137
-INITIAL_BANKROLL_USD=20
-MAX_TRADE_PCT=0.5
-MIN_TRADE_USD=0.01
+1. AVE 实时价格 → BTC/ETH 当前价格
+2. AVE K线 → 多周期趋势判断（涨/跌/震荡）
+3. AVE 鲸鱼追踪 → 大额交易方向（净买入/净卖出）
+4. AVE 买卖比 → 链上情绪（5m+1h+6h 加权）
+         ↓
+5. 信号聚合 → 综合得分（-1 到 +1）
+         ↓
+6. Polymarket 赔率对比 → edge = 我们的概率 - 市场隐含概率
+         ↓
+7. Kelly 仓位 → 1/4 Kelly 保守下注
+         ↓
+8. 风控检查 → 通过 → Polymarket CLOB 下单
 ```
-**工作量**：10 分钟
 
-#### 3. 验证 `AveClient` 兼容 `AveEnrichmentClient` 接口 ✅ 已完成
-**文件**：`services/orchestrator/src/pulse/ave-signal-enrichment.ts`
-**改动**：适配层已实现，字段名映射完成
-**工作量**：15 分钟
+## 四、具体实现
 
-#### 4. 执行实盘 ⏳ 等待钱包 + AVE API 恢复
-```bash
-ENV_FILE=.env.live pnpm pulse:live
+### 4.1 信号聚合逻辑（核心）
+
+需要创建或修改的文件：
+
+**`services/orchestrator/src/pulse/ave-crypto-signals.ts`（新建）**
+- 只关注 BTC 和 ETH
+- 输入：AveClient
+- 输出：CryptoSignal { token, price, trend, whalePressure, sentimentScore, overallScore }
+
+具体逻辑：
 ```
-流程：Preflight → 抓取 Polymarket 市场 → AVE 信号增强 → AI 决策 → Kelly 仓位 → 风控 → FOK 下单
-**工作量**：1 小时（含调试）
+trendScore = K线分析（多周期加权: 15m×0.1 + 1h×0.2 + 4h×0.3 + 1d×0.3 + 1w×0.1）
+  - 价格 > MA20 = +0.5
+  - 价格 > MA50 = +0.3
+  - MACD 金叉 = +0.2
+  - 总分 -1 到 +1
 
-### 前置条件
-- [ ] Polygon 钱包有 USDC（$20 即可）
-- [ ] Polymarket 可访问（无地理限制）
-- [ ] AVE API 恢复正常（当前 522）
+whalePressure = 鲸鱼追踪
+  - 过去 1h 大额交易（>$100K）的买入量 vs 卖出量
+  - netBuyRatio = (buyVolume - sellVolume) / totalVolume
+  - 范围 -1 到 +1
 
----
+sentimentScore = 买卖比
+  - buy_count_5m / (buy_count_5m + sell_count_5m) × 0.3
+  + buy_count_1h / (buy_count_1h + sell_count_1h) × 0.4
+  + buy_count_6h / (buy_count_6h + sell_count_6h) × 0.3
+  - 标准化到 -1 到 +1
 
-## 目标 2：部署网页（预计 2-3 小时）
-
-### 当前状态
-- Dashboard 已完成（品牌 Hourglass、持仓面板、监控面板）
-- 支持 Spectator 模式：设置 `POLYMARKET_PUBLIC_WALLET_ADDRESS` 即可展示真实钱包数据
-- `AveMonitoringPanel` 当前是空的（`PLACEHOLDER_ALERTS = []`）
-- `vercel.json` 已配置
-
-### 需要修改的文件
-
-#### 1. `apps/web/app/page.tsx` ✅ 已完成
-**改动**：替换空的 `PLACEHOLDER_ALERTS` 为真实感告警数据（价格异常、鲸鱼活动等）
-**工作量**：30 分钟
-
-#### 2. 新建 `apps/web/app/api/public/ave-alerts/route.ts` ✅ 已完成
-**功能**：
-- 调用 AVE API 获取 trending tokens
-- 检测 >5% 价格变动 → 生成 price_alert
-- 检测异常交易量 → 生成 whale_movement
-- 返回 AveAlert[]
-**工作量**：1 小时
-
-#### 2.5 Dashboard 视觉优化 ✅ 已完成
-**改动**：
-- 动画效果（gradient badges、pulsing indicators）
-- Thesis section 重写为 prediction market 叙事
-- Footer 添加 hackathon branding
-- `globals.css` 动画 + 视觉打磨
-**工作量**：30 分钟
-
-#### 3. Vercel 部署 ⏳ 等待用户 Vercel 账号
-```bash
-# 设置环境变量
-vercel env add POLYMARKET_PUBLIC_WALLET_ADDRESS
-vercel env add NEXT_PUBLIC_POLYMARKET_PUBLIC_WALLET_ADDRESS
-vercel env add AVE_API_KEY
-
-# 部署
-vercel deploy --prod --yes -A vercel.json
+overallScore = trendScore × 0.4 + whalePressure × 0.3 + sentimentScore × 0.3
 ```
-**工作量**：20 分钟
 
-#### 4. 验证 ⏳ 等待部署
-- [ ] 打开线上 URL
-- [ ] 确认持仓数据显示正确
-- [ ] 确认 AVE 监控面板有告警数据
-- [ ] 确认 equity chart 显示历史曲线
+**`services/orchestrator/src/pulse/ave-signal-to-probability.ts`（新建）**
+- 将 overallScore (-1 到 +1) 转换为价格预测概率
+- 对于价格目标市场：计算 "BTC 到达 $X 的概率"
+- 对比 Polymarket 当前赔率 → 计算 edge
 
-### 前置条件
-- [ ] 目标 1 先完成（至少有 1-2 笔交易，否则 Dashboard 空）
-- [ ] Vercel 账号 + CLI
+### 4.2 市场匹配
 
----
+**`services/orchestrator/src/pulse/ave-market-matcher.ts`（新建）**
+- 输入：Polymarket 市场列表
+- 过滤：只保留 BTC/ETH 价格目标市场
+- 匹配规则：
+  - 标题包含 "Bitcoin" / "BTC" / "Ethereum" / "ETH"
+  - 标题包含 "price" / "hit" / "above" / "dip"
+  - 排除已过期市场
+  - 排除日内频率市场
 
-## 目标 3：展示设计和结果（预计 2 小时） ⏳ 等待实盘结果
+### 4.3 管线串联
 
-### 需要修改的文件
+修改 `services/orchestrator/src/runtime/ave-polymarket-runtime.ts`：
+- 使用 ave-crypto-signals 替代通用 ave-signal-enrichment
+- 使用 ave-market-matcher 过滤目标市场
+- 使用 ave-signal-to-probability 计算 edge
 
-#### 1. `README.md` — 添加 Results 章节
-在 "Demo" 之后新增：
-- 真实 `pnpm pulse:live` 运行截图（AVE 信号增强 + 交易执行）
-- 部署后的 Dashboard 截图
-- 交易记录表格：市场 | AVE 信号 | 入场价 | 当前价 | PnL
-- 终端 `pnpm ave:demo` 输出截图
-**工作量**：30 分钟
+### 4.4 风控（保留原系统）
+- 单笔 ≤ 15% bankroll
+- 总敞口 ≤ 80%
+- 回撤 ≥ 30% 停机
+- 止损 ≥ 30% 平仓
 
-#### 2. `hackathon-core/project-overview.md` — 添加实际数据
-- 实际交易结果
-- Dashboard 部署链接
-- 量化指标："扫描 X 个 token，检测 Y 个异常，执行 Z 笔交易"
-**工作量**：30 分钟
+## 五、执行步骤
 
-#### 3. 架构图美化
-制作可视化架构图（draw.io / Excalidraw），替代 ASCII 图
-**工作量**：30 分钟
+### Step 1：创建 ave-crypto-signals.ts（1h）
+- 实现 4 个 AVE Skill 的信号聚合
+- 测试：mock 模式下 BTC/ETH 信号输出
 
-#### 4. 打动评审的关键指标
-| 指标 | 说明 |
-|------|------|
-| AVE 信号处理 | "扫描 X 个 token，跨 5 条链，检测 Y 个价格异常，Z 个鲸鱼活动" |
-| 信号→交易转化 | "X 个加密市场中，Y 个有 AVE 信号，Z 个产生交易" |
-| Edge 分布 | 市场价格 vs AVE 评估的 edge 直方图 |
-| 风控活动 | "N 笔交易提议，M 笔通过 6 层风控，K 笔被拦截" |
-| PnL 曲线 | Dashboard 实时净值图 |
+### Step 2：创建 ave-signal-to-probability.ts（30min）
+- overallScore → 价格概率转换
+- edge 计算
 
----
+### Step 3：创建 ave-market-matcher.ts（30min）
+- Polymarket 市场过滤（只留 7 个目标）
 
-## 执行时间表
+### Step 4：修改 ave-polymarket-runtime.ts（30min）
+- 接入新的聚焦管线
 
-### 4月13日（今天）
+### Step 5：配置 .env.live + 实盘测试（1h）
+- 钱包配置
+- 小额测试（$5-20）
+- 截取运行结果
 
-| 时间 | 任务 | 目标 |
-|------|------|------|
-| 下午 | 修改 runtime-factory.ts，配置 .env.live | 目标 1 |
-| 下午 | 执行 2-3 笔实盘交易 | 目标 1 |
-| 晚上 | 填充 AveMonitoringPanel 数据 | 目标 2 |
-| 晚上 | Vercel 部署 + 验证 | 目标 2 |
+### Step 6：更新文档 + 提交（30min）
+- README 更新为聚焦版
+- project-overview 更新
+- 最终 push
 
-### 4月14日
+总预计：4-5 小时
 
-| 时间 | 任务 | 目标 |
-|------|------|------|
-| 上午 | README 添加 Results + 截图 | 目标 3 |
-| 上午 | project-overview 添加实际数据 | 目标 3 |
-| 下午 | 录制 Demo 视频 | 目标 3 |
-| 晚上 | Buffer: 补充交易 / 修 bug | 全部 |
+## 六、不做的事（明确砍掉）
 
-### 4月15日（最后一天）
+- ❌ 非价格市场（Fed/地缘/政治/大宗商品/AI）
+- ❌ 合约安全分析
+- ❌ 新币发现
+- ❌ 稳定币流动分析
+- ❌ 板块排名/轮动
+- ❌ 跨链资金流
+- ❌ OpenClaw SKILL.md 文件（已完成，不再修改）
+- ❌ Dashboard 进一步优化（已完成）
+- ❌ Demo 视频（时间不够就不录）
 
-| 时间 | 任务 |
-|------|------|
-| 上午 | 最终 README review |
-| 下午 | 提交 |
+## 七、成功标准
 
----
-
-## 关键文件清单
-
-### 目标 1（实盘）
-- `services/orchestrator/src/runtime/runtime-factory.ts` — 接入 AvePolymarketRuntime
-- `.env.live` — 实盘配置（新建）
-- `services/ave-monitor/src/client.ts` — 可能需要接口适配
-
-### 目标 2（网页）
-- `apps/web/app/page.tsx` — 填充 AVE 告警数据
-- `apps/web/app/api/public/ave-alerts/route.ts` — AVE 告警 API（新建）
-- Vercel 环境变量
-
-### 目标 3（展示）
-- `README.md` — 添加 Results 章节 + 截图
-- `hackathon-core/project-overview.md` — 添加实际数据 + 部署链接
+- [ ] pnpm ave:demo 展示 BTC/ETH 信号聚合结果
+- [ ] 至少 1 笔实盘交易基于 AVE 信号执行
+- [ ] README 清楚展示 4 个 AVE Skill × 7 个市场的 edge 逻辑
+- [ ] Dashboard 能展示实盘仓位
