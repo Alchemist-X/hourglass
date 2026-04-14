@@ -31,6 +31,7 @@ function createConfig(tempDir: string): OrchestratorConfig {
     maxPositions: 10,
     maxTradePct: 0.1,
     minTradeUsd: 1,
+    fixedOrderShares: null,
     initialBankrollUsd: 20,
     runtimeProvider: "codex",
     decisionStrategy: "pulse-direct",

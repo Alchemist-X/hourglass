@@ -29,6 +29,7 @@ function createConfig(repoRoot: string, artifactStorageRoot: string): Orchestrat
     maxPositions: 10,
     maxTradePct: 0.05,
     minTradeUsd: 10,
+    fixedOrderShares: null,
     initialBankrollUsd: 10000,
     runtimeProvider: "codex",
     decisionStrategy: "provider-runtime",

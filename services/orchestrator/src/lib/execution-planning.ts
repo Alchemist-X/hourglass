@@ -288,7 +288,7 @@ export async function buildExecutionPlan(input: {
   config: Pick<
     OrchestratorConfig,
     "decisionStrategy" | "maxTradePct" | "maxTotalExposurePct" | "maxEventExposurePct" | "maxPositions"
-  >;
+  > & { fixedOrderShares?: number | null };
   minTradeUsd: number;
   readBook: (tokenId: string) => Promise<PlanningOrderBookSnapshot | null>;
   /** Optional pulse candidates lookup for fee metadata (categorySlug + negRisk). */
@@ -386,6 +386,17 @@ export async function buildExecutionPlan(input: {
         continue;
       }
       let plannedNotionalUsd = roundNotional(rawGuardedNotionalUsd);
+
+      // Fixed-share override: when FIXED_ORDER_SHARES is set, override the
+      // Kelly-sized notional with a fixed number of shares converted to USD.
+      // The SDK's createAndPostMarketOrder expects USD for BUY orders, so we
+      // compute notional = fixedShares * bestAsk.
+      const useFixedShares = input.config.fixedOrderShares != null && input.config.fixedOrderShares > 0;
+      let fixedSharesNotional: number | null = null;
+      if (useFixedShares && book.bestAsk > 0) {
+        fixedSharesNotional = roundNotional(input.config.fixedOrderShares! * book.bestAsk);
+        plannedNotionalUsd = fixedSharesNotional;
+      }
 
       // Slippage cap: never let the fill price exceed bestAsk * (1 + DEFAULT_MAX_SLIPPAGE_PCT).
       // If the planned order would eat past the slippage ceiling, compress it to the

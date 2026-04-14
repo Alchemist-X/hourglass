@@ -100,6 +100,7 @@ export interface OrchestratorConfig {
   maxPositions: number;
   maxTradePct: number;
   minTradeUsd: number;
+  fixedOrderShares: number | null;
   initialBankrollUsd: number;
   runtimeProvider: AgentRuntimeProvider;
   decisionStrategy: AgentDecisionStrategy;
@@ -162,6 +163,12 @@ export function loadConfig(): OrchestratorConfig {
     maxPositions: readNumber("MAX_POSITIONS", 22),
     maxTradePct: readNumber("MAX_TRADE_PCT", 0.15),
     minTradeUsd: readNumber("MIN_TRADE_USD", 5),
+    fixedOrderShares: (() => {
+      const raw = process.env.FIXED_ORDER_SHARES;
+      if (!raw) return null;
+      const v = Number(raw);
+      return Number.isFinite(v) && v > 0 ? v : null;
+    })(),
     initialBankrollUsd: readNumber("INITIAL_BANKROLL_USD", 10000),
     runtimeProvider: readString("AGENT_RUNTIME_PROVIDER", "none"),
     decisionStrategy: readEnum("AGENT_DECISION_STRATEGY", "pulse-direct", agentDecisionStrategies),
