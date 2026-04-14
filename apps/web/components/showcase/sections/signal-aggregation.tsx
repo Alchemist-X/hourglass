@@ -74,14 +74,14 @@ function WeightedFormula() {
       <div
         style={{
           fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-          fontSize: "14px",
+          fontSize: "16px",
           letterSpacing: "6px",
           color: C.muted,
           textTransform: "uppercase",
           marginBottom: "28px",
         }}
       >
-        SIGNAL AGGREGATION
+        {"\u4FE1\u53F7\u805A\u5408"}
       </div>
 
       <div
@@ -99,13 +99,13 @@ function WeightedFormula() {
           return (
             <span key={cfg.id} style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
               {i > 0 && (
-                <span style={{ color: C.muted, fontSize: "16px", margin: "0 4px" }}>+</span>
+                <span style={{ color: C.muted, fontSize: "18px", margin: "0 4px" }}>+</span>
               )}
               <SignalOrb value={cfg.signalValue} size={36} />
               <span
                 style={{
                   fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "12px",
+                  fontSize: "14px",
                   color: C.cream,
                 }}
               >
@@ -116,7 +116,7 @@ function WeightedFormula() {
               <span
                 style={{
                   fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: "11px",
+                  fontSize: "13px",
                   color: C.muted,
                 }}
               >
@@ -127,7 +127,7 @@ function WeightedFormula() {
           );
         })}
 
-        <span style={{ color: C.gold, fontSize: "20px", margin: "0 8px" }}>=</span>
+        <span style={{ color: C.gold, fontSize: "22px", margin: "0 8px" }}>=</span>
 
         <SignalOrb value={OVERALL_SCORE} size={48} isGold />
       </div>
@@ -225,7 +225,7 @@ function OverallSignalBar({ score, label }: { readonly score: number; readonly l
     >
       <div
         style={{
-          fontSize: "11px",
+          fontSize: "13px",
           color: C.muted,
           letterSpacing: "2px",
           textTransform: "uppercase",
@@ -233,7 +233,7 @@ function OverallSignalBar({ score, label }: { readonly score: number; readonly l
           textAlign: "center",
         }}
       >
-        Composite Signal
+        {"\u7EFC\u5408\u4FE1\u53F7"}
       </div>
 
       {/* Bar */}
@@ -281,7 +281,7 @@ function OverallSignalBar({ score, label }: { readonly score: number; readonly l
         style={{
           display: "flex",
           justifyContent: "space-between",
-          fontSize: "10px",
+          fontSize: "12px",
           fontFamily: "'JetBrains Mono', monospace",
           color: C.muted,
         }}
@@ -292,7 +292,7 @@ function OverallSignalBar({ score, label }: { readonly score: number; readonly l
           style={{
             color: barColor,
             fontWeight: 700,
-            fontSize: "12px",
+            fontSize: "14px",
           }}
         >
           {label} (+{score.toFixed(2)})
@@ -323,7 +323,7 @@ function EdgeCalculation() {
       <div
         style={{
           fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-          fontSize: "14px",
+          fontSize: "16px",
           letterSpacing: "4px",
           color: C.gold,
           textTransform: "uppercase",
@@ -331,7 +331,7 @@ function EdgeCalculation() {
           marginBottom: "32px",
         }}
       >
-        EDGE CALCULATION
+        {"\u8FB9\u9645\u4F18\u52BF\u8BA1\u7B97"}
       </div>
 
       <div
@@ -343,11 +343,11 @@ function EdgeCalculation() {
           flexWrap: "wrap",
         }}
       >
-        <ProbabilityCircle label="Our Probability" value={edge.ourProbabilityPct} color={C.green} subLabel="AVE Signals" />
+        <ProbabilityCircle label={"\u6211\u4EEC\u7684\u6982\u7387"} value={edge.ourProbabilityPct} color={C.green} subLabel="AVE \u4FE1\u53F7" />
 
         <div
           style={{
-            fontSize: "24px",
+            fontSize: "28px",
             color: C.muted,
             fontWeight: 300,
           }}
@@ -355,11 +355,11 @@ function EdgeCalculation() {
           vs
         </div>
 
-        <ProbabilityCircle label="Market Odds" value={edge.marketOddsPct} color={C.muted} subLabel="Polymarket" />
+        <ProbabilityCircle label={"\u5E02\u573A\u8D54\u7387"} value={edge.marketOddsPct} color={C.muted} subLabel="Polymarket" />
 
         <div
           style={{
-            fontSize: "24px",
+            fontSize: "28px",
             color: C.muted,
             fontWeight: 300,
           }}
@@ -386,11 +386,11 @@ function ProbabilityCircle({
 }) {
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: "11px", color: C.muted, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "12px" }}>{label}</div>
+      <div style={{ fontSize: "13px", color: C.muted, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "12px" }}>{label}</div>
       <div
         style={{
-          width: "100px",
-          height: "100px",
+          width: "110px",
+          height: "110px",
           borderRadius: "50%",
           border: `3px solid ${color}`,
           display: "flex",
@@ -403,7 +403,7 @@ function ProbabilityCircle({
         <span
           style={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "28px",
+            fontSize: "32px",
             fontWeight: 700,
             color: C.cream,
           }}
@@ -411,7 +411,7 @@ function ProbabilityCircle({
           {value}
         </span>
       </div>
-      <div style={{ fontSize: "10px", color: C.muted, marginTop: "8px" }}>{subLabel}</div>
+      <div style={{ fontSize: "12px", color: C.muted, marginTop: "8px" }}>{subLabel}</div>
     </div>
   );
 }
@@ -419,11 +419,11 @@ function ProbabilityCircle({
 function EdgeCircle({ value }: { readonly value: string }) {
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: "11px", color: C.gold, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "12px" }}>Edge</div>
+      <div style={{ fontSize: "13px", color: C.gold, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "12px" }}>{"\u8FB9\u9645\u4F18\u52BF"} (Edge)</div>
       <div
         style={{
-          width: "120px",
-          height: "120px",
+          width: "130px",
+          height: "130px",
           borderRadius: "50%",
           border: `3px solid ${C.gold}`,
           display: "flex",
@@ -436,7 +436,7 @@ function EdgeCircle({ value }: { readonly value: string }) {
         <span
           style={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "32px",
+            fontSize: "36px",
             fontWeight: 700,
             color: C.green,
             textShadow: `0 0 20px ${C.greenGlow}`,
@@ -445,7 +445,7 @@ function EdgeCircle({ value }: { readonly value: string }) {
           {value}
         </span>
       </div>
-      <div style={{ fontSize: "10px", color: C.muted, marginTop: "8px" }}>Information Advantage</div>
+      <div style={{ fontSize: "12px", color: C.muted, marginTop: "8px" }}>{"\u4FE1\u606F\u4F18\u52BF"}</div>
     </div>
   );
 }
@@ -483,7 +483,7 @@ function AiReasoningBox() {
 
       <div
         style={{
-          fontSize: "16px",
+          fontSize: "18px",
           lineHeight: 1.8,
           color: C.ink,
           fontStyle: "italic",
@@ -498,7 +498,7 @@ function AiReasoningBox() {
           textAlign: "right",
           marginTop: "16px",
           paddingRight: "24px",
-          fontSize: "13px",
+          fontSize: "15px",
           color: C.gold,
           fontWeight: 600,
         }}

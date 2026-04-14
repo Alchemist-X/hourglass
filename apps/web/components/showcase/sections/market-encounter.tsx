@@ -22,7 +22,7 @@ const styles = {
   },
   encounterLabel: {
     fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-    fontSize: "14px",
+    fontSize: "16px",
     letterSpacing: "6px",
     color: "#8b8b9e",
     textTransform: "uppercase" as const,
@@ -45,7 +45,7 @@ const styles = {
   },
   bossTitle: {
     fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-    fontSize: "28px",
+    fontSize: "32px",
     color: "#d4a574",
     textAlign: "center" as const,
     margin: "0 0 32px 0",
@@ -64,7 +64,7 @@ const styles = {
     minWidth: "100px",
   },
   statLabel: {
-    fontSize: "11px",
+    fontSize: "13px",
     letterSpacing: "2px",
     color: "#8b8b9e",
     textTransform: "uppercase" as const,
@@ -72,7 +72,7 @@ const styles = {
   },
   statValue: {
     fontFamily: "'JetBrains Mono', monospace",
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: 600,
     color: "#FFF6E2",
   },
@@ -80,7 +80,7 @@ const styles = {
     marginTop: "8px",
   },
   oddsLabel: {
-    fontSize: "12px",
+    fontSize: "14px",
     color: "#8b8b9e",
     letterSpacing: "1px",
     textTransform: "uppercase" as const,
@@ -94,7 +94,7 @@ const styles = {
     gap: "16px",
     marginBottom: "12px",
     fontFamily: "'JetBrains Mono', monospace",
-    fontSize: "16px",
+    fontSize: "18px",
   },
   yesOdds: {
     color: "#2a9d8f",
@@ -106,7 +106,7 @@ const styles = {
   },
   separator: {
     color: "#8b8b9e",
-    fontSize: "14px",
+    fontSize: "16px",
   },
   barContainer: {
     width: "100%",
@@ -126,7 +126,7 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     marginTop: "6px",
-    fontSize: "11px",
+    fontSize: "13px",
     color: "#8b8b9e",
     fontFamily: "'JetBrains Mono', monospace",
   },
@@ -142,20 +142,20 @@ export function MarketEncounter() {
 
   return (
     <section style={styles.section}>
-      <span style={styles.encounterLabel}>ENCOUNTER</span>
+      <span style={styles.encounterLabel}>{"\u9047\u5230\u5E02\u573A"}</span>
 
       <div style={styles.card}>
         <div style={styles.cardInner}>
           <h2 style={styles.bossTitle}>{m.question}</h2>
 
           <div style={styles.statsRow}>
-            <StatBlock label="Volume" value={m.volume} />
-            <StatBlock label="Resolution" value={m.resolutionDate} />
-            <StatBlock label="Time Left" value={`${m.daysLeft} days`} />
+            <StatBlock label={"\u4EA4\u6613\u91CF"} value={m.volume} />
+            <StatBlock label={"\u7ED3\u7B97\u65E5"} value={m.resolutionDate} />
+            <StatBlock label={"\u5269\u4F59\u65F6\u95F4"} value={`${m.daysLeft} \u5929`} />
           </div>
 
           <div style={styles.oddsSection}>
-            <div style={styles.oddsLabel}>Current Odds</div>
+            <div style={styles.oddsLabel}>{"\u5F53\u524D\u8D54\u7387"}</div>
 
             <div style={styles.oddsDisplay}>
               <span style={styles.yesOdds}>{m.yesOddsPct} Yes</span>

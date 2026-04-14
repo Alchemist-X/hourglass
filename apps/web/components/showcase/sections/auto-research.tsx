@@ -107,22 +107,22 @@ export function AutoResearch() {
             <div
               style={{
                 fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-                fontSize: "16px",
+                fontSize: "18px",
                 color: C.cream,
                 fontWeight: 600,
                 letterSpacing: "2px",
               }}
             >
-              AUTO-RESEARCH
+              {"\u81EA\u52A8\u7814\u7A76"}
             </div>
-            <div style={{ fontSize: "11px", color: C.muted, marginTop: "2px" }}>
-              Power Card {"\u00B7"} Ongoing Agent
+            <div style={{ fontSize: "13px", color: C.muted, marginTop: "2px" }}>
+              {"\u529B\u91CF\u5361"} {"\u00B7"} {"\u6301\u7EED\u8FD0\u884C\u7684 Agent"}
             </div>
           </div>
 
           <span
             style={{
-              fontSize: "9px",
+              fontSize: "10px",
               letterSpacing: "2px",
               textTransform: "uppercase",
               padding: "3px 10px",
@@ -132,7 +132,7 @@ export function AutoResearch() {
               fontWeight: 600,
             }}
           >
-            Power
+            {"\u529B\u91CF"}
           </span>
         </div>
 
@@ -142,14 +142,13 @@ export function AutoResearch() {
           <p
             style={{
               color: C.cream,
-              fontSize: "14px",
+              fontSize: "16px",
               lineHeight: 1.6,
               margin: "0 0 20px 0",
               opacity: 0.9,
             }}
           >
-            Hourglass doesn't just analyze once -- it runs continuously like an AI researcher,
-            constantly adjusting parameters for optimal performance.
+            Hourglass {"\u4E0D\u53EA\u5206\u6790\u4E00\u6B21"} {"\u2014\u2014"} {"\u5B83\u50CF AI \u7814\u7A76\u5458\u4E00\u6837\u6301\u7EED\u8FD0\u884C\uFF0C\u4E0D\u65AD\u8C03\u6574\u53C2\u6570\u4EE5\u83B7\u53D6\u6700\u4F73\u8868\u73B0\u3002"}
           </p>
 
           {/* Feature list */}
@@ -158,7 +157,7 @@ export function AutoResearch() {
               <div
                 key={f}
                 style={{
-                  fontSize: "13px",
+                  fontSize: "15px",
                   color: C.cream,
                   opacity: 0.85,
                   paddingLeft: "4px",
@@ -180,14 +179,14 @@ export function AutoResearch() {
           >
             <div
               style={{
-                fontSize: "11px",
+                fontSize: "13px",
                 color: C.muted,
                 letterSpacing: "1px",
                 textTransform: "uppercase",
                 marginBottom: "12px",
               }}
             >
-              Weight Adjustment History
+              {"\u6743\u91CD\u8C03\u6574\u5386\u53F2"}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -199,7 +198,7 @@ export function AutoResearch() {
                     alignItems: "center",
                     gap: "12px",
                     fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: "11px",
+                    fontSize: "13px",
                     color: run.highlight ? C.goldBright : C.cream,
                     opacity: run.highlight ? 1 : 0.7,
                     padding: "4px 8px",
@@ -208,13 +207,13 @@ export function AutoResearch() {
                   }}
                 >
                   <span style={{ color: C.muted, width: "40px" }}>{run.time}</span>
-                  <span style={{ color: C.green, width: "52px" }}>score {run.score}</span>
+                  <span style={{ color: C.green, width: "52px" }}>{"\u5F97\u5206"} {run.score}</span>
                   <span>
-                    trend={run.trendW} whale={run.whaleW}
+                    {"\u8D8B\u52BF"}={run.trendW} {"\u9CB8\u9C7C"}={run.whaleW}
                   </span>
                   {run.highlight && (
                     <span style={{ color: C.goldBright, marginLeft: "auto" }}>
-                      {"\u2726"} whale accuracy up
+                      {"\u2726"} {"\u9CB8\u9C7C\u51C6\u786E\u7387\u63D0\u5347"}
                     </span>
                   )}
                 </div>
@@ -228,7 +227,7 @@ export function AutoResearch() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              fontSize: "12px",
+              fontSize: "14px",
               color: C.muted,
               flexWrap: "wrap",
               gap: "8px",
@@ -245,12 +244,12 @@ export function AutoResearch() {
                   display: "inline-block",
                 }}
               />
-              <span style={{ color: C.greenBright }}>Running</span>
+              <span style={{ color: C.greenBright }}>{"\u8FD0\u884C\u4E2D"}</span>
             </span>
 
-            <span>Last update: 2 min ago</span>
-            <span>49 rounds completed</span>
-            <span>Avg: 12s / round</span>
+            <span>{"\u4E0A\u6B21\u66F4\u65B0"}: 2 {"\u5206\u949F\u524D"}</span>
+            <span>{"\u5DF2\u5B8C\u6210"} 49 {"\u8F6E"}</span>
+            <span>{"\u5E73\u5747"}: 12{"\u79D2"} / {"\u8F6E"}</span>
           </div>
         </div>
 
@@ -260,13 +259,13 @@ export function AutoResearch() {
             padding: "12px 28px",
             borderTop: `1px solid ${C.border}33`,
             textAlign: "center",
-            fontSize: "12px",
+            fontSize: "14px",
             color: C.gold,
             letterSpacing: "2px",
             fontStyle: "italic",
           }}
         >
-          {"\u6301\u4E45\u5316\u8FD0\u8425"} {"\u00B7"} Durable Operations {"\u00B7"} 7{"\u00D7"}24 Autonomous Agent
+          {"\u6301\u4E45\u5316\u8FD0\u8425"} {"\u00B7"} 7{"\u00D7"}24 {"\u81EA\u4E3B Agent"}
         </div>
       </div>
     </section>

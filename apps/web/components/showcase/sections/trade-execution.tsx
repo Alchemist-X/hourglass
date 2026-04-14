@@ -9,12 +9,12 @@ interface TradeDetail {
 }
 
 const TRADE_DETAILS: readonly TradeDetail[] = [
-  { label: "Action", value: "BUY YES", highlight: true },
-  { label: "Shares", value: "5 (total 162.34)" },
-  { label: "Price", value: "$0.031" },
-  { label: "Cost", value: "$0.155" },
-  { label: "Kelly", value: "1/4 conservative" },
-  { label: "Signature", value: "Gasless (Type 2)" },
+  { label: "\u64CD\u4F5C", value: "\u4E70\u5165 Yes", highlight: true },
+  { label: "\u4EFD\u6570", value: "5 (\u603B\u8BA1 162.34)" },
+  { label: "\u4EF7\u683C", value: "$0.031" },
+  { label: "\u6210\u672C", value: "$0.155" },
+  { label: "Kelly", value: "1/4 \u4FDD\u5B88\u7B56\u7565" },
+  { label: "\u7B7E\u540D", value: "\u514DGas (Type 2)" },
 ];
 
 interface RelicCheck {
@@ -26,12 +26,12 @@ interface RelicCheck {
 }
 
 const RELIC_CHECKS: readonly RelicCheck[] = [
-  { name: "MAX_TRADE", description: "Per-trade", actual: "0.8%", limit: "15%", passed: true },
-  { name: "EXPOSURE", description: "Total exposure", actual: "62%", limit: "80%", passed: true },
-  { name: "MAX_POS", description: "Positions", actual: "2", limit: "10", passed: true },
-  { name: "DRAWDOWN", description: "Drawdown", actual: "0%", limit: "30%", passed: true },
-  { name: "STOP_LOSS", description: "Stop-loss", actual: "set", limit: "30%", passed: true },
-  { name: "MIN_TRADE", description: "Min trade", actual: "$0.15", limit: "$0.50", passed: true },
+  { name: "MAX_TRADE", description: "\u5355\u7B14\u4E0A\u9650", actual: "0.8%", limit: "15%", passed: true },
+  { name: "EXPOSURE", description: "\u603B\u655E\u53E3", actual: "62%", limit: "80%", passed: true },
+  { name: "MAX_POS", description: "\u6301\u4ED3\u6570", actual: "2", limit: "10", passed: true },
+  { name: "DRAWDOWN", description: "\u56DE\u64A4", actual: "0%", limit: "30%", passed: true },
+  { name: "STOP_LOSS", description: "\u6B62\u635F", actual: "\u5DF2\u8BBE\u7F6E", limit: "30%", passed: true },
+  { name: "MIN_TRADE", description: "\u6700\u4F4E\u4EA4\u6613", actual: "$0.15", limit: "$0.50", passed: true },
 ];
 
 function ShieldIcon({ passed }: { readonly passed: boolean }) {
@@ -100,16 +100,16 @@ function TradeCard() {
         <span
           style={{
             fontFamily: "Cinzel, serif",
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: 700,
             color: "#fff",
             letterSpacing: 1,
           }}
         >
-          TRADE CARD
+          {"\u4EA4\u6613\u5361"}
         </span>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}>
-          Signal Card
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
+          {"\u4FE1\u53F7\u5361"}
         </span>
       </div>
 
@@ -126,13 +126,13 @@ function TradeCard() {
               borderBottom: "1px solid rgba(212,165,116,0.08)",
             }}
           >
-            <span style={{ fontSize: 14, color: "#8b8b9e" }}>
+            <span style={{ fontSize: 16, color: "#8b8b9e" }}>
               {detail.label}
             </span>
             <span
               style={{
                 fontFamily: "JetBrains Mono, monospace",
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: detail.highlight ? 700 : 500,
                 color: detail.highlight ? "#2a9d8f" : "#e8e8e8",
               }}
@@ -152,15 +152,15 @@ function TradeCard() {
             borderBottom: "1px solid rgba(212,165,116,0.08)",
           }}
         >
-          <span style={{ fontSize: 14, color: "#8b8b9e" }}>Status</span>
+          <span style={{ fontSize: 16, color: "#8b8b9e" }}>{"\u72B6\u6001"}</span>
           <span
             style={{
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: 700,
               color: "#2a9d8f",
             }}
           >
-            {"\u2705 Executed"}
+            {"\u2705 \u5DF2\u6267\u884C"}
           </span>
         </div>
 
@@ -173,14 +173,14 @@ function TradeCard() {
             padding: "12px 0 0",
           }}
         >
-          <span style={{ fontSize: 14, color: "#8b8b9e" }}>TxHash</span>
+          <span style={{ fontSize: 16, color: "#8b8b9e" }}>TxHash</span>
           <a
             href="https://polygonscan.com/tx/0x3e3f"
             target="_blank"
             rel="noopener noreferrer"
             style={{
               fontFamily: "JetBrains Mono, monospace",
-              fontSize: 13,
+              fontSize: 14,
               color: "#5fa8d3",
               textDecoration: "none",
               borderBottom: "1px dashed rgba(95,168,211,0.4)",
@@ -220,16 +220,16 @@ function RelicBar() {
         <span
           style={{
             fontFamily: "Cinzel, serif",
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: 700,
             color: "#1a1a2e",
             letterSpacing: 1,
           }}
         >
-          RELIC CHECK
+          {"\u98CE\u63A7\u68C0\u67E5"}
         </span>
-        <span style={{ fontSize: 11, color: "rgba(26,26,46,0.6)" }}>
-          Risk Controls
+        <span style={{ fontSize: 13, color: "rgba(26,26,46,0.6)" }}>
+          {"\u98CE\u9669\u63A7\u5236"}
         </span>
       </div>
 
@@ -275,16 +275,16 @@ function RelicBar() {
               borderBottom: "1px solid rgba(212,165,116,0.06)",
             }}
           >
-            <span style={{ fontSize: 14, color: relic.passed ? "#2a9d8f" : "#e63946" }}>
+            <span style={{ fontSize: 15, color: relic.passed ? "#2a9d8f" : "#e63946" }}>
               {relic.passed ? "\u2705" : "\u26a0\ufe0f"}
             </span>
-            <span style={{ fontSize: 13, color: "#8b8b9e", flex: 1 }}>
+            <span style={{ fontSize: 15, color: "#8b8b9e", flex: 1 }}>
               {relic.description}
             </span>
             <span
               style={{
                 fontFamily: "JetBrains Mono, monospace",
-                fontSize: 13,
+                fontSize: 14,
                 color: "#e8e8e8",
               }}
             >
@@ -293,7 +293,7 @@ function RelicBar() {
             <span
               style={{
                 fontFamily: "JetBrains Mono, monospace",
-                fontSize: 12,
+                fontSize: 13,
                 color: "#8b8b9e",
               }}
             >
@@ -316,7 +316,7 @@ function RelicBar() {
           <span
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 15,
+              fontSize: 17,
               fontWeight: 600,
               color: "#2a9d8f",
             }}
@@ -373,7 +373,7 @@ function PortfolioHpBar() {
               left: "50%",
               transform: "translate(-50%, -50%)",
               fontFamily: "JetBrains Mono, monospace",
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 700,
               color: "#fff",
               textShadow: "0 1px 3px rgba(0,0,0,0.6)",
@@ -413,13 +413,13 @@ function PortfolioHpBar() {
               left: "50%",
               transform: "translate(-50%, -50%)",
               fontFamily: "JetBrains Mono, monospace",
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               color: "#fff",
               textShadow: "0 1px 3px rgba(0,0,0,0.6)",
             }}
           >
-            Drawdown: 0%
+            {"\u56DE\u64A4"}: 0%
           </span>
         </div>
       </div>
@@ -439,13 +439,13 @@ export function TradeExecution() {
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
         {/* Section title */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <span style={{ fontSize: 14, color: "#8b8b9e", letterSpacing: 2 }}>
-            {"\u2694\ufe0f"} EXECUTE TRADE
+          <span style={{ fontSize: 16, color: "#8b8b9e", letterSpacing: 2 }}>
+            {"\u2694\ufe0f"} {"\u6267\u884C\u4EA4\u6613"}
           </span>
           <h2
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 28,
+              fontSize: 36,
               fontWeight: 700,
               color: "#d4a574",
               margin: "8px 0 0",

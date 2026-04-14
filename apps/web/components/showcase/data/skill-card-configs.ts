@@ -146,7 +146,7 @@ export const skillCardConfigs: readonly [
 ] = [
   {
     id: "price",
-    title: "REAL-TIME PRICE",
+    title: "\u5B9E\u65F6\u4EF7\u683C",
     type: "data",
     emoji: "\u{1F4CA}",
     apiEndpoint: "POST /v2/tokens/price",
@@ -157,12 +157,12 @@ export const skillCardConfigs: readonly [
       priceHistory: [91_200, 92_400, 91_800, 93_500, 94_200, 93_800, 94_200],
     },
     signalValue: 0.0,
-    signalLabel: "NEUTRAL",
+    signalLabel: "\u4E2D\u6027",
     weight: 0.1,
   },
   {
     id: "kline",
-    title: "K-LINE ANALYSIS",
+    title: "K\u7EBF\u8D8B\u52BF\u5206\u6790",
     type: "signal",
     emoji: "\u{1F4C8}",
     apiEndpoint: "GET /v2/klines/token/{id}",
@@ -174,12 +174,12 @@ export const skillCardConfigs: readonly [
       klineData: generateKlineCandles(),
     },
     signalValue: 0.73,
-    signalLabel: "BULLISH",
+    signalLabel: "\u770B\u6DA8",
     weight: 0.4,
   },
   {
     id: "whale",
-    title: "WHALE TRACKING",
+    title: "\u9CB8\u9C7C\u884C\u4E3A\u8FFD\u8E2A",
     type: "signal",
     emoji: "\u{1F40B}",
     apiEndpoint: "GET /v2/txs/{pair-id}",
@@ -191,12 +191,12 @@ export const skillCardConfigs: readonly [
       transactions: generateWhaleTransactions(),
     },
     signalValue: 0.40,
-    signalLabel: "BULLISH",
+    signalLabel: "\u770B\u6DA8",
     weight: 0.3,
   },
   {
     id: "ratio",
-    title: "BUY/SELL RATIO",
+    title: "\u94FE\u4E0A\u4E70\u5356\u6BD4",
     type: "data",
     emoji: "\u{1F4C9}",
     apiEndpoint: "GET /v2/tokens/{id}",
@@ -209,7 +209,7 @@ export const skillCardConfigs: readonly [
       ],
     },
     signalValue: 0.31,
-    signalLabel: "LEAN BULL",
+    signalLabel: "\u504F\u591A",
     weight: 0.3,
   },
 ] as const;
@@ -226,4 +226,4 @@ export const OVERALL_SCORE = +(
   skillCardConfigs[3].signalValue * skillCardConfigs[3].weight
 ).toFixed(2);
 
-export const OVERALL_LABEL = OVERALL_SCORE > 0.3 ? "BULLISH" : OVERALL_SCORE < -0.3 ? "BEARISH" : "NEUTRAL";
+export const OVERALL_LABEL = OVERALL_SCORE > 0.3 ? "\u770B\u6DA8" : OVERALL_SCORE < -0.3 ? "\u770B\u8DCC" : "\u4E2D\u6027";

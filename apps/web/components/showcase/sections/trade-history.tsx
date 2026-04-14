@@ -44,7 +44,7 @@ function PnlBadge({ pnl }: { readonly pnl: number }) {
     <span
       style={{
         fontFamily: "JetBrains Mono, monospace",
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: 700,
         color,
         padding: "2px 8px",
@@ -59,14 +59,14 @@ function PnlBadge({ pnl }: { readonly pnl: number }) {
 
 function StatusEffect({ pnl }: { readonly pnl: number }) {
   const isProfit = pnl >= 0;
-  const label = isProfit ? "Buff" : "Debuff";
+  const label = isProfit ? "\u589E\u76CA" : "\u4E8F\u635F";
   const icon = isProfit ? "\ud83d\udcc8" : "\ud83d\udcc9";
   const color = isProfit ? "#2a9d8f" : "#e63946";
 
   return (
     <span
       style={{
-        fontSize: 11,
+        fontSize: 13,
         color,
         display: "inline-flex",
         alignItems: "center",
@@ -101,12 +101,12 @@ function TradeTable() {
           gap: 8,
         }}
       >
-        {["#", "Market", "Shares", "Entry", "Current", "PnL"].map(
+        {["#", "\u5E02\u573A", "\u4EFD\u6570", "\u4E70\u5165\u4EF7", "\u5F53\u524D\u4EF7", "\u76C8\u4E8F"].map(
           (header) => (
             <span
               key={header}
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 600,
                 color: "#8b8b9e",
                 textTransform: "uppercase",
@@ -143,19 +143,19 @@ function TradeTable() {
               <span
                 style={{
                   fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 14,
+                  fontSize: 15,
                   color: "#8b8b9e",
                 }}
               >
                 {trade.id}
               </span>
-              <span style={{ fontSize: 14, color: "#e8e8e8", fontWeight: 500 }}>
+              <span style={{ fontSize: 15, color: "#e8e8e8", fontWeight: 500 }}>
                 {trade.market}
               </span>
               <span
                 style={{
                   fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 13,
+                  fontSize: 14,
                   color: "#e8e8e8",
                 }}
               >
@@ -164,7 +164,7 @@ function TradeTable() {
               <span
                 style={{
                   fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 13,
+                  fontSize: 14,
                   color: "#e8e8e8",
                 }}
               >
@@ -173,7 +173,7 @@ function TradeTable() {
               <span
                 style={{
                   fontFamily: "JetBrains Mono, monospace",
-                  fontSize: 13,
+                  fontSize: 14,
                   color: "#e8e8e8",
                 }}
               >
@@ -221,12 +221,12 @@ function PortfolioStatus() {
         <span
           style={{
             fontFamily: "Cinzel, serif",
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: 600,
             color: "#d4a574",
           }}
         >
-          PORTFOLIO STATUS
+          {"\u6301\u4ED3\u72B6\u6001"}
         </span>
       </div>
 
@@ -239,14 +239,14 @@ function PortfolioStatus() {
           marginBottom: 16,
         }}
       >
-        <span style={{ fontSize: 13, color: "#8b8b9e" }}>Wallet:</span>
+        <span style={{ fontSize: 14, color: "#8b8b9e" }}>{"\u94B1\u5305"}:</span>
         <a
           href="https://polygonscan.com/address/0xc7882936"
           target="_blank"
           rel="noopener noreferrer"
           style={{
             fontFamily: "JetBrains Mono, monospace",
-            fontSize: 13,
+            fontSize: 14,
             color: "#5fa8d3",
             textDecoration: "none",
             borderBottom: "1px dashed rgba(95,168,211,0.4)",
@@ -256,7 +256,7 @@ function PortfolioStatus() {
         </a>
         <span
           style={{
-            fontSize: 12,
+            fontSize: 13,
             color: "#5fa8d3",
             cursor: "pointer",
           }}
@@ -300,7 +300,7 @@ function PortfolioStatus() {
               left: "50%",
               transform: "translate(-50%, -50%)",
               fontFamily: "JetBrains Mono, monospace",
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               color: "#fff",
               textShadow: "0 1px 3px rgba(0,0,0,0.6)",
@@ -327,13 +327,13 @@ function PortfolioStatus() {
           { label: "\u90e8\u7f72", value: "$15.00" },
         ].map((stat) => (
           <div key={stat.label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 12, color: "#8b8b9e", marginBottom: 4 }}>
+            <div style={{ fontSize: 14, color: "#8b8b9e", marginBottom: 4 }}>
               {stat.label}
             </div>
             <div
               style={{
                 fontFamily: "JetBrains Mono, monospace",
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: 700,
                 color: "#e8e8e8",
               }}
@@ -358,7 +358,7 @@ function PortfolioStatus() {
           borderRadius: 6,
           background: "transparent",
           fontFamily: "Cinzel, serif",
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: 600,
           color: "#d4a574",
           textDecoration: "none",
@@ -383,13 +383,13 @@ export function TradeHistory() {
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         {/* Section title */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <span style={{ fontSize: 14, color: "#8b8b9e", letterSpacing: 2 }}>
-            {"\ud83c\udfc6"} BATTLE RESULTS
+          <span style={{ fontSize: 16, color: "#8b8b9e", letterSpacing: 2 }}>
+            {"\ud83c\udfc6"} {"\u6218\u7EE9\u62A5\u544A"}
           </span>
           <h2
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 24,
+              fontSize: 30,
               fontWeight: 700,
               color: "#d4a574",
               margin: "8px 0 0",

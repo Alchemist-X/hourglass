@@ -32,7 +32,7 @@ const TIMELINE_STEPS: readonly TimelineStep[] = [
     signal: 0.73,
     details: [
       "MA20: $93,800 > MA50: $91,200",
-      "MACD: \u91d1\u53c9 \u2666 Bullish",
+      "MACD: \u91d1\u53c9 \u2666 \u770b\u6da8",
       "\u6ce2\u52a8\u7387: 3.2%/\u65e5",
     ],
   },
@@ -64,20 +64,20 @@ const TIMELINE_STEPS: readonly TimelineStep[] = [
     timestamp: "1.5s",
     icon: "\u26a1",
     title: "\u7efc\u5408\u5224\u65ad",
-    description: "Score +0.52, \u6982\u738721% vs \u8d54\u73873.1%, Edge +17.9%",
+    description: "\u5F97\u5206 +0.52, \u6982\u738721% vs \u8d54\u73873.1%, Edge +17.9%",
     signal: 0.52,
     details: [
-      "trend \u00d7 0.4 + whale \u00d7 0.3 + sentiment \u00d7 0.3 = +0.52",
+      "\u8D8B\u52BF \u00d7 0.4 + \u9CB8\u9C7C \u00d7 0.3 + \u60C5\u7EEA \u00d7 0.3 = +0.52",
       "\u6211\u4eec\u7684\u6982\u7387: 21%",
       "\u5e02\u573a\u8d54\u7387: 3.1%",
-      "Edge: +17.9% \u2190 \u663e\u8457\u6b63 edge",
+      "Edge: +17.9% \u2190 \u663e\u8457\u6b63 Edge",
     ],
   },
   {
     timestamp: "2.1s",
     icon: "\u2705",
     title: "\u6267\u884c",
-    description: "BUY 5 shares @ $0.031, \u98ce\u63a7\u901a\u8fc7",
+    description: "\u4E70\u5165 5 \u4EFD @ $0.031, \u98ce\u63a7\u901a\u8fc7",
     details: [
       "\u7c7b\u578b: FOK (Fill-or-Kill)",
       "\u7b7e\u540d: Type 2 (\u514dGas)",
@@ -144,7 +144,7 @@ function TimelineNode({
         <span
           style={{
             fontFamily: "JetBrains Mono, monospace",
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 600,
             color: "#d4a574",
           }}
@@ -218,7 +218,7 @@ function TimelineNode({
             <span
               style={{
                 fontFamily: "Cinzel, serif",
-                fontSize: 15,
+                fontSize: 17,
                 fontWeight: 600,
                 color: "#e8e8e8",
               }}
@@ -227,7 +227,7 @@ function TimelineNode({
             </span>
             <span
               style={{
-                fontSize: 13,
+                fontSize: 14,
                 color: "#8b8b9e",
                 marginLeft: 8,
               }}
@@ -249,7 +249,7 @@ function TimelineNode({
               <div
                 key={detail}
                 style={{
-                  fontSize: 12,
+                  fontSize: 13,
                   color: "#8b8b9e",
                   padding: "3px 0",
                   fontFamily: "JetBrains Mono, monospace",
@@ -276,13 +276,13 @@ export function ThinkingTimeline() {
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         {/* Section title */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <span style={{ fontSize: 14, color: "#8b8b9e", letterSpacing: 2 }}>
-            {"\ud83e\udde0"} THINKING PROCESS
+          <span style={{ fontSize: 16, color: "#8b8b9e", letterSpacing: 2 }}>
+            {"\ud83e\udde0"} {"\u601D\u8003\u8FC7\u7A0B"}
           </span>
           <h3
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 22,
+              fontSize: 28,
               fontWeight: 700,
               color: "#d4a574",
               margin: "8px 0 4px",
@@ -290,7 +290,7 @@ export function ThinkingTimeline() {
           >
             AI {"\u601d\u8003\u8fc7\u7a0b"}
           </h3>
-          <p style={{ fontSize: 14, color: "#8b8b9e", margin: 0 }}>
+          <p style={{ fontSize: 16, color: "#8b8b9e", margin: 0 }}>
             {"\u4ee5 \"BTC hit $150K\" \u4e3a\u4f8b\uff0c\u5c55\u793a\u5b8c\u6574\u63a8\u7406 \u2192 \u6267\u884c\u94fe"}
           </p>
         </div>
@@ -320,7 +320,7 @@ export function ThinkingTimeline() {
           <div
             style={{
               fontFamily: "JetBrains Mono, monospace",
-              fontSize: 32,
+              fontSize: 38,
               fontWeight: 700,
               color: "#d4a574",
               textShadow: "0 0 20px rgba(212,165,116,0.3)",
@@ -328,7 +328,7 @@ export function ThinkingTimeline() {
           >
             ~2.1 {"\u79d2"}
           </div>
-          <div style={{ fontSize: 14, color: "#8b8b9e", marginTop: 4 }}>
+          <div style={{ fontSize: 16, color: "#8b8b9e", marginTop: 4 }}>
             {"\u4ece\u4fe1\u53f7\u91c7\u96c6\u5230\u6210\u4ea4 \u2014 \u79d2\u7ea7\u54cd\u5e94"}
           </div>
         </div>

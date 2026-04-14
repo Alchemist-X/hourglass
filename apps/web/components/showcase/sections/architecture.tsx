@@ -14,38 +14,38 @@ interface ArchLayer {
 
 const LAYERS: readonly ArchLayer[] = [
   {
-    act: "ACT I",
+    act: "\u7B2C\u4E00\u5C42",
     title: "AVE Claw \u76d1\u63a7",
-    subtitle: "Signal Layer",
+    subtitle: "\u4FE1\u53F7\u5C42",
     icons: ["\ud83d\udcca", "\ud83d\udcc8", "\ud83d\udc0b", "\ud83d\udcc9"],
-    items: ["Price API", "Kline API", "Whale Tracking", "Buy/Sell Ratio"],
+    items: ["\u4EF7\u683C API", "K\u7EBF API", "\u9CB8\u9C7C\u8FFD\u8E2A", "\u4E70\u5356\u6BD4"],
     borderColor: "#2a9d8f",
     bgAccent: "rgba(42,157,143,0.06)",
   },
   {
-    act: "ACT II",
+    act: "\u7B2C\u4E8C\u5C42",
     title: "AI \u51b3\u7b56\u5f15\u64ce",
-    subtitle: "Brain Layer",
+    subtitle: "\u5927\u8111\u5C42",
     icons: ["\ud83e\udde0"],
-    items: ["\u4fe1\u53f7\u805a\u5408", "\u6982\u7387\u4f30\u7b97", "Edge \u8ba1\u7b97", "Auto-Research"],
+    items: ["\u4fe1\u53f7\u805a\u5408", "\u6982\u7387\u4f30\u7b97", "Edge \u8ba1\u7b97", "\u81EA\u52A8\u7814\u7A76"],
     borderColor: "#5fa8d3",
     bgAccent: "rgba(95,168,211,0.06)",
   },
   {
-    act: "ACT III",
+    act: "\u7B2C\u4E09\u5C42",
     title: "Polymarket \u6267\u884c+\u98ce\u63a7",
-    subtitle: "Battle Layer",
+    subtitle: "\u6267\u884C\u5C42",
     icons: ["\u2694\ufe0f"],
-    items: ["FOK \u8ba2\u5355", "6\u5c42\u98ce\u63a7 (Relics)", "\u514dGas \u7b7e\u540d", "Kelly Sizing"],
+    items: ["FOK \u8ba2\u5355", "6\u5c42\u98ce\u63a7", "\u514dGas \u7b7e\u540d", "Kelly \u4ED3\u4F4D"],
     borderColor: "#e63946",
     bgAccent: "rgba(230,57,70,0.06)",
   },
   {
-    act: "BOSS",
+    act: "\u7B2C\u56DB\u5C42",
     title: "\u5c55\u793a+\u5f52\u6863",
-    subtitle: "Reward Layer",
+    subtitle: "\u5C55\u793A\u5C42",
     icons: ["\ud83c\udfc6"],
-    items: ["Dashboard", "\u4ea4\u6613\u8bb0\u5f55", "\u8fd0\u884c\u62a5\u544a", "\u6301\u4ed3\u8ffd\u8e2a"],
+    items: ["\u4EEA\u8868\u76D8", "\u4ea4\u6613\u8bb0\u5f55", "\u8fd0\u884c\u62a5\u544a", "\u6301\u4ed3\u8ffd\u8e2a"],
     borderColor: "#d4a574",
     bgAccent: "rgba(212,165,116,0.06)",
   },
@@ -66,7 +66,7 @@ const TECH_STACK: readonly TechBadge[] = [
 
 const STATS: readonly { readonly label: string; readonly value: string }[] = [
   { label: "\u4ee3\u7801", value: "15,000+ \u884c" },
-  { label: "Workspace", value: "12 \u5b50\u5305" },
+  { label: "\u5DE5\u4F5C\u533A", value: "12 \u5b50\u5305" },
   { label: "\u5386\u53f2\u8fd0\u884c", value: "50+" },
 ];
 
@@ -125,7 +125,7 @@ function LayerCard({ layer }: { readonly layer: ArchLayer }) {
           <span
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 700,
               color: layer.borderColor,
               letterSpacing: 2,
@@ -137,7 +137,7 @@ function LayerCard({ layer }: { readonly layer: ArchLayer }) {
           <span
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 700,
               color: "#e8e8e8",
             }}
@@ -147,7 +147,7 @@ function LayerCard({ layer }: { readonly layer: ArchLayer }) {
         </div>
         <span
           style={{
-            fontSize: 12,
+            fontSize: 14,
             color: "#8b8b9e",
             fontStyle: "italic",
           }}
@@ -192,7 +192,7 @@ function LayerCard({ layer }: { readonly layer: ArchLayer }) {
             <span
               key={item}
               style={{
-                fontSize: 12,
+                fontSize: 14,
                 color: "#e8e8e8",
                 padding: "4px 10px",
                 background: "rgba(15,15,35,0.4)",
@@ -220,13 +220,13 @@ export function Architecture() {
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         {/* Section title */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <span style={{ fontSize: 14, color: "#8b8b9e", letterSpacing: 2 }}>
-            {"\ud83d\uddfa\ufe0f"} ARCHITECTURE MAP
+          <span style={{ fontSize: 16, color: "#8b8b9e", letterSpacing: 2 }}>
+            {"\ud83d\uddfa\ufe0f"} {"\u67B6\u6784\u56FE"}
           </span>
           <h2
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 28,
+              fontSize: 34,
               fontWeight: 700,
               color: "#d4a574",
               margin: "8px 0 0",
@@ -251,14 +251,14 @@ export function Architecture() {
           <h3
             style={{
               fontFamily: "Cinzel, serif",
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 600,
               color: "#8b8b9e",
               margin: "0 0 16px",
               letterSpacing: 2,
             }}
           >
-            TECH STACK
+            {"\u6280\u672F\u6808"}
           </h3>
           <div
             style={{
@@ -283,7 +283,7 @@ export function Architecture() {
                 <div
                   style={{
                     fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: 600,
                     color: "#e8e8e8",
                   }}
@@ -292,7 +292,7 @@ export function Architecture() {
                 </div>
                 <div
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     color: "#8b8b9e",
                     marginTop: 2,
                   }}
@@ -317,7 +317,7 @@ export function Architecture() {
                 <span
                   style={{
                     fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: 700,
                     color: "#d4a574",
                   }}
@@ -326,7 +326,7 @@ export function Architecture() {
                 </span>
                 <span
                   style={{
-                    fontSize: 13,
+                    fontSize: 15,
                     color: "#8b8b9e",
                     marginLeft: 6,
                   }}

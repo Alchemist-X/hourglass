@@ -11,15 +11,15 @@ interface ComparisonItem {
 const NORMAL_TRADER: readonly ComparisonItem[] = [
   { icon: "\ud83d\udcf0", text: "\u770b\u65b0\u95fb" },
   { icon: "\ud83d\ude30", text: "\u9760\u76f4\u89c9" },
-  { icon: "\u23f0", text: "\u5ef6\u8fdf\u5206\u949f" },
+  { icon: "\u23f0", text: "\u5ef6\u8fdf\u6570\u5206\u949f" },
   { icon: "\ud83d\udc64", text: "\u624b\u52a8\u64cd\u4f5c" },
-  { icon: "\ud83d\udcca", text: "\u8986\u76d6 <10 \u5e02\u573a" },
+  { icon: "\ud83d\udcca", text: "\u8986\u76d6\u4e0d\u5230 10 \u4e2a\u5e02\u573a" },
 ];
 
 const HOURGLASS: readonly ComparisonItem[] = [
-  { icon: "\ud83d\udcca", text: "\u770b\u94fe\u4e0a" },
-  { icon: "\ud83e\udd16", text: "AI \u5206\u6790" },
-  { icon: "\u26a1", text: "\u79d2\u7ea7\u54cd\u5e94" },
+  { icon: "\ud83d\udcca", text: "\u770b\u94fe\u4e0a\u6570\u636e" },
+  { icon: "\ud83e\udd16", text: "AI \u81ea\u4e3b\u5206\u6790" },
+  { icon: "\u26a1", text: "\u79d2\u7ea7\u54cd\u5e94 + \u6301\u7eed\u8fd0\u8425" },
   { icon: "\ud83d\udd04", text: "\u6301\u4e45\u5316\u8fd0\u8425" },
   { icon: "\ud83c\udf10", text: "\u8986\u76d6 130+ \u94fe" },
 ];
@@ -75,7 +75,7 @@ function ComparisonCard({
       {/* Type badge */}
       <div
         style={{
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           textTransform: "uppercase",
           letterSpacing: 2,
@@ -90,13 +90,13 @@ function ComparisonCard({
           marginBottom: 16,
         }}
       >
-        {variant === "gold" ? "Rare" : "Common"}
+        {variant === "gold" ? "\u7a00\u6709" : "\u666e\u901a"}
       </div>
 
       <h3
         style={{
           fontFamily: "Cinzel, serif",
-          fontSize: 22,
+          fontSize: 24,
           fontWeight: 700,
           color: titleColor,
           margin: "0 0 20px 0",
@@ -115,11 +115,11 @@ function ComparisonCard({
               gap: 12,
               padding: "10px 0",
               borderBottom: `1px solid ${variant === "gold" ? "rgba(212,165,116,0.15)" : "rgba(139,139,158,0.1)"}`,
-              fontSize: 16,
+              fontSize: 17,
               color: "#e8e8e8",
             }}
           >
-            <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>
+            <span style={{ fontSize: 22, width: 28, textAlign: "center" }}>
               {item.icon}
             </span>
             <span>{item.text}</span>
@@ -212,7 +212,7 @@ function Testimonial() {
       <div style={{ flex: 1 }}>
         <p
           style={{
-            fontSize: 16,
+            fontSize: 17,
             lineHeight: 1.7,
             color: "#e8e8e8",
             margin: "0 0 12px 0",
@@ -223,7 +223,7 @@ function Testimonial() {
         </p>
         <p
           style={{
-            fontSize: 13,
+            fontSize: 14,
             color: "#8b8b9e",
             margin: 0,
           }}
@@ -248,7 +248,7 @@ function CoreInsight() {
       <p
         style={{
           fontFamily: "Cinzel, serif",
-          fontSize: 24,
+          fontSize: 28,
           fontWeight: 700,
           color: "#e8e8e8",
           lineHeight: 1.5,
@@ -259,14 +259,14 @@ function CoreInsight() {
       </p>
       <p
         style={{
-          fontSize: 15,
+          fontSize: 17,
           color: "#8b8b9e",
           lineHeight: 1.7,
           marginTop: 12,
           marginBottom: 0,
         }}
       >
-        {"\u9cb8\u9c7c\u5728\u4e70\u5165 \u2192 \u4ef7\u683c\u8fd8\u6ca1\u52a8 \u2192 \u8d54\u7387\u8fd8\u6ca1\u8c03\u6574 \u2192 Hourglass \u5c31\u5df2\u7ecf\u53d1\u73b0\u4e86 edge\u3002"}
+        {"\u9cb8\u9c7c\u5728\u4e70\u5165 \u2192 \u4ef7\u683c\u8fd8\u6ca1\u52a8 \u2192 \u8d54\u7387\u8fd8\u6ca1\u8c03\u6574 \u2192 Hourglass \u5c31\u5df2\u7ecf\u53d1\u73b0\u4e86 Edge\u3002"}
       </p>
     </div>
   );
@@ -305,7 +305,7 @@ export function ProblemSolution() {
         <h2
           style={{
             fontFamily: "Cinzel, serif",
-            fontSize: 32,
+            fontSize: 38,
             fontWeight: 700,
             color: "#d4a574",
             textAlign: "center",
@@ -333,7 +333,7 @@ export function ProblemSolution() {
           />
           <VsBadge />
           <ComparisonCard
-            title="Hourglass"
+            title="Hourglass Agent"
             items={HOURGLASS}
             variant="gold"
           />

@@ -72,14 +72,14 @@ function StickyRelicBar() {
       >
         <span
           style={{
-            fontSize: 11,
+            fontSize: 12,
             color: "#8b8b9e",
             fontWeight: 600,
             letterSpacing: 1,
             marginRight: 8,
           }}
         >
-          RELICS
+          {"\u98CE\u63A7\u53C2\u6570"}
         </span>
         {RELIC_ITEMS.map((relic) => (
           <div
@@ -99,7 +99,7 @@ function StickyRelicBar() {
             <span
               style={{
                 fontFamily: "JetBrains Mono, monospace",
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 600,
                 color: "#e8e8e8",
               }}
@@ -128,7 +128,7 @@ export function FooterSection() {
         <div
           style={{
             fontFamily: "Cinzel, serif",
-            fontSize: 36,
+            fontSize: 42,
             fontWeight: 800,
             color: "#d4a574",
             letterSpacing: 6,
@@ -141,7 +141,7 @@ export function FooterSection() {
         {/* Hackathon badge */}
         <div
           style={{
-            fontSize: 14,
+            fontSize: 16,
             color: "#8b8b9e",
             marginBottom: 28,
           }}
@@ -182,7 +182,7 @@ export function FooterSection() {
               borderRadius: 6,
               background: "rgba(22,33,62,0.4)",
               color: "#e8e8e8",
-              fontSize: 14,
+              fontSize: 16,
               textDecoration: "none",
             }}
           >
@@ -204,7 +204,7 @@ export function FooterSection() {
               borderRadius: 6,
               background: "rgba(22,33,62,0.4)",
               color: "#e8e8e8",
-              fontSize: 14,
+              fontSize: 16,
               textDecoration: "none",
             }}
           >
@@ -212,7 +212,7 @@ export function FooterSection() {
               <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
               <path d="M2 8h12M8 1c-2 2.5-2 5-2 7s0 4.5 2 7M8 1c2 2.5 2 5 2 7s0 4.5-2 7" stroke="currentColor" strokeWidth="1" />
             </svg>
-            Live Demo
+            {"\u5728\u7EBF\u6F14\u793A"}
           </a>
         </div>
 
@@ -220,13 +220,13 @@ export function FooterSection() {
         <div
           style={{
             fontFamily: "JetBrains Mono, monospace",
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: 600,
             color: "#d4a574",
             marginBottom: 16,
           }}
         >
-          4 AVE Skills {"\u00d7"} 7 Markets {"\u00d7"} Real Trades
+          4 {"\u4E2A"} AVE Skill {"\u00d7"} 7 {"\u4E2A\u5E02\u573A"} {"\u00d7"} {"\u771F\u5B9E\u4EA4\u6613"}
         </div>
 
         {/* Quote */}
@@ -252,7 +252,7 @@ export function FooterSection() {
           </span>
           <p
             style={{
-              fontSize: 16,
+              fontSize: 18,
               color: "rgba(240,230,211,0.7)",
               fontStyle: "italic",
               lineHeight: 1.6,
@@ -260,7 +260,7 @@ export function FooterSection() {
               paddingLeft: 20,
             }}
           >
-            {"\u7528\u94fe\u4e0a\u6570\u636e\uff0c\u5728\u9884\u6d4b\u5e02\u573a\u627e\u5230\u522b\u4eba\u770b\u4e0d\u5230\u7684 edge"}
+            {"\u7528\u94fe\u4e0a\u6570\u636e\uff0c\u5728\u9884\u6d4b\u5e02\u573a\u627e\u5230\u522b\u4eba\u770b\u4e0d\u5230\u7684 Edge"}
           </p>
         </div>
       </footer>

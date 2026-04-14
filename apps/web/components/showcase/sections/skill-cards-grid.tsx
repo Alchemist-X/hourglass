@@ -62,7 +62,7 @@ const sectionStyle: React.CSSProperties = {
 const sectionTitle: React.CSSProperties = {
   textAlign: "center",
   fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-  fontSize: "14px",
+  fontSize: "16px",
   letterSpacing: "6px",
   color: "#8b8b9e",
   textTransform: "uppercase",
@@ -100,14 +100,14 @@ const cardBodyStyle: React.CSSProperties = {
 const cardFooterStyle: React.CSSProperties = {
   padding: "8px 20px 12px",
   borderTop: `1px solid ${COLORS.border}`,
-  fontSize: "11px",
+  fontSize: "12px",
   fontFamily: "'JetBrains Mono', monospace",
   color: COLORS.muted,
   letterSpacing: "0.5px",
 };
 
 const typeBadgeStyle = (type: "data" | "signal"): React.CSSProperties => ({
-  fontSize: "9px",
+  fontSize: "10px",
   letterSpacing: "2px",
   textTransform: "uppercase",
   padding: "2px 8px",
@@ -119,7 +119,7 @@ const typeBadgeStyle = (type: "data" | "signal"): React.CSSProperties => ({
 
 const titleStyle: React.CSSProperties = {
   fontFamily: "'Cinzel', 'Iowan Old Style', serif",
-  fontSize: "14px",
+  fontSize: "16px",
   color: COLORS.cream,
   fontWeight: 600,
   letterSpacing: "1px",
@@ -217,14 +217,14 @@ function SignalBar({ value, label }: { readonly value: number; readonly label: s
       </div>
       <div
         style={{
-          fontSize: "11px",
+          fontSize: "13px",
           fontFamily: "'JetBrains Mono', monospace",
           color: barColor,
           textAlign: "center",
           letterSpacing: "0.5px",
         }}
       >
-        Signal: {label} ({value >= 0 ? "+" : ""}
+        {"\u4FE1\u53F7"}: {label} ({value >= 0 ? "+" : ""}
         {value.toFixed(2)})
       </div>
     </div>
@@ -335,8 +335,8 @@ function WhaleBarChart({ buyVolume, sellVolume }: { readonly buyVolume: number; 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-      <BarRow label="Buy" pct={buyPct} value={formatVol(buyVolume)} color={COLORS.green} />
-      <BarRow label="Sell" pct={sellPct} value={formatVol(sellVolume)} color={COLORS.red} />
+      <BarRow label={"\u4E70"} pct={buyPct} value={formatVol(buyVolume)} color={COLORS.green} />
+      <BarRow label={"\u5356"} pct={sellPct} value={formatVol(sellVolume)} color={COLORS.red} />
     </div>
   );
 }
@@ -354,11 +354,11 @@ function BarRow({
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <span style={{ fontSize: "11px", color: COLORS.muted, width: "28px", textAlign: "right" }}>{label}</span>
+      <span style={{ fontSize: "13px", color: COLORS.muted, width: "28px", textAlign: "right" }}>{label}</span>
       <div style={{ flex: 1, height: "10px", borderRadius: "5px", background: `${color}22` }}>
         <div style={{ width: `${pct}%`, height: "100%", borderRadius: "5px", background: color, transition: "width 0.5s" }} />
       </div>
-      <span style={{ fontSize: "11px", color: COLORS.cream, fontFamily: "'JetBrains Mono', monospace", width: "44px" }}>{value}</span>
+      <span style={{ fontSize: "13px", color: COLORS.cream, fontFamily: "'JetBrains Mono', monospace", width: "44px" }}>{value}</span>
     </div>
   );
 }
@@ -376,13 +376,13 @@ function RatioBarChart({ timeframes }: { readonly timeframes: readonly { label: 
 
         return (
           <div key={tf.label} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "11px", color: COLORS.muted, width: "24px", textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
+            <span style={{ fontSize: "13px", color: COLORS.muted, width: "24px", textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
               {tf.label}
             </span>
             <div style={{ flex: 1, height: "8px", borderRadius: "4px", background: COLORS.red, display: "flex", overflow: "hidden" }}>
               <div style={{ width: `${buyPct}%`, height: "100%", background: COLORS.green, transition: "width 0.5s" }} />
             </div>
-            <span style={{ fontSize: "11px", color: COLORS.cream, fontFamily: "'JetBrains Mono', monospace", width: "40px" }}>
+            <span style={{ fontSize: "13px", color: COLORS.cream, fontFamily: "'JetBrains Mono', monospace", width: "40px" }}>
               {tf.ratio.toFixed(2)}x
             </span>
           </div>
@@ -402,9 +402,9 @@ function PriceCardContent({ data }: { readonly data: PriceCardData }) {
       <div style={{ borderRadius: "8px", overflow: "hidden", background: COLORS.cardBgInner, padding: "8px 4px", marginBottom: "12px" }}>
         <Sparkline data={data.priceHistory} />
       </div>
-      <DataRow label="BTC Current" value={`$${data.currentPrice.toLocaleString()}`} />
-      <DataRow label="Target Price" value={`$${data.targetPrice.toLocaleString()}`} />
-      <DataRow label="Change Needed" value={data.changeNeeded} valueColor={COLORS.red} />
+      <DataRow label="BTC \u5F53\u524D" value={`$${data.currentPrice.toLocaleString()}`} />
+      <DataRow label={"\u76EE\u6807\u4EF7"} value={`$${data.targetPrice.toLocaleString()}`} />
+      <DataRow label={"\u6240\u9700\u6DA8\u5E45"} value={data.changeNeeded} valueColor={COLORS.red} />
     </>
   );
 }
@@ -417,8 +417,8 @@ function KlineCardContent({ data }: { readonly data: KlineCardData }) {
       </div>
       <DataRow label="MA20" value={`$${data.ma20.toLocaleString()}`} valueColor={COLORS.blue} />
       <DataRow label="MA50" value={`$${data.ma50.toLocaleString()}`} valueColor={COLORS.goldSoft} />
-      <DataRow label="MACD" value={`Golden Cross \u2726 ${data.macdSignal.charAt(0).toUpperCase() + data.macdSignal.slice(1)}`} valueColor={COLORS.green} />
-      <DataRow label="Volatility" value={`${(data.volatility * 100).toFixed(1)}%/day`} />
+      <DataRow label="MACD" value={`\u91D1\u53C9 \u2726 \u770B\u6DA8`} valueColor={COLORS.green} />
+      <DataRow label={"\u6CE2\u52A8\u7387"} value={`${(data.volatility * 100).toFixed(1)}%/\u65E5`} />
     </>
   );
 }
@@ -429,9 +429,9 @@ function WhaleCardContent({ data }: { readonly data: WhaleCardData }) {
       <div style={{ borderRadius: "8px", background: COLORS.cardBgInner, padding: "12px", marginBottom: "12px" }}>
         <WhaleBarChart buyVolume={data.buyVolume} sellVolume={data.sellVolume} />
       </div>
-      <DataRow label="Net Flow" value={`+$${((data.buyVolume - data.sellVolume) / 1_000_000).toFixed(1)}M`} valueColor={COLORS.green} />
-      <DataRow label="Large Trades" value={`${data.largeTradeCount} txs`} />
-      <DataRow label="Largest" value={`$${(data.transactions[0]?.amountUsd ?? 0 / 1_000_000).toFixed(1)}M (${data.transactions[0]?.source ?? "N/A"})`} />
+      <DataRow label={"\u51C0\u6D41\u5165"} value={`+$${((data.buyVolume - data.sellVolume) / 1_000_000).toFixed(1)}M`} valueColor={COLORS.green} />
+      <DataRow label={"\u5927\u989D\u4EA4\u6613"} value={`${data.largeTradeCount} \u7B14`} />
+      <DataRow label={"\u6700\u5927\u5355\u7B14"} value={`$${(data.transactions[0]?.amountUsd ?? 0 / 1_000_000).toFixed(1)}M (${data.transactions[0]?.source ?? "N/A"})`} />
     </>
   );
 }
@@ -469,7 +469,7 @@ function DataRow({
         justifyContent: "space-between",
         alignItems: "center",
         padding: "3px 0",
-        fontSize: "12px",
+        fontSize: "14px",
       }}
     >
       <span style={{ color: COLORS.muted }}>{label}</span>
@@ -491,7 +491,7 @@ function SkillCard({ config }: { readonly config: SkillCardConfig }) {
         <span style={titleStyle}>
           {config.emoji} {config.title}
         </span>
-        <span style={typeBadgeStyle(config.type)}>{config.type === "data" ? "Data" : "Signal"}</span>
+        <span style={typeBadgeStyle(config.type)}>{config.type === "data" ? "\u6570\u636E" : "\u4FE1\u53F7"}</span>
       </div>
 
       {/* Body: visualization + data */}
@@ -528,7 +528,7 @@ function CardContent({ config }: { readonly config: SkillCardConfig }) {
 export function SkillCardsGrid() {
   return (
     <section style={sectionStyle}>
-      <div style={sectionTitle}>AVE SKILL CARDS</div>
+      <div style={sectionTitle}>AVE SKILL {"\u6280\u80FD\u5361"}</div>
 
       <div style={gridStyle}>
         {skillCardConfigs.map((config) => (
