@@ -6,6 +6,7 @@ import { DashboardHeader } from "../components/dashboard-header";
 import { DashboardPnlSummary } from "../components/dashboard-pnl-summary";
 import { DashboardPositions } from "../components/dashboard-positions";
 import { DashboardThesis } from "../components/dashboard-thesis";
+import { DecisionReasoningPanel } from "../components/decision-reasoning-panel";
 import {
   getPublicOverviewData,
   getPublicPositionsData,
@@ -34,14 +35,54 @@ async function fetchAveAlerts(): Promise<readonly AveAlert[]> {
   }
 }
 
+interface DecisionReasoningData {
+  readonly id: string;
+  readonly marketQuestion: string;
+  readonly token: "BTC" | "ETH";
+  readonly currentPrice: number;
+  readonly targetPrice: number;
+  readonly signals: {
+    readonly price: { readonly value: number; readonly label: string; readonly detail: string };
+    readonly trend: { readonly value: number; readonly label: string; readonly detail: string };
+    readonly whale: { readonly value: number; readonly label: string; readonly detail: string };
+    readonly sentiment: { readonly value: number; readonly label: string; readonly detail: string };
+  };
+  readonly overallScore: number;
+  readonly ourProbability: number;
+  readonly marketProbability: number;
+  readonly edge: number;
+  readonly action: "BUY" | "SELL" | "SKIP";
+  readonly shares?: number;
+  readonly status: "executed" | "pending" | "skipped";
+  readonly timestamp: string;
+}
+
+async function fetchDecisions(): Promise<readonly DecisionReasoningData[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const response = await fetch(`${baseUrl}/api/public/decisions`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await response.json() as { decisions?: DecisionReasoningData[] };
+    return data.decisions ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function HomePage() {
-  const [overview, positions, trades, closedPositions, activities, alerts] = await Promise.all([
+  const [overview, positions, trades, closedPositions, activities, alerts, decisions] = await Promise.all([
     getPublicOverviewData(),
     getPublicPositionsData(),
     getPublicTradesData(),
     getSpectatorClosedPositionsData(),
     getSpectatorActivityData(),
-    fetchAveAlerts()
+    fetchAveAlerts(),
+    fetchDecisions()
   ]);
 
   return (
@@ -61,6 +102,8 @@ export default async function HomePage() {
       />
 
       <AveMonitoringPanel alerts={alerts} />
+
+      <DecisionReasoningPanel decisions={decisions} />
 
       <div className="dash-split">
         <DashboardPnlSummary

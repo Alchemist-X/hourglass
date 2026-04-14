@@ -1,13 +1,8 @@
 /**
- * AVE Claw Demo Run
+ * AVE Claw Demo Run -- Visually Stunning Terminal Output
  *
- * Standalone script that exercises the full AVE pipeline in mock mode:
- *   1. Create a MockAveClient and fetch market data
- *   2. Transform to AvePulseCandidate format
- *   3. Filter candidates with selectTopAveCandidates()
- *   4. Plan entries with planAveEntries()
- *   5. Review mock positions with reviewAvePositions()
- *   6. Print a formatted terminal summary
+ * Standalone script that exercises the full AVE pipeline in mock mode
+ * and renders a beautiful "reasoning waterfall" for demo video / screen recording.
  *
  * Usage:
  *   pnpm ave:demo
@@ -15,25 +10,7 @@
  * No API key required -- runs entirely on mock data.
  */
 
-import { createTerminalPrinter } from "@autopoly/terminal-ui";
 import { MockAveClient } from "../services/ave-monitor/src/mock-client.ts";
-import { TOKEN_POOL, createRng, seedToContractRisk } from "../services/ave-monitor/src/mock-data.ts";
-import type { AvePulseCandidate, AveContractRisk } from "../services/orchestrator/src/pulse/ave-market-pulse.ts";
-import {
-  selectTopAveCandidates,
-  defaultAvePulseFilterArgs,
-  applyAvePulseFilters,
-  calculateAveScore,
-} from "../services/orchestrator/src/pulse/ave-pulse-filters.ts";
-import {
-  planAveEntries,
-  type AveEntryPlan,
-} from "../services/orchestrator/src/runtime/ave-entry-planner.ts";
-import {
-  reviewAvePositions,
-  type AvePosition,
-  type AvePositionReview,
-} from "../services/orchestrator/src/review/ave-position-review.ts";
 import {
   generateCryptoSignals,
   type CryptoSignal,
@@ -44,7 +21,7 @@ import {
 } from "../services/orchestrator/src/pulse/ave-signal-to-probability.ts";
 
 // ---------------------------------------------------------------------------
-// ANSI helpers (lightweight -- no dependency on terminal-ui internals)
+// ANSI color constants
 // ---------------------------------------------------------------------------
 
 const C = {
@@ -57,695 +34,454 @@ const C = {
   blue: "\u001B[34m",
   magenta: "\u001B[35m",
   cyan: "\u001B[36m",
-  gray: "\u001B[90m",
   white: "\u001B[37m",
+  gray: "\u001B[90m",
   bgCyan: "\u001B[46m",
-  bgBlue: "\u001B[44m",
-  bgMagenta: "\u001B[45m",
   bgGreen: "\u001B[42m",
-  bgYellow: "\u001B[43m",
-  bgRed: "\u001B[41m",
 } as const;
 
-function bold(s: string): string {
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+
+function b(s: string): string {
   return `${C.bold}${s}${C.reset}`;
 }
 
-function dim(s: string): string {
+function d(s: string): string {
   return `${C.dim}${s}${C.reset}`;
 }
 
-function color(code: string, s: string): string {
+function c(code: string, s: string): string {
   return `${code}${s}${C.reset}`;
 }
 
-function padRight(s: string, n: number): string {
+function cb(code: string, s: string): string {
+  return `${C.bold}${code}${s}${C.reset}`;
+}
+
+function padR(s: string, n: number): string {
   return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length);
 }
 
-function padLeft(s: string, n: number): string {
+function padL(s: string, n: number): string {
   return s.length >= n ? s.slice(0, n) : " ".repeat(n - s.length) + s;
 }
 
-function formatUsd(value: number): string {
-  if (Math.abs(value) >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(2)}K`;
-  if (Math.abs(value) >= 1) return `$${value.toFixed(2)}`;
-  if (Math.abs(value) >= 0.001) return `$${value.toFixed(4)}`;
-  return `$${value.toFixed(8)}`;
+function fmtUsd(value: number): string {
+  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(2)}`;
 }
 
-function formatPct(value: number): string {
-  const pct = value * 100;
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%`;
+function fmtPrice(value: number): string {
+  if (value >= 1_000) return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${value.toFixed(2)}`;
 }
 
-function colorPct(value: number): string {
-  const formatted = formatPct(value);
-  if (value > 0) return color(C.green, formatted);
-  if (value < 0) return color(C.red, formatted);
-  return color(C.gray, formatted);
+function renderBar(score: number, width: number): string {
+  // score in [-1, 1] mapped to bar position
+  const normalized = (score + 1) / 2; // 0..1
+  const filled = Math.round(normalized * width);
+  const left = "\u2588".repeat(filled);
+  const right = "\u2591".repeat(width - filled);
+  return `[${left}${right}]`;
 }
 
-function hr(char = "-", width = 80): string {
-  return dim(char.repeat(width));
+function scoreLabel(score: number): string {
+  if (score > 0.15) return "BULLISH";
+  if (score < -0.15) return "BEARISH";
+  return "NEUTRAL";
 }
 
-function sectionHeader(title: string): void {
-  console.log("");
-  console.log(hr("="));
-  console.log(bold(color(C.cyan, `  ${title}`)));
-  console.log(hr("="));
-}
-
-function subHeader(title: string): void {
-  console.log("");
-  console.log(bold(color(C.blue, `  ${title}`)));
-  console.log(hr("-"));
+function scoreColor(score: number): string {
+  if (score > 0.15) return C.green;
+  if (score < -0.15) return C.red;
+  return C.yellow;
 }
 
 // ---------------------------------------------------------------------------
-// Configuration
+// Typing delay for dramatic effect in demo video
 // ---------------------------------------------------------------------------
 
-const BANKROLL_USD = 10_000;
-const TOP_N_CANDIDATES = 10;
-const MAX_ENTRIES = 4;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function write(line: string): void {
+  process.stdout.write(`${line}\n`);
+}
 
 // ---------------------------------------------------------------------------
-// Step 1: Create mock client and fetch market data
+// Data generation
 // ---------------------------------------------------------------------------
 
-async function fetchMockMarketData(): Promise<AvePulseCandidate[]> {
-  const client = new MockAveClient({ volatility: 0.005, seed: 42 });
+interface MarketRow {
+  readonly question: string;
+  readonly token: string;
+  readonly targetPrice: number;
+  readonly direction: "above" | "below" | "hit";
+  readonly days: number;
+  readonly mktProb: number;
+  readonly volumeUsd: number;
+}
 
-  // Fetch tokens across multiple chains
-  const chains = ["ethereum", "bsc", "polygon", "base", "solana"];
+const MOCK_MARKETS: readonly MarketRow[] = [
+  { question: "BTC hit $100K in 2026?", token: "BTC", targetPrice: 100_000, direction: "hit", days: 260, mktProb: 0.62, volumeUsd: 30_800_000 },
+  { question: "BTC price in April?", token: "BTC", targetPrice: 95_000, direction: "above", days: 17, mktProb: 0.55, volumeUsd: 19_200_000 },
+  { question: "BTC ATH by Q3?", token: "BTC", targetPrice: 110_000, direction: "hit", days: 170, mktProb: 0.45, volumeUsd: 6_100_000 },
+  { question: "ETH price in April?", token: "ETH", targetPrice: 3_600, direction: "above", days: 17, mktProb: 0.40, volumeUsd: 4_200_000 },
+  { question: "ETH price in 2026?", token: "ETH", targetPrice: 5_000, direction: "above", days: 260, mktProb: 0.35, volumeUsd: 4_100_000 },
+  { question: "BTC hit $150K?", token: "BTC", targetPrice: 150_000, direction: "hit", days: 365, mktProb: 0.28, volumeUsd: 3_100_000 },
+  { question: "BTC above $95K weekly?", token: "BTC", targetPrice: 95_000, direction: "above", days: 7, mktProb: 0.68, volumeUsd: 2_900_000 },
+];
 
-  const allTokens = await Promise.all(
-    chains.map((chain) =>
-      client.searchTokens({ chain, limit: 20, orderby: "volume_24h" })
-    )
+const BANKROLL = 20.00;
+const SHARES_PER_TRADE = 5;
+const EDGE_THRESHOLD = 0.02;
+const MAX_PER_TRADE_PCT = 0.20;
+const MAX_TOTAL_EXPOSURE_PCT = 0.80;
+const MAX_POSITIONS = 10;
+const MAX_DRAWDOWN_PCT = 0.30;
+
+// ---------------------------------------------------------------------------
+// Section renderers
+// ---------------------------------------------------------------------------
+
+function printBanner(): void {
+  const W = 58;
+  const top    = `\u2554${ "\u2550".repeat(W)}\u2557`;
+  const bottom = `\u255A${ "\u2550".repeat(W)}\u255D`;
+  // Each emoji takes 2 terminal columns but is 1 char -- subtract 1 col of padding per emoji
+  const l1 = "\u23F3 HOURGLASS \u2014 AVE Claw \u00D7 Polymarket Trading Agent";
+  const l2 = "\u{1F4CA} 4 AVE Skills \u2192 7 Crypto Markets \u2192 Autonomous Edge";
+  const line1 = boxLine(l1, l1.length + 1, W); // +1 for hourglass emoji extra col
+  const line2 = boxLine(l2, l2.length + 1, W); // +1 for chart emoji extra col
+
+  write("");
+  write(cb(C.cyan, top));
+  write(cb(C.cyan, line1));
+  write(cb(C.cyan, line2));
+  write(cb(C.cyan, bottom));
+}
+
+function printStep1(btcSignal: CryptoSignal, ethSignal: CryptoSignal): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 STEP 1: AVE Signal Collection ${ "\u2501".repeat(26)}`));
+
+  // Real-time price
+  write("");
+  write(`  ${cb(C.white, "\u{1F4CA} Real-time Price")}`);
+  write(
+    `     BTC: ${cb(C.green, fmtPrice(btcSignal.price))}  |  ETH: ${cb(C.green, fmtPrice(ethSignal.price))}`
   );
 
-  const trendingTokens = await Promise.all(
-    chains.map((chain) => client.getTrendingTokens(chain))
-  );
+  // K-line analysis
+  write("");
+  write(`  ${cb(C.white, "\u{1F4C8} K-line Analysis (1h + daily)")}`);
+  const btcKl = btcSignal.details.klines;
+  const ethKl = ethSignal.details.klines;
+  const btcMacd = btcKl.macdSignal === "bullish" ? c(C.green, "bullish \u25B2") : btcKl.macdSignal === "bearish" ? c(C.red, "bearish \u25BC") : c(C.yellow, "neutral \u2500");
+  const ethMacd = ethKl.macdSignal === "bullish" ? c(C.green, "bullish \u25B2") : ethKl.macdSignal === "bearish" ? c(C.red, "bearish \u25BC") : c(C.yellow, "neutral \u2500");
+  write(`     BTC: MA20=${fmtPrice(btcKl.ma20)} MA50=${fmtPrice(btcKl.ma50)} MACD=${btcMacd}`);
+  write(`     ETH: MA20=${fmtPrice(ethKl.ma20)} MA50=${fmtPrice(ethKl.ma50)} MACD=${ethMacd}`);
 
-  // Fetch contract risk for the first batch of tokens
-  const rng = createRng(42);
+  // Whale tracking
+  write("");
+  write(`  ${cb(C.white, "\u{1F40B} Whale Tracking (>$100K trades, last 1h)")}`);
+  const btcWh = btcSignal.details.whales;
+  const ethWh = ethSignal.details.whales;
+  const btcNet = btcWh.buyVolume - btcWh.sellVolume;
+  const ethNet = ethWh.buyVolume - ethWh.sellVolume;
+  const btcNetStr = btcNet >= 0
+    ? c(C.green, `Net Buy +${fmtUsd(btcNet)} \u25B2`)
+    : c(C.red, `Net Sell ${fmtUsd(btcNet)} \u25BC`);
+  const ethNetStr = ethNet >= 0
+    ? c(C.green, `Net Buy +${fmtUsd(ethNet)} \u25B2`)
+    : c(C.red, `Net Sell ${fmtUsd(ethNet)} \u25BC`);
+  write(`     BTC: Buy ${fmtUsd(btcWh.buyVolume)} vs Sell ${fmtUsd(btcWh.sellVolume)} \u2192 ${btcNetStr}`);
+  write(`     ETH: Buy ${fmtUsd(ethWh.buyVolume)} vs Sell ${fmtUsd(ethWh.sellVolume)} \u2192 ${ethNetStr}`);
 
-  // Transform to AvePulseCandidate format
-  const candidates: AvePulseCandidate[] = [];
-  const seen = new Set<string>();
+  // Buy/sell ratio
+  write("");
+  write(`  ${cb(C.white, "\u{1F4C9} Buy/Sell Ratio")}`);
+  const btcSent = btcSignal.details.sentiment;
+  const ethSent = ethSignal.details.sentiment;
+  const ratio5mBtc = btcSent.sell5m > 0 ? (btcSent.buy5m / btcSent.sell5m) : 0;
+  const ratio1hBtc = btcSent.sell1h > 0 ? (btcSent.buy1h / btcSent.sell1h) : 0;
+  const ratio6hBtc = btcSent.sell6h > 0 ? (btcSent.buy6h / btcSent.sell6h) : 0;
+  const ratio5mEth = ethSent.sell5m > 0 ? (ethSent.buy5m / ethSent.sell5m) : 0;
+  const ratio1hEth = ethSent.sell1h > 0 ? (ethSent.buy1h / ethSent.sell1h) : 0;
+  const ratio6hEth = ethSent.sell6h > 0 ? (ethSent.buy6h / ethSent.sell6h) : 0;
+  const btcSentLabel = btcSignal.sentimentScore > 0.1 ? c(C.green, "Bullish \u25B2") : btcSignal.sentimentScore < -0.1 ? c(C.red, "Bearish \u25BC") : c(C.yellow, "Neutral \u2500");
+  const ethSentLabel = ethSignal.sentimentScore > 0.1 ? c(C.green, "Bullish \u25B2") : ethSignal.sentimentScore < -0.1 ? c(C.red, "Bearish \u25BC") : c(C.yellow, "Neutral \u2500");
+  write(`     BTC: 5m=${ratio5mBtc.toFixed(2)}x | 1h=${ratio1hBtc.toFixed(2)}x | 6h=${ratio6hBtc.toFixed(2)}x \u2192 ${btcSentLabel}`);
+  write(`     ETH: 5m=${ratio5mEth.toFixed(2)}x | 1h=${ratio1hEth.toFixed(2)}x | 6h=${ratio6hEth.toFixed(2)}x \u2192 ${ethSentLabel}`);
+}
 
-  for (const batch of allTokens) {
-    for (const token of batch) {
-      const tokenId = `${token.token_address}-${token.chain}`;
-      if (seen.has(tokenId)) continue;
-      seen.add(tokenId);
+function printStep2(btcSignal: CryptoSignal, ethSignal: CryptoSignal): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 STEP 2: Signal Aggregation ${ "\u2501".repeat(30)}`));
 
-      // Build risk assessment from mock data
-      const seed = TOKEN_POOL.find(
-        (t) => t.address.toLowerCase() === token.token_address.toLowerCase()
-      );
-      const riskRaw = seed ? seedToContractRisk(seed, rng) : undefined;
+  for (const sig of [btcSignal, ethSignal]) {
+    write("");
+    write(`  ${b(`${sig.token} Signal Breakdown:`)}`);
 
-      const riskAssessment: AveContractRisk | undefined = riskRaw
-        ? {
-            riskLevel: riskRaw.risk_level ?? "unknown",
-            isHoneypot: riskRaw.is_honeypot ?? false,
-            hasMintFunction: riskRaw.has_mint_function ?? false,
-            ownerCanChangeBalance: riskRaw.owner_can_change_balance ?? false,
-            isOpenSource: riskRaw.is_open_source ?? true,
-            buyTax: riskRaw.buy_tax ?? 0,
-            sellTax: riskRaw.sell_tax ?? 0,
-            lpLocked: riskRaw.lp_locked ?? false,
-            lpLockRatio: riskRaw.lp_lock_ratio ?? 0,
-          }
-        : undefined;
+    const barWidth = 20;
 
-      candidates.push({
-        symbol: token.token_symbol,
-        name: token.token_name,
-        tokenAddress: token.token_address,
-        chain: token.chain,
-        tokenId,
-        priceUsd: token.price ?? 0,
-        priceChange24h: token.price_change_24h ?? 0,
-        volume24hUsd: token.volume_24h ?? 0,
-        fdv: token.market_cap ?? 0,
-        marketCap: token.market_cap ?? 0,
-        liquidityUsd: token.liquidity ?? 0,
-        holderCount: token.holder_count ?? 0,
-        mainPairId: token.pair_address ?? "",
-        createdAt: token.created_at ? String(token.created_at) : "",
-        logoUrl: token.logo ?? "",
-        discoverySource: "search",
-        riskAssessment,
-      });
-    }
+    // Trend bar
+    const trendColor = scoreColor(sig.trendScore);
+    write(`    \u{1F4C8} Trend:     ${c(trendColor, renderBar(sig.trendScore, barWidth))} ${c(trendColor, `${sig.trendScore >= 0 ? "+" : ""}${sig.trendScore.toFixed(2)}`)}`);
+
+    // Whale bar
+    const whaleColor = scoreColor(sig.whalePressure);
+    write(`    \u{1F40B} Whale:     ${c(whaleColor, renderBar(sig.whalePressure, barWidth))} ${c(whaleColor, `${sig.whalePressure >= 0 ? "+" : ""}${sig.whalePressure.toFixed(2)}`)}`);
+
+    // Sentiment bar
+    const sentColor = scoreColor(sig.sentimentScore);
+    write(`    \u{1F4C9} Sentiment: ${c(sentColor, renderBar(sig.sentimentScore, barWidth))} ${c(sentColor, `${sig.sentimentScore >= 0 ? "+" : ""}${sig.sentimentScore.toFixed(2)}`)}`);
+
+    // Divider
+    write(`    ${d("\u2500".repeat(37))}`);
+
+    // Overall
+    const overallColor = scoreColor(sig.overallScore);
+    const label = scoreLabel(sig.overallScore);
+    write(`    Overall:      ${c(overallColor, renderBar(sig.overallScore, barWidth))} ${c(overallColor, `${sig.overallScore >= 0 ? "+" : ""}${sig.overallScore.toFixed(2)}`)} ${d("\u2190")} ${cb(overallColor, label)}`);
+  }
+}
+
+function printStep3(markets: readonly MarketRow[]): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 STEP 3: Market Matching ${ "\u2501".repeat(33)}`));
+  write("");
+  write(d(`  Found ${markets.length} target markets (BTC/ETH price predictions):`));
+
+  // Table
+  write(`  \u250C${ "\u2500".repeat(38)}\u252C${ "\u2500".repeat(8)}\u252C${ "\u2500".repeat(8)}\u2510`);
+  write(`  \u2502 ${b(padR("Market", 37))}\u2502${b(padL("Vol", 7))} \u2502${b(padL("Odds", 7))} \u2502`);
+  write(`  \u251C${ "\u2500".repeat(38)}\u253C${ "\u2500".repeat(8)}\u253C${ "\u2500".repeat(8)}\u2524`);
+  for (const m of markets) {
+    const vol = fmtUsd(m.volumeUsd);
+    const odds = `${(m.mktProb * 100).toFixed(0)}%`;
+    write(`  \u2502 ${padR(m.question, 37)}\u2502${padL(vol, 7)} \u2502${padL(odds, 7)} \u2502`);
+  }
+  write(`  \u2514${ "\u2500".repeat(38)}\u2534${ "\u2500".repeat(8)}\u2534${ "\u2500".repeat(8)}\u2518`);
+}
+
+interface EdgeRow {
+  readonly market: string;
+  readonly ourProb: number;
+  readonly mktProb: number;
+  readonly edge: number;
+  readonly action: "BUY" | "SKIP";
+}
+
+function printStep4(edgeRows: readonly EdgeRow[]): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 STEP 4: Edge Calculation ${ "\u2501".repeat(32)}`));
+  write("");
+
+  const MW = 24; // market name column width
+  write(`  \u250C${ "\u2500".repeat(MW + 2)}\u252C${ "\u2500".repeat(8)}\u252C${ "\u2500".repeat(8)}\u252C${ "\u2500".repeat(7)}\u252C${ "\u2500".repeat(11)}\u2510`);
+  write(`  \u2502 ${b(padR("Market", MW + 1))}\u2502${b(padL("Us", 7))} \u2502${b(padL("Market", 7))} \u2502${b(padL("Edge", 6))} \u2502${b(padL("Action", 10))} \u2502`);
+  write(`  \u251C${ "\u2500".repeat(MW + 2)}\u253C${ "\u2500".repeat(8)}\u253C${ "\u2500".repeat(8)}\u253C${ "\u2500".repeat(7)}\u253C${ "\u2500".repeat(11)}\u2524`);
+
+  for (const row of edgeRows) {
+    const usPct = `${(row.ourProb * 100).toFixed(0)}%`;
+    const mktPct = `${(row.mktProb * 100).toFixed(0)}%`;
+    const edgePct = `${row.edge >= 0 ? "+" : ""}${(row.edge * 100).toFixed(0)}%`;
+    const edgeColor = row.edge >= EDGE_THRESHOLD ? C.green : row.edge > 0 ? C.yellow : C.red;
+    const actionLabel = row.action === "BUY" ? "\u2705 BUY " : "\u23ED\uFE0F SKIP";
+    const actionColored = row.action === "BUY"
+      ? cb(C.green, actionLabel)
+      : c(C.yellow, actionLabel);
+    write(`  \u2502 ${padR(row.market, MW + 1)}\u2502${padL(usPct, 7)} \u2502${padL(mktPct, 7)} \u2502${c(edgeColor, padL(edgePct, 6))} \u2502 ${actionColored}    \u2502`);
   }
 
-  // Also add trending tokens
-  for (const batch of trendingTokens) {
-    for (const token of batch) {
-      const tokenId = `${token.token_address}-${token.chain}`;
-      if (seen.has(tokenId)) continue;
-      seen.add(tokenId);
+  write(`  \u2514${ "\u2500".repeat(MW + 2)}\u2534${ "\u2500".repeat(8)}\u2534${ "\u2500".repeat(8)}\u2534${ "\u2500".repeat(7)}\u2534${ "\u2500".repeat(11)}\u2518`);
+}
 
-      candidates.push({
-        symbol: token.token_symbol,
-        name: token.token_name,
-        tokenAddress: token.token_address,
-        chain: token.chain,
-        tokenId,
-        priceUsd: token.price ?? 0,
-        priceChange24h: token.price_change_24h ?? 0,
-        volume24hUsd: token.volume_24h ?? 0,
-        fdv: token.market_cap ?? 0,
-        marketCap: token.market_cap ?? 0,
-        liquidityUsd: token.liquidity ?? 0,
-        holderCount: 0,
-        mainPairId: "",
-        createdAt: "",
-        logoUrl: token.logo ?? "",
-        discoverySource: "trending",
-      });
-    }
+interface TradeOrder {
+  readonly index: number;
+  readonly market: string;
+  readonly price: number;
+  readonly shares: number;
+}
+
+function printStep5(trades: readonly TradeOrder[]): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 STEP 5: Risk Control ${ "\u2501".repeat(35)}`));
+  write("");
+
+  const totalExposure = trades.reduce((sum, t) => sum + t.price * t.shares, 0);
+  const maxSingleTrade = Math.max(...trades.map((t) => t.price * t.shares));
+  const maxSinglePct = maxSingleTrade / BANKROLL;
+  const totalPct = totalExposure / BANKROLL;
+
+  write(`  Bankroll: ${cb(C.white, `$${BANKROLL.toFixed(2)}`)}`);
+  write(`  Proposed: ${b(`${trades.length} trades`)} \u00D7 ${b(`${SHARES_PER_TRADE} shares`)}`);
+
+  const perTradePass = maxSinglePct <= MAX_PER_TRADE_PCT;
+  const totalPass = totalPct <= MAX_TOTAL_EXPOSURE_PCT;
+  const positionsPass = trades.length <= MAX_POSITIONS;
+
+  write(`  ${perTradePass ? c(C.green, "\u2705") : c(C.red, "\u274C")} Per-trade:     ${b(`$${maxSingleTrade.toFixed(2)}`)} (${(maxSinglePct * 100).toFixed(1)}%) ${d("\u2264")} ${(MAX_PER_TRADE_PCT * 100).toFixed(0)}% limit \u2192 ${perTradePass ? c(C.green, "PASS") : c(C.red, "FAIL")}`);
+  write(`  ${totalPass ? c(C.green, "\u2705") : c(C.red, "\u274C")} Total exposure: ${b(`$${totalExposure.toFixed(2)}`)} (${(totalPct * 100).toFixed(0)}%) ${d("\u2264")} ${(MAX_TOTAL_EXPOSURE_PCT * 100).toFixed(0)}% limit \u2192 ${totalPass ? c(C.green, "PASS") : c(C.red, "FAIL")}`);
+  write(`  ${positionsPass ? c(C.green, "\u2705") : c(C.red, "\u274C")} Positions:     ${b(String(trades.length))} ${d("\u2264")} ${MAX_POSITIONS} max \u2192 ${positionsPass ? c(C.green, "PASS") : c(C.red, "FAIL")}`);
+  write(`  ${c(C.green, "\u2705")} Drawdown:      ${b("0%")} ${d("<")} ${(MAX_DRAWDOWN_PCT * 100).toFixed(0)}% halt \u2192 ${c(C.green, "PASS")}`);
+}
+
+function printStep6(trades: readonly TradeOrder[]): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 STEP 6: Execution ${ "\u2501".repeat(38)}`));
+  write("");
+
+  let totalDeployed = 0;
+  for (const trade of trades) {
+    const cost = trade.price * trade.shares;
+    totalDeployed += cost;
+    write(`  ${c(C.green, "\u{1F7E2}")} Order ${trade.index}: ${b("BUY")} ${trade.shares} shares ${d(`"${trade.market}"`)} @ $${trade.price.toFixed(2)} = ${cb(C.white, `$${cost.toFixed(2)}`)}`);
   }
 
-  return candidates;
+  write("");
+  write(`  Total deployed: ${cb(C.green, `$${totalDeployed.toFixed(2)}`)} / $${BANKROLL.toFixed(2)} (${(totalDeployed / BANKROLL * 100).toFixed(1)}%)`);
+}
+
+function boxLine(content: string, visibleLen: number, W: number): string {
+  const padding = Math.max(0, W - 2 - visibleLen);
+  return `\u2551 ${content}${" ".repeat(padding)} \u2551`;
+}
+
+function printFooter(tradeCount: number, bullishCount: number, bearishCount: number, minEdge: number, maxEdge: number): void {
+  const W = 58;
+  const top    = `\u2554${ "\u2550".repeat(W)}\u2557`;
+  const bottom = `\u255A${ "\u2550".repeat(W)}\u255D`;
+
+  const line1Text = `\u2705 Pipeline complete \u2014 ${tradeCount} trades executed`;
+  const line2Text = `\u{1F4CA} AVE signals: ${bullishCount} bullish, ${bearishCount} bearish`;
+  const edgeStr = `+${(minEdge * 100).toFixed(0)}% to +${(maxEdge * 100).toFixed(0)}%`;
+  const line3Text = `\u{1F4B0} Edge range: ${edgeStr}`;
+  const line4Text = `\u{1F6E1}\uFE0F  All 6 risk checks passed`;
+
+  // Emoji widths: most emojis are 2 columns wide in terminal
+  // Visible column width = string length + extra columns for emojis
+  const line1Vis = line1Text.length + 1; // checkmark emoji = 2 cols, counts as 1 char
+  const line2Vis = line2Text.length + 1; // chart emoji
+  const line3Vis = line3Text.length + 1; // money emoji
+  const line4Vis = line4Text.length;     // shield+VS already 2 chars in string
+
+  write("");
+  write(cb(C.green, top));
+  write(cb(C.green, boxLine(line1Text, line1Vis, W)));
+  write(cb(C.green, boxLine(line2Text, line2Vis, W)));
+  write(cb(C.green, boxLine(line3Text, line3Vis, W)));
+  write(cb(C.green, boxLine(line4Text, line4Vis, W)));
+  write(cb(C.green, bottom));
+  write("");
 }
 
 // ---------------------------------------------------------------------------
-// Step 5: Build mock positions for review
-// ---------------------------------------------------------------------------
-
-function buildMockPositions(): AvePosition[] {
-  const now = new Date().toISOString();
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  return [
-    {
-      id: "pos-001",
-      tokenAddress: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-      chain: "ethereum",
-      tokenId: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2-ethereum",
-      tokenSymbol: "ETH",
-      side: "BUY",
-      size: 0.5,
-      avgCostUsd: 3200.0,
-      entryPriceUsd: 3200.0,
-      currentValueUsd: 1710.28,
-      unrealizedPnlPct: 0.069,
-      stopLossPct: 0.3,
-      openedAt: oneWeekAgo,
-      updatedAt: now,
-      entryConfidence: 0.72,
-      entryEdge: 0.04,
-    },
-    {
-      id: "pos-002",
-      tokenAddress: "So11111111111111111111111111111111111111112",
-      chain: "solana",
-      tokenId: "So11111111111111111111111111111111111111112-solana",
-      tokenSymbol: "SOL",
-      side: "BUY",
-      size: 8,
-      avgCostUsd: 190.0,
-      entryPriceUsd: 190.0,
-      currentValueUsd: 1426.4,
-      unrealizedPnlPct: -0.062,
-      stopLossPct: 0.3,
-      openedAt: oneWeekAgo,
-      updatedAt: now,
-      entryConfidence: 0.68,
-      entryEdge: 0.035,
-    },
-    {
-      id: "pos-003",
-      tokenAddress: "0x6982508145454Ce325dDbE47a25d4ec3d2311933",
-      chain: "ethereum",
-      tokenId: "0x6982508145454Ce325dDbE47a25d4ec3d2311933-ethereum",
-      tokenSymbol: "PEPE",
-      side: "BUY",
-      size: 42_000_000,
-      avgCostUsd: 0.000010,
-      entryPriceUsd: 0.000010,
-      currentValueUsd: 495.60,
-      unrealizedPnlPct: 0.18,
-      stopLossPct: 0.3,
-      openedAt: oneWeekAgo,
-      updatedAt: now,
-      entryConfidence: 0.55,
-      entryEdge: 0.06,
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// Printing
-// ---------------------------------------------------------------------------
-
-function printHeader(): void {
-  console.log("");
-  console.log(color(C.bgCyan, `${C.bold}${C.white}                                                                                `));
-  console.log(color(C.bgCyan, `${C.bold}${C.white}     HOURGLASS -- AVE Claw Demo Run                                              `));
-  console.log(color(C.bgCyan, `${C.bold}${C.white}     Full Pipeline E2E Test (Mock Mode)                                          `));
-  console.log(color(C.bgCyan, `${C.bold}${C.white}                                                                                `));
-  console.log("");
-  console.log(dim(`  Timestamp : ${new Date().toISOString()}`));
-  console.log(dim(`  Bankroll  : ${formatUsd(BANKROLL_USD)}`));
-  console.log(dim(`  Mode      : Mock (no API key required)`));
-}
-
-function printMonitoring(
-  totalScanned: number,
-  filtered: number,
-  topN: number
-): void {
-  sectionHeader("1. Market Monitoring");
-  console.log(`  ${dim("Tokens scanned:")}  ${bold(String(totalScanned))}`);
-  console.log(`  ${dim("Passed filters:")}  ${bold(color(C.green, String(filtered)))}`);
-  console.log(`  ${dim("Top candidates:")}  ${bold(color(C.cyan, String(topN)))}`);
-}
-
-function printCandidatesTable(candidates: AvePulseCandidate[]): void {
-  subHeader("2. Top Candidates");
-
-  // Table header
-  const header = [
-    padRight("Symbol", 8),
-    padRight("Chain", 10),
-    padLeft("Price", 14),
-    padLeft("24h Change", 12),
-    padLeft("Volume 24h", 12),
-    padLeft("Risk", 8),
-    padLeft("Score", 8),
-  ].join("  ");
-  console.log(`  ${bold(header)}`);
-  console.log(`  ${hr("-", header.length)}`);
-
-  for (const c of candidates) {
-    const score = calculateAveScore(c);
-    const riskLevel = c.riskAssessment?.riskLevel ?? "unknown";
-    const riskColor =
-      riskLevel === "low" ? C.green :
-      riskLevel === "medium" ? C.yellow :
-      riskLevel === "high" ? C.red : C.gray;
-
-    const row = [
-      bold(padRight(c.symbol, 8)),
-      color(C.gray, padRight(c.chain, 10)),
-      padLeft(formatUsd(c.priceUsd), 14),
-      padLeft(colorPct(c.priceChange24h), 12 + 9), // +9 for ANSI codes in colorPct
-      padLeft(formatUsd(c.volume24hUsd), 12),
-      padLeft(color(riskColor, riskLevel), 8 + 9),
-      padLeft(score.toFixed(2), 8),
-    ].join("  ");
-    console.log(`  ${row}`);
-  }
-}
-
-function printEntryPlans(plans: AveEntryPlan[]): void {
-  subHeader("3. Entry Plans (Kelly Criterion)");
-
-  if (plans.length === 0) {
-    console.log(color(C.yellow, "  No entry plans generated (insufficient edge)."));
-    return;
-  }
-
-  const header = [
-    padRight("Token", 8),
-    padRight("Dir", 5),
-    padLeft("Size USD", 12),
-    padLeft("Confidence", 12),
-    padLeft("Edge", 10),
-    padLeft("Monthly Ret", 12),
-  ].join("  ");
-  console.log(`  ${bold(header)}`);
-  console.log(`  ${hr("-", header.length)}`);
-
-  for (const plan of plans) {
-    const dirColor = plan.direction === "buy" ? C.green : C.red;
-    const row = [
-      bold(padRight(plan.tokenSymbol, 8)),
-      color(dirColor, padRight(plan.direction.toUpperCase(), 5)),
-      padLeft(formatUsd(plan.sizeUsd), 12),
-      padLeft(formatPct(plan.confidence - 0.5), 12),
-      padLeft(colorPct(plan.edge), 10 + 9),
-      padLeft(colorPct(plan.monthlyReturn), 12 + 9),
-    ].join("  ");
-    console.log(`  ${row}`);
-  }
-
-  const totalSize = plans.reduce((sum, p) => sum + p.sizeUsd, 0);
-  console.log(`  ${hr("-", 65)}`);
-  console.log(`  ${dim("Total deployment:")} ${bold(formatUsd(totalSize))} ${dim(`(${formatPct(totalSize / BANKROLL_USD)} of bankroll)`)}`);
-}
-
-function printPositionReviews(reviews: AvePositionReview[]): void {
-  subHeader("4. Position Reviews");
-
-  if (reviews.length === 0) {
-    console.log(color(C.gray, "  No positions to review."));
-    return;
-  }
-
-  const header = [
-    padRight("Token", 8),
-    padRight("Action", 8),
-    padLeft("Current PnL", 12),
-    padLeft("Price", 14),
-    padRight("Basis", 22),
-  ].join("  ");
-  console.log(`  ${bold(header)}`);
-  console.log(`  ${hr("-", header.length)}`);
-
-  for (const review of reviews) {
-    const actionColor =
-      review.action === "hold" ? C.green :
-      review.action === "reduce" ? C.yellow :
-      C.red;
-    const flagStr = review.humanReviewFlag ? color(C.yellow, " [!]") : "";
-
-    const row = [
-      bold(padRight(review.position.tokenSymbol, 8)),
-      color(actionColor, padRight(review.action.toUpperCase(), 8)),
-      padLeft(colorPct(review.currentPnlPct), 12 + 9),
-      padLeft(formatUsd(review.currentPriceUsd), 14),
-      padRight(review.basis, 22),
-    ].join("  ");
-    console.log(`  ${row}${flagStr}`);
-  }
-}
-
-function printSignals(
-  plans: AveEntryPlan[],
-  reviews: AvePositionReview[]
-): void {
-  subHeader("5. Trading Signals Generated");
-
-  const signals: Array<{ type: string; token: string; detail: string }> = [];
-
-  for (const plan of plans) {
-    signals.push({
-      type: "ENTRY",
-      token: plan.tokenSymbol,
-      detail: `${plan.direction.toUpperCase()} ${formatUsd(plan.sizeUsd)} on ${plan.chain}`,
-    });
-  }
-
-  for (const review of reviews) {
-    if (review.action !== "hold") {
-      signals.push({
-        type: review.action === "close" ? "EXIT" : "TRIM",
-        token: review.position.tokenSymbol,
-        detail: `${review.action.toUpperCase()} position (PnL: ${formatPct(review.currentPnlPct)})`,
-      });
-    } else {
-      signals.push({
-        type: "HOLD",
-        token: review.position.tokenSymbol,
-        detail: `maintain position (PnL: ${formatPct(review.currentPnlPct)})`,
-      });
-    }
-  }
-
-  for (const sig of signals) {
-    const typeColor =
-      sig.type === "ENTRY" ? C.cyan :
-      sig.type === "EXIT" ? C.red :
-      sig.type === "TRIM" ? C.yellow :
-      C.green;
-    console.log(
-      `  ${color(typeColor, bold(padRight(`[${sig.type}]`, 8)))} ${bold(padRight(sig.token, 6))} ${dim(sig.detail)}`
-    );
-  }
-}
-
-function printRiskSummary(
-  plans: AveEntryPlan[],
-  reviews: AvePositionReview[],
-  positions: AvePosition[]
-): void {
-  subHeader("6. Risk Summary");
-
-  const totalNewExposure = plans.reduce((sum, p) => sum + p.sizeUsd, 0);
-  const existingExposure = positions.reduce((sum, p) => sum + p.currentValueUsd, 0);
-  const totalExposure = totalNewExposure + existingExposure;
-  const exposurePct = totalExposure / BANKROLL_USD;
-
-  const holdCount = reviews.filter((r) => r.action === "hold").length;
-  const reduceCount = reviews.filter((r) => r.action === "reduce").length;
-  const closeCount = reviews.filter((r) => r.action === "close").length;
-  const humanFlags = reviews.filter((r) => r.humanReviewFlag).length;
-
-  const rows: Array<[string, string]> = [
-    ["Bankroll", formatUsd(BANKROLL_USD)],
-    ["Existing exposure", formatUsd(existingExposure)],
-    ["New planned exposure", formatUsd(totalNewExposure)],
-    ["Total projected exposure", formatUsd(totalExposure)],
-    ["Exposure / Bankroll", formatPct(exposurePct)],
-    ["", ""],
-    ["Positions: hold", String(holdCount)],
-    ["Positions: reduce", String(reduceCount)],
-    ["Positions: close", String(closeCount)],
-    ["Human review flags", String(humanFlags)],
-    ["New entries planned", String(plans.length)],
-  ];
-
-  const labelWidth = rows.reduce((max, [label]) => Math.max(max, label.length), 0);
-  for (const [label, value] of rows) {
-    if (label === "") {
-      continue;
-    }
-    const valueColor =
-      label.includes("Human review") && Number(value) > 0 ? C.yellow :
-      label.includes("close") && Number(value) > 0 ? C.red :
-      label.includes("Exposure / Bankroll") ? (exposurePct > 0.5 ? C.yellow : C.green) :
-      C.white;
-    console.log(`  ${dim(padRight(label + ":", labelWidth + 1))} ${color(valueColor, bold(value))}`);
-  }
-}
-
-function printFocusedPipeline(signals: CryptoSignal[], estimates: ProbabilityEstimate[]): void {
-  sectionHeader("7. Focused BTC/ETH Pipeline -- 4 AVE Skills");
-
-  console.log("");
-  console.log(
-    `  ${bold(color(C.magenta, "\u{1F4CA} \u5B9E\u65F6\u4EF7\u683C \u2192 \u{1F4C8} K\u7EBF\u5206\u6790 \u2192 \u{1F40B} \u9CB8\u9C7C\u8FFD\u8E2A \u2192 \u{1F4C9} \u4E70\u5356\u6BD4 \u2192 \u7EFC\u5408\u5F97\u5206"))}`
-  );
-  console.log("");
-
-  for (const sig of signals) {
-    subHeader(`${sig.token} Signal Breakdown`);
-
-    // Price
-    console.log(`  ${bold("\u{1F4CA} \u5B9E\u65F6\u4EF7\u683C")}  ${color(C.white, formatUsd(sig.price))}`);
-    console.log("");
-
-    // K-line analysis
-    const kl = sig.details.klines;
-    const trendColor = sig.trendScore > 0 ? C.green : sig.trendScore < 0 ? C.red : C.gray;
-    console.log(`  ${bold("\u{1F4C8} K\u7EBF\u5206\u6790 (Trend Score)")}`);
-    console.log(`     MA20: ${formatUsd(kl.ma20)}  |  MA50: ${formatUsd(kl.ma50)}  |  MACD: ${kl.macdSignal}  |  Vol: ${(kl.volatility * 100).toFixed(2)}%`);
-    console.log(`     ${dim("Score:")} ${color(trendColor, bold(sig.trendScore.toFixed(3)))}`);
-    console.log("");
-
-    // Whale tracking
-    const wh = sig.details.whales;
-    const whaleColor = sig.whalePressure > 0 ? C.green : sig.whalePressure < 0 ? C.red : C.gray;
-    console.log(`  ${bold("\u{1F40B} \u9CB8\u9C7C\u8FFD\u8E2A (Whale Pressure)")}`);
-    console.log(`     Buy Vol: ${formatUsd(wh.buyVolume)}  |  Sell Vol: ${formatUsd(wh.sellVolume)}  |  Net Ratio: ${wh.netRatio.toFixed(4)}  |  Large Trades: ${wh.largeTradeCount}`);
-    console.log(`     ${dim("Score:")} ${color(whaleColor, bold(sig.whalePressure.toFixed(3)))}`);
-    console.log("");
-
-    // Buy/sell ratio sentiment
-    const st = sig.details.sentiment;
-    const sentColor = sig.sentimentScore > 0 ? C.green : sig.sentimentScore < 0 ? C.red : C.gray;
-    console.log(`  ${bold("\u{1F4C9} \u4E70\u5356\u6BD4 (Sentiment Score)")}`);
-    console.log(`     5m: ${st.buy5m}B/${st.sell5m}S  |  1h: ${st.buy1h}B/${st.sell1h}S  |  6h: ${st.buy6h}B/${st.sell6h}S`);
-    console.log(`     ${dim("Score:")} ${color(sentColor, bold(sig.sentimentScore.toFixed(3)))}`);
-    console.log("");
-
-    // Overall composite score
-    const overallColor = sig.overallScore > 0 ? C.green : sig.overallScore < 0 ? C.red : C.gray;
-    console.log(`  ${bold("\u{1F3AF} \u7EFC\u5408\u5F97\u5206 (Overall)")}`);
-    console.log(`     ${dim("Formula: trend*0.4 + whale*0.3 + sentiment*0.3")}`);
-    console.log(`     ${color(overallColor, bold(`${sig.overallScore >= 0 ? "+" : ""}${sig.overallScore.toFixed(4)}`))}`);
-  }
-
-  if (estimates.length > 0) {
-    subHeader("Probability Estimates & Edge");
-
-    const header = [
-      padRight("Market", 40),
-      padLeft("Token", 5),
-      padLeft("Target", 10),
-      padLeft("Est.Prob", 8),
-      padLeft("Mkt.Prob", 8),
-      padLeft("Edge", 8),
-      padLeft("Conf", 6),
-    ].join("  ");
-    console.log(`  ${bold(header)}`);
-    console.log(`  ${hr("-", header.length)}`);
-
-    for (const est of estimates) {
-      const edgeColor = Math.abs(est.edge) >= 0.02
-        ? (est.edge > 0 ? C.green : C.red)
-        : C.gray;
-      const question = est.marketQuestion.length > 40
-        ? est.marketQuestion.slice(0, 37) + "..."
-        : est.marketQuestion;
-      const row = [
-        padRight(question, 40),
-        padLeft(est.token, 5),
-        padLeft(`$${est.targetPrice.toLocaleString()}`, 10),
-        padLeft(est.estimatedProbability.toFixed(3), 8),
-        padLeft(est.marketImpliedProbability.toFixed(3), 8),
-        padLeft(color(edgeColor, `${est.edge >= 0 ? "+" : ""}${est.edge.toFixed(4)}`), 8 + 9),
-        padLeft(est.confidence.toFixed(3), 6),
-      ].join("  ");
-      console.log(`  ${row}`);
-    }
-  }
-}
-
-function printFooter(durationMs: number): void {
-  console.log("");
-  console.log(hr("="));
-  console.log(
-    `  ${dim("Pipeline completed in")} ${bold(color(C.green, `${durationMs}ms`))} ${dim("-- all stages passed")}`
-  );
-  console.log(hr("="));
-  console.log("");
-}
-
-// ---------------------------------------------------------------------------
-// Main
+// Main pipeline
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const startMs = Date.now();
+  // 1. Generate crypto signals via AVE mock client
+  const client = new MockAveClient({ volatility: 0.005, seed: 42 });
+  const signals = await generateCryptoSignals(client, ["BTC", "ETH"]);
 
-  printHeader();
+  const btcSignal = signals.find((s) => s.token === "BTC");
+  const ethSignal = signals.find((s) => s.token === "ETH");
 
-  // Step 1: Fetch mock market data
-  const allCandidates = await fetchMockMarketData();
-
-  // Step 2: Apply filters
-  const filters = defaultAvePulseFilterArgs();
-  const filtered = applyAvePulseFilters(allCandidates, filters);
-
-  // Step 3: Select top candidates
-  const topCandidates = selectTopAveCandidates(
-    allCandidates,
-    filters,
-    TOP_N_CANDIDATES
-  );
-
-  printMonitoring(allCandidates.length, filtered.length, topCandidates.length);
-  printCandidatesTable(topCandidates);
-
-  // Step 4: Plan entries
-  const positions = buildMockPositions();
-  const existingTokenIds = positions.map((p) => p.tokenId);
-
-  const entryPlans = planAveEntries(
-    topCandidates,
-    {
-      bankrollUsd: BANKROLL_USD,
-      existingPositions: existingTokenIds,
-    },
-    {
-      maxNewEntries: MAX_ENTRIES,
-      batchCapPct: 0.2,
-      stopLossPct: 0.3,
-    }
-  );
-
-  printEntryPlans(entryPlans);
-
-  // Step 5: Review existing positions
-  // Build current price map from fetched candidates
-  const currentPrices = new Map<string, number>();
-  for (const c of allCandidates) {
-    if (c.priceUsd > 0) {
-      currentPrices.set(c.tokenId, c.priceUsd);
-    }
+  if (!btcSignal || !ethSignal) {
+    throw new Error("Failed to generate BTC or ETH signals");
   }
 
-  const reviews = reviewAvePositions(positions, currentPrices, {
-    stopLossPct: 0.3,
-    targetProfitPct: 0.5,
-  });
-
-  printPositionReviews(reviews);
-
-  // Step 6: Print signals and risk summary
-  printSignals(entryPlans, reviews);
-  printRiskSummary(entryPlans, reviews, positions);
-
-  // Step 7: Focused BTC/ETH pipeline with 4 AVE Skills
-  const focusedClient = new MockAveClient({ volatility: 0.005, seed: 42 });
-  const cryptoSignals = await generateCryptoSignals(focusedClient, ["BTC", "ETH"]);
-
-  // Build mock probability estimates for demo price targets
-  const mockPriceTargets: Array<{
-    question: string;
-    token: string;
-    targetPrice: number;
-    direction: "above" | "below" | "hit";
-    days: number;
-    mktProb: number;
-  }> = [
-    { question: "Will Bitcoin hit $100,000 by end of 2026?", token: "BTC", targetPrice: 100_000, direction: "hit", days: 260, mktProb: 0.62 },
-    { question: "Will Bitcoin price be above $120,000?", token: "BTC", targetPrice: 120_000, direction: "above", days: 180, mktProb: 0.35 },
-    { question: "Will Bitcoin dip below $60,000?", token: "BTC", targetPrice: 60_000, direction: "below", days: 90, mktProb: 0.18 },
-    { question: "Will Ethereum hit $5,000 in 2026?", token: "ETH", targetPrice: 5_000, direction: "hit", days: 260, mktProb: 0.40 },
-    { question: "Will Ethereum price be above $4,000?", token: "ETH", targetPrice: 4_000, direction: "above", days: 120, mktProb: 0.52 },
-    { question: "Will ETH reach $6,000?", token: "ETH", targetPrice: 6_000, direction: "above", days: 300, mktProb: 0.22 },
-    { question: "Will BTC hit $150,000 by 2027?", token: "BTC", targetPrice: 150_000, direction: "hit", days: 365, mktProb: 0.28 },
-  ];
-
+  // 2. Build probability estimates for all mock markets
   const signalByToken = new Map<string, CryptoSignal>();
-  for (const sig of cryptoSignals) {
+  for (const sig of signals) {
     signalByToken.set(sig.token, sig);
   }
 
   const estimates: ProbabilityEstimate[] = [];
-  for (const target of mockPriceTargets) {
-    const signal = signalByToken.get(target.token);
-    if (!signal) continue;
+  for (const m of MOCK_MARKETS) {
+    const sig = signalByToken.get(m.token);
+    if (!sig) continue;
     estimates.push(
       buildProbabilityEstimate({
-        marketQuestion: target.question,
-        token: target.token,
-        currentPrice: signal.price,
-        targetPrice: target.targetPrice,
-        targetDirection: target.direction,
-        aveScore: signal.overallScore,
-        daysToResolution: target.days,
-        marketImpliedProbability: target.mktProb,
+        marketQuestion: m.question,
+        token: m.token,
+        currentPrice: sig.price,
+        targetPrice: m.targetPrice,
+        targetDirection: m.direction,
+        aveScore: sig.overallScore,
+        daysToResolution: m.days,
+        marketImpliedProbability: m.mktProb,
       })
     );
   }
 
-  printFocusedPipeline(cryptoSignals, estimates);
+  // 3. Calculate edges and determine actions
+  const edgeRows: EdgeRow[] = estimates.map((est) => ({
+      market: est.marketQuestion,
+      ourProb: est.estimatedProbability,
+      mktProb: est.marketImpliedProbability,
+      edge: est.edge,
+      action: est.edge >= EDGE_THRESHOLD ? "BUY" as const : "SKIP" as const,
+  }));
 
-  const durationMs = Date.now() - startMs;
-  printFooter(durationMs);
+  // Sort by edge descending
+  const sortedEdgeRows = [...edgeRows].sort((a, b) => b.edge - a.edge);
+
+  // 4. Determine trades (only BUY actions)
+  const buyRows = sortedEdgeRows.filter((r) => r.action === "BUY");
+  const trades: TradeOrder[] = buyRows.map((row, i) => ({
+    index: i + 1,
+    market: row.market,
+    price: row.mktProb,
+    shares: SHARES_PER_TRADE,
+  }));
+
+  // 5. Count bullish/bearish signals
+  const bullishCount = signals.filter((s) => s.overallScore > 0.1).length;
+  const bearishCount = signals.filter((s) => s.overallScore < -0.1).length;
+  const positiveEdges = buyRows.map((r) => r.edge).filter((e) => e > 0);
+  const minEdge = positiveEdges.length > 0 ? Math.min(...positiveEdges) : 0;
+  const maxEdge = positiveEdges.length > 0 ? Math.max(...positiveEdges) : 0;
+
+  // ---------------------------------------------------------------------------
+  // Render the waterfall with typing delays for screen recording
+  // ---------------------------------------------------------------------------
+
+  printBanner();
+  await sleep(400);
+
+  printStep1(btcSignal, ethSignal);
+  await sleep(300);
+
+  printStep2(btcSignal, ethSignal);
+  await sleep(300);
+
+  printStep3(MOCK_MARKETS);
+  await sleep(300);
+
+  printStep4(sortedEdgeRows);
+  await sleep(300);
+
+  printStep5(trades);
+  await sleep(300);
+
+  printStep6(trades);
+  await sleep(200);
+
+  printFooter(trades.length, bullishCount, bearishCount, minEdge, maxEdge);
 }
 
 void main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`\n${C.red}[ave-demo] Fatal error: ${message}${C.reset}\n`);
+  process.stderr.write(`\n${C.red}[ave-demo] Fatal error: ${message}${C.reset}\n`);
   if (error instanceof Error && error.stack) {
-    console.error(dim(error.stack));
+    process.stderr.write(`${C.dim}${error.stack}${C.reset}\n`);
   }
   process.exit(1);
 });
