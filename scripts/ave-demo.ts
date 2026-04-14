@@ -869,6 +869,124 @@ function printStep4Edge(edgeRows: readonly EdgeRow[]): void {
   write(`  \u2514${ "\u2500".repeat(MW + 2)}\u2534${ "\u2500".repeat(8)}\u2534${ "\u2500".repeat(8)}\u2534${ "\u2500".repeat(7)}\u2534${ "\u2500".repeat(11)}\u2518`);
 }
 
+// ---------------------------------------------------------------------------
+// Detailed analysis block for the top-edge market. This is the "money shot"
+// of the demo: it shows viewers exactly how AVE on-chain signals feed into
+// a probability estimate and produce a measurable edge vs. Polymarket odds.
+// Printed once per run, for the single market with the largest positive edge.
+// ---------------------------------------------------------------------------
+
+function printDetailedMarketAnalysis(
+  topMarket: MatchedMarket,
+  estimate: ProbabilityEstimate,
+  signal: CryptoSignal,
+): void {
+  write("");
+  write(cb(C.cyan, `\u2501\u2501\u2501 \u91CD\u70B9\u5E02\u573A\u5206\u6790 ${ "\u2501".repeat(34)}`));
+  write("");
+
+  const cand = topMarket.candidate;
+  const eventSlug = cand.eventSlug ?? cand.marketSlug ?? "";
+  const url = cand.url ?? `https://polymarket.com/event/${eventSlug}`;
+  const yesPct = (cand.outcomePrices[0] ?? 0.5) * 100;
+  const noPct = 100 - yesPct;
+  const endDate = cand.endDate ? cand.endDate.split("T")[0] ?? "" : "";
+  const vol = fmtUsd(cand.volume24hUsd);
+
+  const spot = signal.price;
+  const target = topMarket.targetPrice;
+  const gapPct = spot > 0 ? ((target - spot) / spot) * 100 : 0;
+  const gapLabel = gapPct >= 0 ? `\u8FD8\u5DEE +${gapPct.toFixed(2)}%` : `\u5DF2\u8D85\u8FC7 ${Math.abs(gapPct).toFixed(2)}%`;
+
+  // Question with directional framing
+  write(`  \u{1F4CC} \u5E02\u573A: ${cb(C.white, `"${cand.question}"`)}`);
+  write(`  \u{1F517} ${c(C.blue, url)}`);
+  write(
+    `  \u{1F4CA} \u4EA4\u6613\u91CF: ${cb(C.white, vol)}  |  \u8D54\u7387: ${c(C.green, `${yesPct.toFixed(0)}% YES`)} / ${c(C.red, `${noPct.toFixed(0)}% NO`)}  |  \u7ED3\u7B97: ${cb(C.white, endDate)}`
+  );
+  write("");
+  write(`  \u{1F9E0} ${cb(C.white, "AI \u5206\u6790:")}`);
+
+  // 1. Spot vs target
+  write(
+    `     1. ${signal.token} \u5F53\u524D\u4EF7 ${c(C.green, fmtPrice(spot))}\uFF0C` +
+      `\u76EE\u6807 ${c(C.white, fmtPrice(target))} (${gapLabel})`
+  );
+
+  // 2. K-line / trend
+  const kl = signal.details.klines;
+  const trendColor = scoreColor(signal.trendScore);
+  const macdLabel = kl.macdSignal === "bullish" ? "MACD \u91D1\u53C9" : kl.macdSignal === "bearish" ? "MACD \u6B7B\u53C9" : "MACD \u4E2D\u6027";
+  const maLabel = kl.ma20 > kl.ma50 ? "MA20 > MA50" : kl.ma20 < kl.ma50 ? "MA20 < MA50" : "MA20 \u2248 MA50";
+  const trendArrow = signal.trendScore >= 0 ? "\u770B\u6DA8" : "\u770B\u8DCC";
+  write(
+    `     2. K\u7EBF\u8D8B\u52BF: ${maLabel}, ${macdLabel} \u2192 ${c(trendColor, trendArrow)} ` +
+      `(${c(trendColor, `${signal.trendScore >= 0 ? "+" : ""}${signal.trendScore.toFixed(2)}`)})`
+  );
+
+  // 3. Whale behavior
+  const wh = signal.details.whales;
+  const whaleNet = wh.buyVolume - wh.sellVolume;
+  const whaleColor = scoreColor(signal.whalePressure);
+  const whaleLabel = whaleNet >= 0 ? "\u673A\u6784\u770B\u591A" : "\u673A\u6784\u770B\u7A7A";
+  const whaleDir = whaleNet >= 0 ? "\u51C0\u4E70\u5165" : "\u51C0\u5356\u51FA";
+  write(
+    `     3. \u9CB8\u9C7C\u884C\u4E3A: \u8FC7\u53BB 1h ${whaleDir} ${fmtUsd(Math.abs(whaleNet))} \u2192 ${c(whaleColor, whaleLabel)} ` +
+      `(${c(whaleColor, `${signal.whalePressure >= 0 ? "+" : ""}${signal.whalePressure.toFixed(2)}`)})`
+  );
+
+  // 4. Buy/sell ratio
+  const s = signal.details.sentiment;
+  const r5m = s.sell5m > 0 ? s.buy5m / s.sell5m : 0;
+  const r1h = s.sell1h > 0 ? s.buy1h / s.sell1h : 0;
+  const r6h = s.sell6h > 0 ? s.buy6h / s.sell6h : 0;
+  const sentColor = scoreColor(signal.sentimentScore);
+  const sentLabel = signal.sentimentScore > 0.1
+    ? "\u94FE\u4E0A\u60C5\u7EEA\u504F\u591A"
+    : signal.sentimentScore < -0.1
+      ? "\u94FE\u4E0A\u60C5\u7EEA\u504F\u7A7A"
+      : "\u94FE\u4E0A\u60C5\u7EEA\u4E2D\u6027";
+  write(
+    `     4. \u4E70\u5356\u6BD4: 5m=${r5m.toFixed(2)}x / 1h=${r1h.toFixed(2)}x / 6h=${r6h.toFixed(2)}x \u2192 ${c(sentColor, sentLabel)} ` +
+      `(${c(sentColor, `${signal.sentimentScore >= 0 ? "+" : ""}${signal.sentimentScore.toFixed(2)}`)})`
+  );
+
+  // 5. Composite score + our probability
+  const overallColor = scoreColor(signal.overallScore);
+  const ourProbPct = estimate.estimatedProbability * 100;
+  write(
+    `     5. \u7EFC\u5408\u5F97\u5206: ${c(overallColor, `${signal.overallScore >= 0 ? "+" : ""}${signal.overallScore.toFixed(2)}`)} ` +
+      `\u2192 \u6211\u4EEC\u4F30\u7B97\u6982\u7387 ${cb(C.white, `${ourProbPct.toFixed(0)}%`)}`
+  );
+
+  // 6. Edge
+  const mktProbPct = estimate.marketImpliedProbability * 100;
+  const edgePct = estimate.edge * 100;
+  const edgeColor = estimate.edge >= EDGE_THRESHOLD ? C.green : estimate.edge > 0 ? C.yellow : C.red;
+  const edgeSign = estimate.edge >= 0 ? "+" : "";
+  write(
+    `     6. \u5E02\u573A\u8D54\u7387 ${cb(C.white, `${mktProbPct.toFixed(0)}%`)} \u2192 Edge ${c(edgeColor, `${edgeSign}${edgePct.toFixed(0)}%`)}`
+  );
+
+  // Conclusion
+  write("");
+  const conclusionColor = estimate.edge >= EDGE_THRESHOLD ? C.green : C.yellow;
+  const thesis = estimate.edge >= EDGE_THRESHOLD
+    ? (signal.overallScore >= 0
+        ? `\u94FE\u4E0A\u591A\u65B9\u4FE1\u53F7\u5171\u632F\uFF0C\u5E02\u573A\u53EF\u80FD\u4F4E\u4F30\u4E86 ${signal.token} \u8FBE\u5230 ${fmtPrice(target)} \u7684\u6982\u7387\u3002`
+        : `\u94FE\u4E0A\u7A7A\u65B9\u4FE1\u53F7\u5171\u632F\uFF0C\u5E02\u573A\u53EF\u80FD\u9AD8\u4F30\u4E86 ${signal.token} \u8FBE\u5230 ${fmtPrice(target)} \u7684\u6982\u7387\u3002`)
+    : `Edge \u4E0D\u8DB3\uFF0C\u672C\u5E02\u573A\u4E0D\u7ED9\u4EA4\u6613\u5EFA\u8BAE\u3002`;
+  write(`  \u{1F4A1} ${cb(conclusionColor, "\u7ED3\u8BBA:")} ${c(conclusionColor, thesis)}`);
+
+  if (estimate.edge >= EDGE_THRESHOLD) {
+    const side = signal.overallScore >= 0 ? "YES" : "NO";
+    const sidePrice = side === "YES" ? (cand.outcomePrices[0] ?? 0.5) : (cand.outcomePrices[1] ?? 0.5);
+    write(
+      `     \u5EFA\u8BAE: \u4E70\u5165 ${cb(C.green, `${SHARES_PER_TRADE} \u4EFD ${side}`)} @ $${sidePrice.toFixed(2)}`
+    );
+  }
+}
+
 interface TradeOrder {
   readonly index: number;
   readonly market: string;
@@ -1089,6 +1207,31 @@ async function main(): Promise<void> {
 
   printStep4Edge(sortedEdgeRows);
   await sleep(300);
+
+  // ---- Step 4.5: Detailed analysis for the top-edge market ----
+  // Pick the market with the largest positive edge and show the full signal-
+  // -> probability -> edge derivation. This is the demo's strongest
+  // storytelling beat: it explains *why* we disagree with the market.
+  //
+  // We prefer markets in the real trading zone (5-95% odds) so the analysis
+  // shows a meaningful disagreement rather than a settled outcome (0% / 100%).
+  if (sortedEdgeRows.length > 0 && estimates.length > 0) {
+    const inTradingZone = sortedEdgeRows.filter(
+      (r) => r.mktProb >= 0.05 && r.mktProb <= 0.95 && r.edge >= EDGE_THRESHOLD,
+    );
+    const topRow = inTradingZone[0] ?? sortedEdgeRows[0];
+    if (topRow && topRow.edge > 0) {
+      const topEstimate = estimates.find((e) => e.marketQuestion === topRow.market);
+      const topMatched = matchedMarkets.find((m) => m.candidate.question === topRow.market);
+      if (topEstimate && topMatched) {
+        const topSignal = signalByToken.get(topMatched.token);
+        if (topSignal) {
+          printDetailedMarketAnalysis(topMatched, topEstimate, topSignal);
+          await sleep(300);
+        }
+      }
+    }
+  }
 
   // Build a question -> Polymarket URL index from the matched set so we can
   // annotate executed trades with their on-chain market links.

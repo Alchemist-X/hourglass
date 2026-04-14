@@ -17,7 +17,7 @@
 [1m[36m━━━ 第 0 步：初始化 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
   [36m正在连接 Polymarket Gamma API...[0m
   [36m获取加密货币相关市场...[0m
-  [32m扫描了 300 个事件，获取了 6 个 BTC/ETH 相关市场[0m
+  [32m扫描了 300 个事件，获取了 82 个 BTC/ETH 相关市场[0m
   [33m⚠️  AVE API 离线 ([AveClient:retry-exhausted] All 3 attempts failed for chains)，使用模拟数据[0m
 
 [1m[36m━━━ AVE API 原始响应 (尝试后回退) ━━━━━━━━━━━━━━━━━━━━━━━━[0m
@@ -32,7 +32,7 @@
     [2m(no response body)[0m
 
   [1m[37m调用:[0m [34mGET https://openapi.avedata.org/api/v1/token/kline/0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599?interval=60&limit=5[0m
-  [1m[37m状态:[0m [31m❌ 网络失败[0m [2m(12001ms)[0m
+  [1m[37m状态:[0m [31m❌ 网络失败[0m [2m(12002ms)[0m
   [31m错误: The operation was aborted due to timeout[0m
   [1m[37m响应数据（截取）:[0m
     [2m(no response body)[0m
@@ -40,23 +40,209 @@
 
 [1m[36m━━━ 第 1 步：扫描 Polymarket 市场 ━━━━━━━━━━━━━━━━━━━━━━[0m
 
-[2m  找到 6 个活跃市场，筛选 BTC/ETH 价格目标市场...[0m
+[2m  找到 82 个活跃市场，筛选 BTC/ETH 价格目标市场...[0m
 
-[2m  匹配到 1 个目标市场：[0m
+[2m  匹配到 62 个目标市场：[0m
   ┌──────────────────────────────────────┬──────────┬────────┬────────────┐
   │ [1m市场                                   [0m│[1m      交易量[0m │[1m     赔率[0m │[1m       结算日期[0m │
   ├──────────────────────────────────────┼──────────┼────────┼────────────┤
+  │ Will Bitcoin reach $80,000 in April? │    $2.1M │    42% │ 2026-05-01 │
+  │ Will Bitcoin reach $75,000 in April? │    $1.8M │   100% │ 2026-05-01 │
+  │ Will Bitcoin dip to $65,000 in April?│    $1.3M │    18% │ 2026-05-01 │
+  │ Will Bitcoin dip to $60,000 in April?│    $1.2M │     7% │ 2026-05-01 │
+  │ Will Bitcoin reach $85,000 in April? │    $1.1M │    13% │ 2026-05-01 │
+  │ Will Bitcoin reach $90,000 in April? │    $1.1M │     3% │ 2026-05-01 │
+  │ Will Bitcoin reach $95,000 in April? │  $780.5K │     1% │ 2026-05-01 │
+  │ Will Bitcoin reach $100,000 in April?│  $716.2K │     0% │ 2026-05-01 │
+  │ Will Bitcoin reach $110,000 in April?│  $623.4K │     0% │ 2026-05-01 │
+  │ Will the price of Bitcoin be above...│  $597.8K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $586.3K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $568.9K │     0% │ 2026-04-14 │
+  │ Will Bitcoin reach $105,000 in April?│  $451.6K │     0% │ 2026-05-01 │
+  │ Will the price of Bitcoin be above...│  $421.3K │    27% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $391.1K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $354.4K │    99% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $330.2K │   100% │ 2026-04-14 │
+  │ Will the price of Ethereum be abov...│  $317.5K │     0% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $161.4K │   100% │ 2026-04-14 │
+  │ Will the price of Ethereum be abov...│  $147.2K │    34% │ 2026-04-14 │
+  │ Will the price of Ethereum be abov...│  $131.2K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be betwe...│  $125.4K │     0% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $122.2K │   100% │ 2026-04-15 │
+  │ Will the price of Bitcoin be above...│  $113.1K │   100% │ 2026-04-15 │
+  │ Will the price of Ethereum be abov...│  $111.0K │     1% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $106.9K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $106.8K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│  $101.9K │     1% │ 2026-04-15 │
+  │ Will the price of Bitcoin be above...│   $98.4K │     2% │ 2026-04-15 │
+  │ Will the price of Bitcoin be betwe...│   $95.9K │    66% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│   $92.7K │   100% │ 2026-04-15 │
+  │ Will the price of Bitcoin be above...│   $90.9K │   100% │ 2026-04-14 │
+  │ Will the price of Ethereum be abov...│   $90.9K │    99% │ 2026-04-14 │
+  │ Will the price of Bitcoin be great...│   $87.5K │     0% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│   $75.1K │    41% │ 2026-04-15 │
+  │ Will the price of Bitcoin be betwe...│   $68.8K │     0% │ 2026-04-14 │
+  │ Will the price of Ethereum be abov...│   $68.7K │   100% │ 2026-04-14 │
+  │ Will the price of Bitcoin be above...│   $68.5K │    96% │ 2026-04-15 │
+  │ Will the price of Bitcoin be above...│   $64.1K │    99% │ 2026-04-15 │
+  │ Will the price of Bitcoin be betwe...│   $61.7K │     0% │ 2026-04-14 │
+  │ Will Bitcoin reach $76,000 April 1...│   $56.7K │    95% │ 2026-04-20 │
+  │ Will the price of Bitcoin be betwe...│   $51.2K │     1% │ 2026-04-14 │
+  │ Will Bitcoin reach $80,000 April 1...│   $46.8K │    25% │ 2026-04-20 │
+  │ Will the price of Bitcoin be betwe...│   $46.2K │     0% │ 2026-04-14 │
+  │ Will the price of Bitcoin be betwe...│   $41.3K │    33% │ 2026-04-14 │
+  │ Will the price of Bitcoin be betwe...│   $37.0K │     0% │ 2026-04-14 │
+  │ Will Bitcoin reach $78,000 April 1...│   $36.0K │    57% │ 2026-04-20 │
+  │ Will the price of Bitcoin be above...│   $35.5K │    11% │ 2026-04-15 │
+  │ Will the price of Bitcoin be above...│   $35.4K │   100% │ 2026-04-15 │
+  │ Will the price of Bitcoin be betwe...│   $33.0K │     0% │ 2026-04-14 │
+  │ Will Bitcoin reach $82,000 April 1...│   $30.0K │     9% │ 2026-04-20 │
+  │ Will the price of Bitcoin be above...│   $27.0K │    82% │ 2026-04-15 │
+  │ Will Bitcoin reach $84,000 April 1...│   $26.0K │     3% │ 2026-04-20 │
+  │ Will Bitcoin dip to $68,000 April ...│   $25.1K │    11% │ 2026-04-20 │
+  │ Will the price of Bitcoin be less ...│   $22.4K │     0% │ 2026-04-14 │
+  │ Will Bitcoin dip to $64,000 April ...│   $14.8K │     2% │ 2026-04-20 │
+  │ Will Bitcoin dip to $62,000 April ...│   $14.3K │     1% │ 2026-04-20 │
+  │ Will Bitcoin dip to $60,000 April ...│   $12.5K │     1% │ 2026-04-20 │
+  │ Will Bitcoin dip to $66,000 April ...│   $11.0K │     5% │ 2026-04-20 │
+  │ Will the price of Bitcoin be above...│   $10.0K │    76% │ 2026-04-16 │
+  │ Will Bitcoin dip to $58,000 April ...│    $1.4K │     1% │ 2026-04-20 │
   │ Will the price of Bitcoin be betwe...│  $999.53 │     3% │ 2026-04-17 │
   └──────────────────────────────────────┴──────────┴────────┴────────────┘
 
   [1m[37m🔗 市场详情链接:[0m
+    - [2mWill Bitcoin reach $80,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin reach $75,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin dip to $65,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin dip to $60,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin reach $85,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin reach $90,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin reach $95,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin reach $100,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill Bitcoin reach $110,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill the price of Bitcoin be above $70,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $72,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $78,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill Bitcoin reach $105,000 in April?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+    - [2mWill the price of Bitcoin be above $76,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $68,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $74,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $66,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Ethereum be above $2,600 ...[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $64,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Ethereum be above $2,400 ...[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+    - [2mWill the price of Ethereum be above $2,100 ...[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be between $64,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $62,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be above $66,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Ethereum be above $2,500 ...[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $58,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $60,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $82,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be above $80,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be between $74,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $64,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be above $62,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+    - [2mWill the price of Ethereum be above $2,300 ...[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be greater than $...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $76,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be between $70,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill the price of Ethereum be above $2,200 ...[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+    - [2mWill the price of Bitcoin be above $72,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be above $70,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be between $66,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill Bitcoin reach $76,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill the price of Bitcoin be between $72,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill Bitcoin reach $80,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill the price of Bitcoin be between $68,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill the price of Bitcoin be between $76,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill the price of Bitcoin be between $62,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill Bitcoin reach $78,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill the price of Bitcoin be above $78,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be above $68,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill the price of Bitcoin be between $60,00...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill Bitcoin reach $82,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill the price of Bitcoin be above $74,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+    - [2mWill Bitcoin reach $84,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill Bitcoin dip to $68,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill the price of Bitcoin be less than $60,...[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+    - [2mWill Bitcoin dip to $64,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill Bitcoin dip to $62,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill Bitcoin dip to $60,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill Bitcoin dip to $66,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+    - [2mWill the price of Bitcoin be above $74,000 ...[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-16[0m
+    - [2mWill Bitcoin dip to $58,000 April 13-19?[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
     - [2mWill the price of Bitcoin be between $68,00...[0m
       [34mhttps://polymarket.com/event/bitcoin-price-on-april-17[0m
 
-  [2m过滤掉 3 个不现实市场 (目标距现价太远或双关语):[0m
+  [2m过滤掉 18 个不现实市场 (目标距现价太远或双关语):[0m
+    [90m⎯[0m [90mWill Bitcoin reach $150,000 in April?[0m [2m[target 1.55x > 1.5x spot][0m
     [90m⎯[0m [90mWill bitcoin hit $1m before GTA VI?[0m [2m[joke/unrealistic pattern: before\s+gta][0m
-    [90m⎯[0m [90mWill Bitcoin hit $150k by June 30, 2026?[0m [2m[target 1.55x > 1.5x spot][0m
-    [90m⎯[0m [90mWill Bitcoin hit $150k by December 31, 2026?[0m [2m[target 1.55x > 1.5x spot][0m
+    [90m⎯[0m [90mWill Bitcoin dip to $50,000 in April?[0m [2m[target 0.52x < 0.6x spot][0m
+    [90m⎯[0m [90mWill Bitcoin dip to $45,000 in April?[0m [2m[target 0.47x < 0.6x spot][0m
+    [90m⎯[0m [90mWill Bitcoin dip to $20,000 in April?[0m [2m[target 0.21x < 0.6x spot][0m
+    [2m... 其他 13 个市场同样被排除[0m
 
 [1m[36m━━━ 第 2 步：AVE 链上信号采集 ━━━━━━━━━━━━━━━━━━━━━━━━[0m
 
@@ -65,55 +251,224 @@
 
   [1m[37m📊 实时价格[0m
      BTC: [1m[32m$96,664.28[0m
+     ETH: [1m[32m$3,403.45[0m
 
   [1m[37m📈 K线趋势分析[0m
-     BTC: MA20=$98,347.46 MA50=$97,833.21 MACD=[31m看跌 ▼[0m
+     BTC: MA20=$97,619.68 MA50=$97,248.48 MACD=[31m看跌 ▼[0m
+     ETH: MA20=$3,851.60 MA50=$3,690.24 MACD=[31m看跌 ▼[0m
 
   [1m[37m🐋 鲸鱼行为追踪 (>$100K 交易, 过去1小时)[0m
      BTC: 买入 $0.00 vs 卖出 $0.00 → [32m净买入 +$0.00 ▲[0m
+     ETH: 买入 $0.00 vs 卖出 $0.00 → [32m净买入 +$0.00 ▲[0m
 
   [1m[37m📉 链上买卖比[0m
-     BTC: 5分=3.48x | 1时=0.42x | 6时=1.08x → [33m中性 ─[0m
+     BTC: 5分=1.37x | 1时=7.77x | 6时=4.68x → [32m看涨 ▲[0m
+     ETH: 5分=5.46x | 1时=1.54x | 6时=3.14x → [32m看涨 ▲[0m
 
 [1m[36m━━━ 第 3 步：信号聚合 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
 
   [1mBTC 信号分解：[0m
     📈 趋势:     [31m[████░░░░░░░░░░░░░░░░][0m [31m-0.60[0m
     🐋 鲸鱼:     [33m[██████████░░░░░░░░░░][0m [33m+0.00[0m
-    📉 买卖比:   [33m[██████████░░░░░░░░░░][0m [33m+0.01[0m
+    📉 买卖比:   [32m[████████████████░░░░][0m [32m+0.55[0m
     [2m─────────────────────────────────────[0m
-    综合:        [31m[████████░░░░░░░░░░░░][0m [31m-0.24[0m [2m←[0m [1m[31m中性[0m
+    综合:        [33m[█████████░░░░░░░░░░░][0m [33m-0.07[0m [2m←[0m [1m[33m中性[0m
+
+  [1mETH 信号分解：[0m
+    📈 趋势:     [31m[████░░░░░░░░░░░░░░░░][0m [31m-0.60[0m
+    🐋 鲸鱼:     [33m[██████████░░░░░░░░░░][0m [33m+0.00[0m
+    📉 买卖比:   [32m[██████████████░░░░░░][0m [32m+0.45[0m
+    [2m─────────────────────────────────────[0m
+    综合:        [33m[█████████░░░░░░░░░░░][0m [33m-0.11[0m [2m←[0m [1m[33m中性[0m
 
 [1m[36m━━━ 第 4 步：Edge 计算 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
 
   ┌──────────────────────────┬────────┬────────┬───────┬───────────┐
   │ [1m市场                       [0m│[1m     我们[0m │[1m     市场[0m │[1m  Edge[0m │[1m        操作[0m │
   ├──────────────────────────┼────────┼────────┼───────┼───────────┤
-  │ Will the price of Bitc...│    76% │     3% │[32m  +74%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +79%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +78%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     0% │[32m  +78%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Ethe...│    78% │     0% │[32m  +78%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     1% │[32m  +78%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     1% │[32m  +78%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $95...│    78% │     1% │[32m  +78%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Ethe...│    78% │     1% │[32m  +77%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     2% │[32m  +77%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │     3% │[32m  +76%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $90...│    78% │     3% │[32m  +76%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $84...│    79% │     3% │[32m  +75%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $82...│    79% │     9% │[32m  +70%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    11% │[32m  +68%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $85...│    78% │    13% │[32m  +65%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $80...│    79% │    25% │[32m  +54%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    27% │[32m  +52%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $10...│    49% │     0% │[32m  +49%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $10...│    49% │     0% │[32m  +48%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    33% │[32m  +46%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Ethe...│    78% │    34% │[32m  +44%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    41% │[32m  +38%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $80...│    78% │    42% │[32m  +36%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $11...│    34% │     0% │[32m  +34%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin reach $78...│    79% │    57% │[32m  +21%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $5...│    21% │     1% │[32m  +21%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    21% │     1% │[32m  +20%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    21% │     1% │[32m  +20%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    21% │     2% │[32m  +19%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    21% │     5% │[32m  +17%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    22% │     7% │[32m  +15%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    66% │[32m  +13%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    21% │    11% │[32m  +11%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will Bitcoin dip to $6...│    22% │    18% │[32m   +4%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    76% │[32m   +3%[0m │ [1m[32m✅ 买入 [0m    │
+  │ Will the price of Bitc...│    79% │    82% │[31m   -3%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will Bitcoin reach $76...│    79% │    95% │[31m  -16%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │    96% │[31m  -17%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │    99% │[31m  -20%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │    99% │[31m  -20%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Ethe...│    78% │    99% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Bitc...│    79% │   100% │[31m  -21%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Ethe...│    78% │   100% │[31m  -22%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will the price of Ethe...│    78% │   100% │[31m  -22%[0m │ [33m⏭️ 跳过[0m    │
+  │ Will Bitcoin reach $75...│    78% │   100% │[31m  -22%[0m │ [33m⏭️ 跳过[0m    │
   └──────────────────────────┴────────┴────────┴───────┴───────────┘
+
+[1m[36m━━━ 重点市场分析 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+  📌 市场: [1m[37m"Will Bitcoin reach $82,000 April 13-19?"[0m
+  🔗 [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  📊 交易量: [1m[37m$30.0K[0m  |  赔率: [32m9% YES[0m / [31m92% NO[0m  |  结算: [1m[37m2026-04-20[0m
+
+  🧠 [1m[37mAI 分析:[0m
+     1. BTC 当前价 [32m$96,664.28[0m，目标 [37m$82,000.00[0m (已超过 15.17%)
+     2. K线趋势: MA20 > MA50, MACD 死叉 → [31m看跌[0m ([31m-0.60[0m)
+     3. 鲸鱼行为: 过去 1h 净买入 $0.00 → [33m机构看多[0m ([33m+0.00[0m)
+     4. 买卖比: 5m=1.37x / 1h=7.77x / 6h=4.68x → [32m链上情绪偏多[0m ([32m+0.55[0m)
+     5. 综合得分: [33m-0.07[0m → 我们估算概率 [1m[37m79%[0m
+     6. 市场赔率 [1m[37m9%[0m → Edge [32m+70%[0m
+
+  💡 [1m[32m结论:[0m [32m链上空方信号共振，市场可能高估了 BTC 达到 $82,000.00 的概率。[0m
+     建议: 买入 [1m[32m5 份 NO[0m @ $0.92
 
 [1m[36m━━━ 第 5 步：风控检查 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
 
   资金池: [1m[37m$20.00[0m
-  拟执行: [1m1 笔交易[0m × [1m5 份[0m
-  [32m✅[0m 单笔上限:   [1m$0.13[0m (0.6%) [2m≤[0m 20% 限制 → [32m通过[0m
-  [32m✅[0m 总敏口:     [1m$0.13[0m (1%) [2m≤[0m 80% 限制 → [32m通过[0m
-  [32m✅[0m 持仓数:     [1m1[0m [2m≤[0m 10 最大 → [32m通过[0m
+  拟执行: [1m41 笔交易[0m × [1m5 份[0m
+  [32m✅[0m 单笔上限:   [1m$3.77[0m (18.9%) [2m≤[0m 20% 限制 → [32m通过[0m
+  [31m❌[0m 总敏口:     [1m$24.66[0m (123%) [2m≤[0m 80% 限制 → [31m拒绝[0m
+  [31m❌[0m 持仓数:     [1m41[0m [2m≤[0m 10 最大 → [31m拒绝[0m
   [32m✅[0m 回撤:       [1m0%[0m [2m<[0m 30% 停机 → [32m通过[0m
 
 [1m[36m━━━ 第 6 步：执行建议 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
 
-  [32m🟢[0m 订单 1: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $68,000 and $70,000 on April 17?"[0m @ $0.03 = [1m[37m$0.13[0m
+  [32m🟢[0m 订单 1: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $64,000 and $66,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 2: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $70,000 and $72,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 3: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $66,000 and $68,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 4: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $68,000 and $70,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 5: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $62,000 and $64,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 6: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $60,000 and $62,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 7: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be less than $60,000 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 8: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be greater than $78,000 on April 14?"[0m @ $0.00 = [1m[37m$0.02[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 9: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $78,000 on April 14?"[0m @ $0.00 = [1m[37m$0.02[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+  [32m🟢[0m 订单 10: [1m买入[0m 5 份 [2m"Will the price of Ethereum be above $2,600 on April 14?"[0m @ $0.00 = [1m[37m$0.00[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+  [32m🟢[0m 订单 11: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $82,000 on April 15?"[0m @ $0.01 = [1m[37m$0.04[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+  [32m🟢[0m 订单 12: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $72,000 and $74,000 on April 14?"[0m @ $0.01 = [1m[37m$0.06[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 13: [1m买入[0m 5 份 [2m"Will Bitcoin reach $95,000 in April?"[0m @ $0.01 = [1m[37m$0.03[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 14: [1m买入[0m 5 份 [2m"Will the price of Ethereum be above $2,500 on April 14?"[0m @ $0.01 = [1m[37m$0.04[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+  [32m🟢[0m 订单 15: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $80,000 on April 15?"[0m @ $0.02 = [1m[37m$0.10[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+  [32m🟢[0m 订单 16: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $68,000 and $70,000 on April 17?"[0m @ $0.03 = [1m[37m$0.13[0m
       [34mhttps://polymarket.com/event/bitcoin-price-on-april-17[0m
+  [32m🟢[0m 订单 17: [1m买入[0m 5 份 [2m"Will Bitcoin reach $90,000 in April?"[0m @ $0.03 = [1m[37m$0.13[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 18: [1m买入[0m 5 份 [2m"Will Bitcoin reach $84,000 April 13-19?"[0m @ $0.03 = [1m[37m$0.16[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 19: [1m买入[0m 5 份 [2m"Will Bitcoin reach $82,000 April 13-19?"[0m @ $0.09 = [1m[37m$0.43[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 20: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $78,000 on April 15?"[0m @ $0.11 = [1m[37m$0.55[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+  [32m🟢[0m 订单 21: [1m买入[0m 5 份 [2m"Will Bitcoin reach $85,000 in April?"[0m @ $0.13 = [1m[37m$0.64[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 22: [1m买入[0m 5 份 [2m"Will Bitcoin reach $80,000 April 13-19?"[0m @ $0.25 = [1m[37m$1.25[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 23: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $76,000 on April 14?"[0m @ $0.27 = [1m[37m$1.34[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-14[0m
+  [32m🟢[0m 订单 24: [1m买入[0m 5 份 [2m"Will Bitcoin reach $105,000 in April?"[0m @ $0.00 = [1m[37m$0.02[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 25: [1m买入[0m 5 份 [2m"Will Bitcoin reach $100,000 in April?"[0m @ $0.00 = [1m[37m$0.02[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 26: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $76,000 and $78,000 on April 14?"[0m @ $0.33 = [1m[37m$1.64[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 27: [1m买入[0m 5 份 [2m"Will the price of Ethereum be above $2,400 on April 14?"[0m @ $0.34 = [1m[37m$1.71[0m
+      [34mhttps://polymarket.com/event/ethereum-above-on-april-14[0m
+  [32m🟢[0m 订单 28: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $76,000 on April 15?"[0m @ $0.41 = [1m[37m$2.05[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-15[0m
+  [32m🟢[0m 订单 29: [1m买入[0m 5 份 [2m"Will Bitcoin reach $80,000 in April?"[0m @ $0.42 = [1m[37m$2.10[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 30: [1m买入[0m 5 份 [2m"Will Bitcoin reach $110,000 in April?"[0m @ $0.00 = [1m[37m$0.02[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 31: [1m买入[0m 5 份 [2m"Will Bitcoin reach $78,000 April 13-19?"[0m @ $0.57 = [1m[37m$2.86[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 32: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $58,000 April 13-19?"[0m @ $0.01 = [1m[37m$0.03[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 33: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $60,000 April 13-19?"[0m @ $0.01 = [1m[37m$0.05[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 34: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $62,000 April 13-19?"[0m @ $0.01 = [1m[37m$0.07[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 35: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $64,000 April 13-19?"[0m @ $0.02 = [1m[37m$0.11[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 36: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $66,000 April 13-19?"[0m @ $0.04 = [1m[37m$0.22[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 37: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $60,000 in April?"[0m @ $0.07 = [1m[37m$0.33[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 38: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be between $74,000 and $76,000 on April 14?"[0m @ $0.66 = [1m[37m$3.31[0m
+      [34mhttps://polymarket.com/event/bitcoin-price-on-april-14[0m
+  [32m🟢[0m 订单 39: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $68,000 April 13-19?"[0m @ $0.10 = [1m[37m$0.53[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-april-13-19[0m
+  [32m🟢[0m 订单 40: [1m买入[0m 5 份 [2m"Will Bitcoin dip to $65,000 in April?"[0m @ $0.17 = [1m[37m$0.88[0m
+      [34mhttps://polymarket.com/event/what-price-will-bitcoin-hit-in-april-2026[0m
+  [32m🟢[0m 订单 41: [1m买入[0m 5 份 [2m"Will the price of Bitcoin be above $74,000 on April 16?"[0m @ $0.76 = [1m[37m$3.77[0m
+      [34mhttps://polymarket.com/event/bitcoin-above-on-april-16[0m
 
-  总部署: [1m[32m$0.13[0m / $20.00 (0.6%)
+  总部署: [1m[32m$24.66[0m / $20.00 (123.3%)
 
   [2m我们的 Polymarket 交易钱包:[0m [34mhttps://polymarket.com/profile/0xc78873644e582cb950f1af880c4f3ef3c11f2936[0m
 
 [1m[32m╔══════════════════════════════════════════════════════════╗[0m
-[1m[32m║ ✅ 管线完成 — 扫描 1 个市场，1 笔交易建议                               ║[0m
+[1m[32m║ ✅ 管线完成 — 扫描 62 个市场，41 笔交易建议                             ║[0m
 [1m[32m║ 📊 AVE 信号: 0 看涨, 1 看跌                                   ║[0m
-[1m[32m║ 💰 Edge 范围: +74% 到 +74%                                 ║[0m
+[1m[32m║ 💰 Edge 范围: +3% 到 +79%                                  ║[0m
 [1m[32m║ 🛡️  全部风控检查通过                                            ║[0m
 [1m[32m╚══════════════════════════════════════════════════════════╝[0m
 
