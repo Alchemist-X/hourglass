@@ -132,7 +132,7 @@ vercel deploy --prod --yes -A vercel.json
 - 终端 `pnpm ave:demo` 输出截图
 **工作量**：30 分钟
 
-#### 2. `docs/project-overview.md` — 添加实际数据
+#### 2. `hackathon-core/project-overview.md` — 添加实际数据
 - 实际交易结果
 - Dashboard 部署链接
 - 量化指标："扫描 X 个 token，检测 Y 个异常，执行 Z 笔交易"
@@ -196,4 +196,4 @@ vercel deploy --prod --yes -A vercel.json
 
 ### 目标 3（展示）
 - `README.md` — 添加 Results 章节 + 截图
-- `docs/project-overview.md` — 添加实际数据 + 部署链接
+- `hackathon-core/project-overview.md` — 添加实际数据 + 部署链接
