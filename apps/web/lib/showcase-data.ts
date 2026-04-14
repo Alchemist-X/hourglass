@@ -35,6 +35,11 @@ export interface ShowcaseMarket {
   readonly ourProbability: number;
   readonly edge: number;
   readonly action: "BUY" | "SKIP";
+  /** True when the market is a "between $X and $Y" daily price-range market. */
+  readonly isRangeMarket: boolean;
+  /** Lower and upper bounds of the range (only set when isRangeMarket is true). */
+  readonly rangeLower?: number;
+  readonly rangeUpper?: number;
 }
 
 export interface AveApiCall {
@@ -109,8 +114,11 @@ const MAX_TARGET_RATIO = 1.5;
 const MIN_TARGET_RATIO = 0.6;
 
 const WBTC_ADDRESS = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
+// AVE v2 token IDs are formatted as `{address}-{chain_name}` where chain_name
+// follows AVE's short naming convention ("eth" not "ethereum", "bsc", etc.).
+const WBTC_TOKEN_ID = `${WBTC_ADDRESS}-eth`;
 
-const AVE_BASE_URL = (process.env.AVE_API_BASE_URL || "https://openapi.avedata.org/api/v1").replace(
+const AVE_BASE_URL = (process.env.AVE_API_BASE_URL || "https://prod.ave-api.com/v2").replace(
   /\/+$/,
   "",
 );
@@ -221,13 +229,16 @@ interface MatchedMarket {
   readonly targetPrice: number;
   readonly targetDirection: "above" | "below" | "hit";
   readonly daysToResolution: number;
+  readonly isRangeMarket: boolean;
+  readonly rangeLower?: number;
+  readonly rangeUpper?: number;
 }
 
 function containsWord(text: string, keyword: string): boolean {
   return new RegExp(`\\b${keyword}\\b`, "i").test(text);
 }
 
-function extractTargetPrice(question: string): number | null {
+function extractAllPrices(question: string): number[] {
   const pricePattern = /\$([\d,]+(?:\.\d+)?)\s*k?/gi;
   let match: RegExpExecArray | null;
   const prices: number[] = [];
@@ -240,7 +251,29 @@ function extractTargetPrice(question: string): number | null {
     if (/k$/i.test(fullMatch)) value *= 1000;
     prices.push(value);
   }
-  return prices[0] ?? null;
+  return prices;
+}
+
+function extractTargetPrice(question: string): number | null {
+  return extractAllPrices(question)[0] ?? null;
+}
+
+/**
+ * Detect "between $X and $Y" range markets — the most realistic daily
+ * resolution questions. Returns { lower, upper, midpoint } if matched.
+ */
+function extractRangeBounds(
+  question: string,
+): { lower: number; upper: number; midpoint: number } | null {
+  const lower = question.toLowerCase();
+  if (!lower.includes("between") || !lower.includes(" and ")) return null;
+  const prices = extractAllPrices(question);
+  if (prices.length < 2) return null;
+  const [a, b] = [prices[0]!, prices[1]!];
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  if (hi <= lo) return null;
+  return { lower: lo, upper: hi, midpoint: (lo + hi) / 2 };
 }
 
 function detectToken(question: string): "BTC" | "ETH" | null {
@@ -301,7 +334,7 @@ async function fetchPolymarketCryptoMarkets(): Promise<GammaMarket[]> {
         for (const market of event.markets ?? []) {
           const q = market.question?.toLowerCase() ?? "";
           const hasCrypto = /\b(bitcoin|btc|ethereum|eth)\b/i.test(q);
-          const hasPrice = /(\$|price|hit|above|below|reach|dip)/i.test(q);
+          const hasPrice = /(\$|price|hit|above|below|reach|dip|between)/i.test(q);
           if (hasCrypto && hasPrice) add(market, event.slug);
         }
       }
@@ -334,11 +367,27 @@ async function fetchPolymarketCryptoMarkets(): Promise<GammaMarket[]> {
     }
   }
 
-  // Strategy 3: curated event slugs (flagship BTC/ETH price events)
+  // Strategy 3: curated event slugs.
+  //
+  // Priority: daily "between $X and $Y" range markets. These resolve every day
+  // based on the Binance BTC/USDT (or ETH/USDT) 12:00 ET close price and have
+  // very narrow brackets close to the current spot, which is exactly the kind
+  // of realistic market we want to surface. Slugs follow the pattern
+  // `bitcoin-price-on-<month>-<day>` / `ethereum-price-on-<month>-<day>`.
   const CURATED_SLUGS = [
+    // --- Daily BTC range events (newest first) ---
+    "bitcoin-price-on-april-14",
+    "bitcoin-price-on-april-15",
+    "bitcoin-price-on-april-16",
+    "bitcoin-price-on-april-17",
+    "bitcoin-price-on-april-18",
+    // --- Daily ETH range events ---
+    "ethereum-price-on-april-14",
+    "ethereum-price-on-april-15",
+    "ethereum-price-on-april-16",
+    // --- Legacy single-target slugs kept for backfill ---
     "bitcoin-above-on-april-14",
     "bitcoin-above-on-april-15",
-    "bitcoin-price-on-april-14",
     "what-price-will-bitcoin-hit-in-april-2026",
     "what-price-will-bitcoin-hit-april-13-19",
     "bitcoin-up-or-down-on-april-14-2026",
@@ -400,12 +449,15 @@ function matchAndFilter(
     const token = detectToken(m.question);
     if (!token) continue;
 
-    const hasPriceAction = ["price", "hit", "above", "dip", "reach"].some((k) =>
+    const hasPriceAction = ["price", "hit", "above", "dip", "reach", "between"].some((k) =>
       lower.includes(k),
     );
     if (!hasPriceAction) continue;
 
-    const target = extractTargetPrice(m.question);
+    // Prefer range-market detection first so "between $X and $Y" markets
+    // always carry correct midpoint + direction.
+    const range = extractRangeBounds(m.question);
+    const target = range ? range.midpoint : extractTargetPrice(m.question);
     if (!target) continue;
 
     const spot = spotByToken[token];
@@ -431,8 +483,11 @@ function matchAndFilter(
       endDate: m.endDate,
       token,
       targetPrice: target,
-      targetDirection: detectDirection(m.question),
+      targetDirection: range ? "hit" : detectDirection(m.question),
       daysToResolution: daysUntil(m.endDate),
+      isRangeMarket: range !== null,
+      rangeLower: range?.lower,
+      rangeUpper: range?.upper,
     });
   }
 
@@ -448,8 +503,9 @@ async function probeAveEndpoint(args: {
   readonly method: "GET" | "POST";
   readonly endpointLabel: string;
   readonly url: string;
+  readonly body?: unknown;
 }): Promise<AveApiCall> {
-  const { method, endpointLabel, url } = args;
+  const { method, endpointLabel, url, body } = args;
   const start = Date.now();
 
   // If the API key is missing we still produce a visible record so the page
@@ -473,9 +529,13 @@ async function probeAveEndpoint(args: {
       "X-API-KEY": AVE_API_KEY,
       Accept: "application/json",
     };
+    if (body !== undefined) {
+      headers["Content-Type"] = "application/json";
+    }
     const res = await fetch(url, {
       method,
       headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(10_000),
       next: { revalidate: 60 },
     });
@@ -513,14 +573,19 @@ async function probeAveEndpoint(args: {
 }
 
 async function probeAveAll(): Promise<AveApiCall[]> {
-  const priceUrl = `${AVE_BASE_URL}/token/price?token_addresses=${WBTC_ADDRESS}`;
-  const klineUrl = `${AVE_BASE_URL}/token/kline/${WBTC_ADDRESS}?interval=60&limit=5`;
-  const chainsUrl = `${AVE_BASE_URL}/tokens/supported_chains`;
+  const chainsUrl = `${AVE_BASE_URL}/supported_chains`;
+  const priceUrl = `${AVE_BASE_URL}/tokens/price`;
+  const klineUrl = `${AVE_BASE_URL}/klines/token/${WBTC_TOKEN_ID}?interval=60&limit=5`;
 
   const [chains, price, klines] = await Promise.all([
-    probeAveEndpoint({ method: "GET", endpointLabel: "GET /tokens/supported_chains", url: chainsUrl }),
-    probeAveEndpoint({ method: "GET", endpointLabel: "GET /token/price", url: priceUrl }),
-    probeAveEndpoint({ method: "GET", endpointLabel: "GET /token/kline", url: klineUrl }),
+    probeAveEndpoint({ method: "GET", endpointLabel: "GET /supported_chains", url: chainsUrl }),
+    probeAveEndpoint({
+      method: "POST",
+      endpointLabel: "POST /tokens/price",
+      url: priceUrl,
+      body: { token_ids: [WBTC_TOKEN_ID], tvl_min: 0, tx_24h_volume_min: 0 },
+    }),
+    probeAveEndpoint({ method: "GET", endpointLabel: "GET /klines/token", url: klineUrl }),
   ]);
 
   return [chains, price, klines];
@@ -532,25 +597,41 @@ async function probeAveAll(): Promise<AveApiCall[]> {
 // ---------------------------------------------------------------------------
 
 function extractAvePriceFromSnippet(snippet: string): number | null {
+  function pickPrice(obj: Record<string, unknown>): number | null {
+    const candidates = [
+      obj.current_price_usd,
+      obj.price,
+      obj.priceUsd,
+      obj.current_price,
+    ];
+    for (const c of candidates) {
+      const n = typeof c === "string" ? parseFloat(c) : (c as number);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
+  }
+
   try {
     const parsed: unknown = JSON.parse(snippet);
-    if (parsed && typeof parsed === "object") {
-      const p = parsed as Record<string, unknown>;
-      // Common envelope: { data: [{ current_price_usd: "..." }] }
-      const maybeList = (p.data ?? p.result ?? p) as unknown;
-      if (Array.isArray(maybeList) && maybeList.length > 0) {
-        const first = maybeList[0] as Record<string, unknown>;
-        const candidates = [
-          first.current_price_usd,
-          first.price,
-          first.priceUsd,
-          first.current_price,
-        ];
-        for (const c of candidates) {
-          const n = typeof c === "string" ? parseFloat(c) : (c as number);
-          if (Number.isFinite(n) && n > 0) return n;
+    if (!parsed || typeof parsed !== "object") return null;
+    const p = parsed as Record<string, unknown>;
+    const data = (p.data ?? p.result ?? p) as unknown;
+
+    // v2 shape: data is an object keyed by token_id → { current_price_usd, ... }
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      for (const value of Object.values(data as Record<string, unknown>)) {
+        if (value && typeof value === "object") {
+          const price = pickPrice(value as Record<string, unknown>);
+          if (price !== null) return price;
         }
       }
+    }
+
+    // Legacy v1 shape: data is an array of entries.
+    if (Array.isArray(data) && data.length > 0) {
+      const first = data[0] as Record<string, unknown>;
+      const price = pickPrice(first);
+      if (price !== null) return price;
     }
   } catch {
     // ignore
@@ -774,8 +855,8 @@ export async function loadShowcaseData(): Promise<ShowcaseData> {
   ]);
 
   // --- 2. Determine AVE liveness + derive spot prices ---
-  const priceCall = aveApiCalls.find((c) => c.endpoint === "GET /token/price");
-  const chainsCall = aveApiCalls.find((c) => c.endpoint === "GET /tokens/supported_chains");
+  const priceCall = aveApiCalls.find((c) => c.endpoint === "POST /tokens/price");
+  const chainsCall = aveApiCalls.find((c) => c.endpoint === "GET /supported_chains");
   const aveIsLive = !!(priceCall?.ok && chainsCall?.ok);
   const aveFallbackReason = aveIsLive
     ? null
@@ -834,11 +915,22 @@ export async function loadShowcaseData(): Promise<ShowcaseData> {
       ourProbability: ourProb,
       edge,
       action,
+      isRangeMarket: m.isRangeMarket,
+      rangeLower: m.rangeLower,
+      rangeUpper: m.rangeUpper,
     };
   });
 
   // --- 5. Sort + pick top-edge market (prefer realistic 5-95% odds band) ---
-  const sortedByEdge = [...showcaseMarkets].sort((a, b) => b.edge - a.edge);
+  //
+  // Daily "between $X and $Y" range markets are surfaced first because they
+  // resolve within 24-48h against a concrete Binance reference, which is the
+  // most realistic kind of target for an on-chain-signal-driven agent. Within
+  // each group (range vs single-target) we still sort by edge descending.
+  const sortedByEdge = [...showcaseMarkets].sort((a, b) => {
+    if (a.isRangeMarket !== b.isRangeMarket) return a.isRangeMarket ? -1 : 1;
+    return b.edge - a.edge;
+  });
   const tradingZone = sortedByEdge.filter(
     (m) => m.yesOdds >= 0.05 && m.yesOdds <= 0.95 && m.edge >= EDGE_THRESHOLD,
   );
@@ -851,7 +943,13 @@ export async function loadShowcaseData(): Promise<ShowcaseData> {
   }
 
   const buyCandidates = sortedByEdge.filter((m) => m.action === "BUY").slice(0, 20);
-  const topMarkets = [...showcaseMarkets].sort((a, b) => b.volumeUsd - a.volumeUsd).slice(0, 12);
+  // Top markets panel: pin range markets at the top, then sort the rest by volume.
+  const topMarkets = [...showcaseMarkets]
+    .sort((a, b) => {
+      if (a.isRangeMarket !== b.isRangeMarket) return a.isRangeMarket ? -1 : 1;
+      return b.volumeUsd - a.volumeUsd;
+    })
+    .slice(0, 12);
 
   return {
     timestamp,

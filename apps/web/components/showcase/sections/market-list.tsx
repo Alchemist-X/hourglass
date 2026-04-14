@@ -1,9 +1,10 @@
 /**
  * Market List — Real Polymarket data section.
  *
- * Displays a sortable (by volume) table of matched BTC/ETH price-target
- * markets pulled live from the Gamma API. Each row is a clickable link to
- * the actual Polymarket event page so viewers can verify the trade on-chain.
+ * Displays a sortable table of matched BTC/ETH daily price-range markets
+ * pulled live from the Gamma API (priority: "Will BTC be between $X and $Y
+ * on <date>?"). Each row is a clickable link to the actual Polymarket event
+ * page so viewers can verify the trade on-chain.
  */
 
 import type { ShowcaseMarket } from "../../../lib/showcase-data";
@@ -238,7 +239,7 @@ export function MarketList({
           <div style={styles.label}>{"\u5B9E\u65F6 POLYMARKET \u5E02\u573A"}</div>
           <h2 style={styles.title}>{"\u6682\u65F6\u672A\u627E\u5230\u5339\u914D\u5E02\u573A"}</h2>
           <p style={styles.summary}>
-            {"Gamma API \u5DF2\u8FDE\u63A5\uFF0C\u4F46\u5F53\u524D\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684 BTC/ETH \u4EF7\u683C\u76EE\u6807\u5E02\u573A\u3002"}
+            {"Gamma API \u5DF2\u8FDE\u63A5\uFF0C\u4F46\u5F53\u524D\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684 BTC/ETH \u6BCF\u65E5\u4EF7\u683C\u533A\u95F4\u5E02\u573A\u3002"}
           </p>
         </div>
       </section>
@@ -251,7 +252,7 @@ export function MarketList({
         <div style={styles.label}>{"\u5B9E\u65F6 POLYMARKET \u5E02\u573A"}</div>
         <h2 style={styles.title}>{"\u76D1\u63A7\u5E02\u573A"}</h2>
         <p style={styles.summary}>
-          {`\u626B\u63CF\u4E86 ${totalScanned} \u4E2A\u6D3B\u8DC3\u5E02\u573A\uFF0C\u5339\u914D\u5230 ${matchedCount} \u4E2A\u76EE\u6807\u5E02\u573A\uFF0C\u6392\u9664 ${rejectedCount} \u4E2A\u4E0D\u73B0\u5B9E\u5E02\u573A\u3002\u70B9\u51FB\u5361\u7247\u53EF\u8DF3\u8F6C\u5230 Polymarket \u6838\u5BF9\u539F\u6570\u636E\u3002`}
+          {`\u626B\u63CF\u4E86 ${totalScanned} \u4E2A\u6D3B\u8DC3\u5E02\u573A\uFF0C\u5339\u914D\u5230 ${matchedCount} \u4E2A\u6BCF\u65E5\u4EF7\u683C\u533A\u95F4\u5E02\u573A\uFF0C\u6392\u9664 ${rejectedCount} \u4E2A\u4E0D\u73B0\u5B9E\u5E02\u573A\u3002\u70B9\u51FB\u5361\u7247\u53EF\u8DF3\u8F6C\u5230 Polymarket \u6838\u5BF9\u539F\u6570\u636E\u3002`}
         </p>
 
         <div style={styles.grid}>

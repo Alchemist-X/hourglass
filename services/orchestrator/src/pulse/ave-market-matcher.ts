@@ -20,12 +20,20 @@ export interface MatchedMarket {
   candidate: PulseCandidate;
   /** Which crypto asset this market tracks */
   token: "BTC" | "ETH";
-  /** The dollar price target extracted from the question */
+  /**
+   * Dollar price target extracted from the question.
+   * For range markets ("between $X and $Y") this is the midpoint of the range.
+   */
   targetPrice: number;
   /** Whether the market asks about price going above, below, or hitting a level */
   targetDirection: "above" | "below" | "hit";
   /** Calendar days until market resolution */
   daysToResolution: number;
+  /** True when the market is a daily "between $X and $Y" range market */
+  isRangeMarket: boolean;
+  /** Lower/upper bounds of the price range (only set when isRangeMarket is true) */
+  rangeLower?: number;
+  rangeUpper?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,7 +45,16 @@ const BTC_KEYWORDS = ["bitcoin", "btc"] as const;
 const ETH_KEYWORDS = ["ethereum", "eth"] as const;
 
 /** The market question must contain at least one of these */
-const PRICE_ACTION_KEYWORDS = ["price", "hit", "above", "dip", "reach"] as const;
+const PRICE_ACTION_KEYWORDS = [
+  "price",
+  "hit",
+  "above",
+  "dip",
+  "reach",
+  // Daily "between $X and $Y on <date>?" range markets are the most realistic
+  // signal-driven targets and are prioritised in the matched list.
+  "between",
+] as const;
 
 /** Markets containing any of these are excluded (non-price-target markets) */
 const EXCLUSION_KEYWORDS = ["etf", "reserve", "regulation", "launch"] as const;
@@ -69,7 +86,7 @@ function containsWord(text: string, keyword: string): boolean {
  * Handles formats:
  *   $100,000   $100k   $5,000   $150K   $1.5k
  */
-function extractTargetPrice(question: string): number | null {
+function extractAllPrices(question: string): number[] {
   // Match patterns like $100,000 or $100k or $1.5k
   const pricePattern = /\$([\d,]+(?:\.\d+)?)\s*k?/gi;
   let match: RegExpExecArray | null;
@@ -94,8 +111,30 @@ function extractTargetPrice(question: string): number | null {
     prices.push(value);
   }
 
+  return prices;
+}
+
+function extractTargetPrice(question: string): number | null {
   // Return the first price found (most likely the target)
-  return prices[0] ?? null;
+  return extractAllPrices(question)[0] ?? null;
+}
+
+/**
+ * Detect "between $X and $Y" daily range markets.
+ * Returns { lower, upper, midpoint } if the question matches, else null.
+ */
+function extractRangeBounds(
+  question: string,
+): { lower: number; upper: number; midpoint: number } | null {
+  const lower = question.toLowerCase();
+  if (!lower.includes("between") || !lower.includes(" and ")) return null;
+  const prices = extractAllPrices(question);
+  if (prices.length < 2) return null;
+  const [a, b] = [prices[0]!, prices[1]!];
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  if (hi <= lo) return null;
+  return { lower: lo, upper: hi, midpoint: (lo + hi) / 2 };
 }
 
 /**
@@ -191,12 +230,16 @@ export function matchCryptoMarkets(
     );
     if (!hasPriceAction) continue;
 
-    // --- Extract target price ---
-    const targetPrice = extractTargetPrice(question);
+    // --- Extract target price (prefer range midpoint when available) ---
+    const range = extractRangeBounds(question);
+    const targetPrice = range ? range.midpoint : extractTargetPrice(question);
     if (targetPrice === null) continue;
 
     // --- Direction ---
-    const targetDirection = detectDirection(question);
+    // Range markets always resolve on "hit within the bracket" semantics.
+    const targetDirection: "above" | "below" | "hit" = range
+      ? "hit"
+      : detectDirection(question);
 
     // --- Days to resolution ---
     const daysToResolution = daysUntil(candidate.endDate);
@@ -207,13 +250,17 @@ export function matchCryptoMarkets(
       targetPrice,
       targetDirection,
       daysToResolution,
+      isRangeMarket: range !== null,
+      rangeLower: range?.lower,
+      rangeUpper: range?.upper,
     });
   }
 
-  // Sort by volume descending (highest volume first)
-  return [...matched].sort(
-    (a, b) => b.candidate.volume24hUsd - a.candidate.volume24hUsd,
-  );
+  // Sort: range markets first (daily, most realistic), then by 24h volume.
+  return [...matched].sort((a, b) => {
+    if (a.isRangeMarket !== b.isRangeMarket) return a.isRangeMarket ? -1 : 1;
+    return b.candidate.volume24hUsd - a.candidate.volume24hUsd;
+  });
 }
 
 /**

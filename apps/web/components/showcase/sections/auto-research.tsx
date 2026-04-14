@@ -1,8 +1,7 @@
 /**
- * Auto-Research Power Card.
+ * Auto-Research section.
  *
- * Slay the Spire "Power" card style (green border) showing
- * the system's continuous self-improvement loop:
+ * Shows the system's continuous self-improvement loop:
  *   - Re-evaluates every 5 minutes
  *   - Continuously optimizes weights
  *   - Self-tunes parameters
@@ -61,6 +60,74 @@ const features: readonly string[] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Inline illustration: infinity loop with sparkles, conveying
+// "continuously running / self-tuning research agent".
+// ---------------------------------------------------------------------------
+
+function ResearchLoopIcon() {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      width="44"
+      height="44"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Continuous auto-research loop"
+      style={{
+        filter: `drop-shadow(0 0 6px ${C.borderGlow})`,
+      }}
+    >
+      <defs>
+        <linearGradient id="ar-loop-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={C.greenBright} />
+          <stop offset="100%" stopColor={C.green} />
+        </linearGradient>
+        <radialGradient id="ar-spark" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={C.goldBright} stopOpacity="1" />
+          <stop offset="100%" stopColor={C.goldBright} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <style>
+        {`
+          @keyframes ar-trace {
+            0% { stroke-dashoffset: 120; }
+            100% { stroke-dashoffset: 0; }
+          }
+          @keyframes ar-pulse {
+            0%, 100% { opacity: 0.35; transform: scale(0.85); }
+            50% { opacity: 1; transform: scale(1.15); }
+          }
+          .ar-loop { animation: ar-trace 3s linear infinite; }
+          .ar-s1 { animation: ar-pulse 2.4s ease-in-out infinite; transform-origin: 11px 12px; }
+          .ar-s2 { animation: ar-pulse 2.4s ease-in-out 0.8s infinite; transform-origin: 37px 36px; }
+          .ar-s3 { animation: ar-pulse 2.4s ease-in-out 1.6s infinite; transform-origin: 38px 12px; }
+        `}
+      </style>
+
+      {/* Infinity loop path */}
+      <path
+        d="M 10 24 C 10 16, 18 16, 24 24 C 30 32, 38 32, 38 24 C 38 16, 30 16, 24 24 C 18 32, 10 32, 10 24 Z"
+        stroke="url(#ar-loop-grad)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        fill="none"
+        strokeDasharray="6 4"
+        className="ar-loop"
+      />
+
+      {/* Central core */}
+      <circle cx="24" cy="24" r="2.2" fill={C.cream} opacity="0.9" />
+      <circle cx="24" cy="24" r="5" fill={C.greenBright} opacity="0.18" />
+
+      {/* Sparkles */}
+      <circle cx="11" cy="12" r="4" fill="url(#ar-spark)" className="ar-s1" />
+      <circle cx="37" cy="36" r="4" fill="url(#ar-spark)" className="ar-s2" />
+      <circle cx="38" cy="12" r="3" fill="url(#ar-spark)" className="ar-s3" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -83,25 +150,11 @@ export function AutoResearch() {
             borderBottom: `1px solid ${C.border}44`,
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "14px",
           }}
         >
-          {/* Power card icon */}
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              background: `radial-gradient(circle at 35% 35%, ${C.greenBright}, ${C.border})`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: `0 0 12px ${C.borderGlow}`,
-              fontSize: "16px",
-            }}
-          >
-            {"\u{1F504}"}
-          </div>
+          {/* Continuous-research illustration: infinity loop + sparkles */}
+          <ResearchLoopIcon />
 
           <div style={{ flex: 1 }}>
             <div
@@ -116,7 +169,7 @@ export function AutoResearch() {
               {"\u81EA\u52A8\u7814\u7A76"}
             </div>
             <div style={{ fontSize: "13px", color: C.muted, marginTop: "2px" }}>
-              {"\u529B\u91CF\u5361"} {"\u00B7"} {"\u6301\u7EED\u8FD0\u884C\u7684 Agent"}
+              {"\u6301\u7EED\u8FD0\u884C\u7684 Agent"} {"\u00B7"} {"\u81EA\u4E3B\u8C03\u53C2"}
             </div>
           </div>
 
@@ -132,7 +185,7 @@ export function AutoResearch() {
               fontWeight: 600,
             }}
           >
-            {"\u529B\u91CF"}
+            {"LIVE"}
           </span>
         </div>
 
