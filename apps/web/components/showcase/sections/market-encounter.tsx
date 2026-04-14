@@ -142,7 +142,7 @@ export function MarketEncounter() {
 
   return (
     <section style={styles.section}>
-      <span style={styles.encounterLabel}>{"\u9047\u5230\u5E02\u573A"}</span>
+      <span style={styles.encounterLabel}>{"\u53D1\u73B0\u6700\u6709\u5229\u53EF\u56FE\u7684\u5E02\u573A"}</span>
 
       <div style={styles.card}>
         <div style={styles.cardInner}>

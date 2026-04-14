@@ -17,11 +17,11 @@ const NORMAL_TRADER: readonly ComparisonItem[] = [
 ];
 
 const HOURGLASS: readonly ComparisonItem[] = [
-  { icon: "\ud83d\udcca", text: "\u770b\u94fe\u4e0a\u6570\u636e" },
+  { icon: "\ud83d\udce1", text: "10+ \u4fe1\u606f\u6e90\u6c47\u805a" },
   { icon: "\ud83e\udd16", text: "AI \u81ea\u4e3b\u5206\u6790" },
   { icon: "\u26a1", text: "\u79d2\u7ea7\u54cd\u5e94 + \u6301\u7eed\u8fd0\u8425" },
-  { icon: "\ud83d\udd04", text: "\u6301\u4e45\u5316\u8fd0\u8425" },
-  { icon: "\ud83c\udf10", text: "\u8986\u76d6 130+ \u94fe" },
+  { icon: "\ud83c\udfaf", text: "\u5e2e\u4f60\u8ddf\u8e2a 80+ \u5e02\u573a" },
+  { icon: "\ud83c\udf10", text: "\u8986\u76d6 130+ \u6761\u94fe" },
 ];
 
 function ComparisonCard({
@@ -219,7 +219,7 @@ function Testimonial() {
             fontStyle: "italic",
           }}
         >
-          {"\u201c\u94fe\u4e0a\u6570\u636e\u8ba9\u6211\u770b\u5230\u4e86\u9884\u6d4b\u5e02\u573a\u91cc\u522b\u4eba\u770b\u4e0d\u5230\u7684\u4fe1\u53f7\u3002\u4e4b\u524d\u6211\u8981\u76ef 20 \u4e2a Telegram \u7fa4\u624d\u80fd\u6355\u6349\u9cb8\u9c7c\u52a8\u5411\u3002\u73b0\u5728 Hourglass \u81ea\u52a8\u5e2e\u6211\u8ffd\u8e2a 130+ \u6761\u94fe\uff0c\u8fde\u7761\u89c9\u90fd\u5728\u8fd0\u884c\u3002\u201d"}
+          {"\u201c\u4e4b\u524d\u6211\u8981\u76ef 20 \u4e2a Telegram \u7fa4\u624d\u80fd\u6355\u6349\u9cb8\u9c7c\u52a8\u5411\u3002\u73b0\u5728 Hourglass \u81ea\u52a8\u5e2e\u6211\u8ffd\u8e2a 130+ \u6761\u94fe\uff0c\u8fde\u7761\u89c9\u90fd\u5728\u8fd0\u884c\u3002\u201d"}
         </p>
         <p
           style={{
