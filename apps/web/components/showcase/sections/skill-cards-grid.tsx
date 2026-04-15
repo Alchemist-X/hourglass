@@ -402,9 +402,9 @@ function PriceCardContent({ data }: { readonly data: PriceCardData }) {
       <div style={{ borderRadius: "8px", overflow: "hidden", background: COLORS.cardBgInner, padding: "8px 4px", marginBottom: "12px" }}>
         <Sparkline data={data.priceHistory} />
       </div>
-      <DataRow label="BTC \u5F53\u524D" value={`$${data.currentPrice.toLocaleString()}`} />
-      <DataRow label={"\u76EE\u6807\u4EF7"} value={`$${data.targetPrice.toLocaleString()}`} />
-      <DataRow label={"\u6240\u9700\u6DA8\u5E45"} value={data.changeNeeded} valueColor={COLORS.red} />
+      <DataRow label="ETH \u5F53\u524D" value={`$${data.currentPrice.toLocaleString()}`} />
+      <DataRow label={"\u533A\u95F4\u4E2D\u70B9"} value={`$${data.targetPrice.toLocaleString()}`} />
+      <DataRow label={"\u8DDD\u79BB\u4E0B\u6CBF"} value={data.changeNeeded} valueColor={COLORS.red} />
     </>
   );
 }

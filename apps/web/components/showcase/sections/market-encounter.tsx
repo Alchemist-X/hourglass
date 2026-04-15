@@ -148,6 +148,25 @@ export function MarketEncounter() {
         <div style={styles.cardInner}>
           <h2 style={styles.bossTitle}>{m.question}</h2>
 
+          <div style={{ textAlign: "center", marginBottom: "24px" }}>
+            <a
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: "13px",
+                color: "#5fa8d3",
+                textDecoration: "none",
+                borderBottom: "1px dashed rgba(95,168,211,0.4)",
+                wordBreak: "break-all",
+              }}
+            >
+              {"\u{1F517} "}
+              {m.url}
+            </a>
+          </div>
+
           <div style={styles.statsRow}>
             <StatBlock label={"\u4EA4\u6613\u91CF"} value={m.volume} />
             <StatBlock label={"\u7ED3\u7B97\u65E5"} value={m.resolutionDate} />

@@ -85,16 +85,17 @@ export const portfolioStatus: PortfolioStatus = {
 // ---------------------------------------------------------------------------
 
 export const showcaseMarket = {
-  question: "When will Bitcoin hit $150K?",
-  fullQuestion: "Will Bitcoin hit $150k by June 30, 2026?",
-  volume: "$3.1M",
-  volumeRaw: 3_100_000,
-  resolutionDate: "2026-06-30",
-  daysLeft: 77,
-  yesOdds: 0.031,
-  noOdds: 0.969,
-  yesOddsPct: "3.1%",
-  noOddsPct: "96.9%",
+  question: "Will the price of Ethereum be between $2,400 and $2,500 on April 16?",
+  fullQuestion: "Will the price of Ethereum be between $2,400 and $2,500 on April 16?",
+  url: "https://polymarket.com/event/ethereum-price-on-april-16",
+  volume: "$452.61",
+  volumeRaw: 452.61,
+  resolutionDate: "2026-04-16",
+  daysLeft: 1,
+  yesOdds: 0.17,
+  noOdds: 0.83,
+  yesOddsPct: "17%",
+  noOddsPct: "83%",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,6 @@ export const edgeCalculation = {
 // ---------------------------------------------------------------------------
 
 export const aiReasoning = {
-  text: "\u94FE\u4E0A\u4FE1\u53F7\u663E\u793A ETH \u73B0\u4EF7\u6B63\u597D\u5728 $2,400-$2,500 \u533A\u95F4\u5185\uFF0C\u4E70\u5356\u6BD4\u504F\u591A\u914D\u5408 MA \u4E0A\u534B\u89D2\u3002\u5E02\u573A\u8D54\u7387 17% \u660E\u663E\u4F4E\u4F30\u4E86\u6536\u76D8\u5728\u8BE5\u533A\u95F4\u7684\u6982\u7387\uFF0C\u6211\u4EEC\u4F30\u7B97 36%\u3002",
+  text: "ETH 当前价 $2,319，距离 $2,400-$2,500 区间下沿仅 3.5%。链上买卖比偏多 + MA 趋势向上，ETH 有较高概率收盘在该区间内。市场赔率 17%，我们估算 36%，Edge +18%（已扣 2% 手续费）。",
   attribution: "Hourglass AI",
 } as const;

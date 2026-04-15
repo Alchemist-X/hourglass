@@ -1,7 +1,7 @@
 "use client";
 
 // Section 5 addon: AI thinking process timeline
-// Shows the actual thought process for the BTC $150K trade
+// Shows the actual thought process for the ETH $2,400-$2,500 range trade
 
 interface TimelineStep {
   readonly timestamp: string;
@@ -16,74 +16,74 @@ const TIMELINE_STEPS: readonly TimelineStep[] = [
   {
     timestamp: "0.0s",
     icon: "\ud83d\udcca",
-    title: "\u4ef7\u683c\u83b7\u53d6",
-    description: "BTC $94,200 (\u8ddd\u76ee\u6807 +59.2%)",
+    title: "价格获取",
+    description: "ETH $2,319.43（距离 $2,400-$2,500 区间下沿 3.5%）",
     details: [
-      "AVE Price API \u2192 BTC = $94,200",
-      "\u76ee\u6807\u4ef7\u683c: $150,000",
-      "\u9700\u8981\u6da8\u5e45: +59.2%",
+      "AVE Price API → ETH = $2,319.43",
+      "目标区间: $2,400 - $2,500",
+      "距离下沿: 3.5%",
     ],
   },
   {
     timestamp: "0.3s",
     icon: "\ud83d\udcc8",
-    title: "K\u7ebf\u5206\u6790",
-    description: "MA20>MA50, MACD\u91d1\u53c9, \u8d8b\u52bf\u770b\u6da8",
-    signal: 0.73,
+    title: "K线分析",
+    description: "ETH MA20 > MA50, MACD 金叉, 趋势得分 +0.55",
+    signal: 0.55,
     details: [
-      "MA20: $93,800 > MA50: $91,200",
-      "MACD: \u91d1\u53c9 \u2666 \u770b\u6da8",
-      "\u6ce2\u52a8\u7387: 3.2%/\u65e5",
+      "MA20: $2,305 > MA50: $2,240",
+      "MACD: 金叉 ♦ 看涨",
+      "波动率: 2.8%/日",
     ],
   },
   {
     timestamp: "0.8s",
     icon: "\ud83d\udc0b",
-    title: "\u9cb8\u9c7c\u626b\u63cf",
-    description: "47\u7b14>$100K\u4ea4\u6613, \u51c0\u4e70\u5165+$24.2M",
-    signal: 0.4,
+    title: "鲸鱼扫描",
+    description: "ETH 过去 1h 净买入 +$1.8M, 鲸鱼得分 +0.32",
+    signal: 0.32,
     details: [
-      "\u4e70\u5165: $42M (47\u7b14\u5927\u989d\u4ea4\u6613)",
-      "\u5356\u51fa: $18M",
-      "\u51c0\u4e70\u5165: +$24.2M",
+      "买入: $3.2M",
+      "卖出: $1.4M",
+      "净买入: +$1.8M (1h)",
     ],
   },
   {
     timestamp: "1.2s",
     icon: "\ud83d\udcc9",
-    title: "\u4e70\u5356\u6bd4",
-    description: "5m:1.86x, 1h:1.59x, 6h:1.14x",
-    signal: 0.31,
+    title: "买卖比",
+    description: "5m:1.4x, 1h:1.25x, 6h:1.1x, 情绪得分 +0.28",
+    signal: 0.28,
     details: [
-      "5\u5206\u949f: \u4e70/\u5356 = 1.86x",
-      "1\u5c0f\u65f6: \u4e70/\u5356 = 1.59x",
-      "6\u5c0f\u65f6: \u4e70/\u5356 = 1.14x",
+      "5分钟: 买/卖 = 1.4x",
+      "1小时: 买/卖 = 1.25x",
+      "6小时: 买/卖 = 1.1x",
     ],
   },
   {
     timestamp: "1.5s",
     icon: "\u26a1",
-    title: "\u7efc\u5408\u5224\u65ad",
-    description: "\u5F97\u5206 +0.52, \u6982\u738721% vs \u8d54\u73873.1%, Edge +17.9%",
-    signal: 0.52,
+    title: "综合判断",
+    description: "综合分 +0.42, 我们估算 36% vs 赔率 17%, Edge +18%",
+    signal: 0.42,
     details: [
-      "\u8D8B\u52BF \u00d7 0.4 + \u9CB8\u9C7C \u00d7 0.3 + \u60C5\u7EEA \u00d7 0.3 = +0.52",
-      "\u6211\u4eec\u7684\u6982\u7387: 21%",
-      "\u5e02\u573a\u8d54\u7387: 3.1%",
-      "Edge: +17.9% \u2190 \u663e\u8457\u6b63 Edge",
+      "趋势 × 0.4 + 鲸鱼 × 0.3 + 情绪 × 0.3 = +0.42",
+      "我们的概率: 36%",
+      "市场赔率: 17%",
+      "Edge: +18% (已扣 2% 手续费) ← 显著正 Edge",
     ],
   },
   {
     timestamp: "2.1s",
     icon: "\u2705",
-    title: "\u6267\u884c",
-    description: "\u4E70\u5165 5 \u4EFD @ $0.031, \u98ce\u63a7\u901a\u8fc7",
+    title: "执行",
+    description: "BUY 5 shares YES @ $0.17, 风控通过",
     details: [
-      "\u7c7b\u578b: FOK (Fill-or-Kill)",
-      "\u7b7e\u540d: Type 2 (\u514dGas)",
-      "\u4ef7\u683c: $0.031 \u00d7 5 = $0.155",
+      "类型: FOK (Fill-or-Kill)",
+      "签名: Type 2 (免Gas)",
+      "价格: $0.17 × 5 = $0.85",
       "TxHash: 0x3e3f...",
-      "\u72b6\u6001: \u2705 \u5df2\u6210\u4ea4",
+      "状态: ✅ 已成交",
     ],
   },
 ];
@@ -291,7 +291,7 @@ export function ThinkingTimeline() {
             AI {"\u601d\u8003\u8fc7\u7a0b"}
           </h3>
           <p style={{ fontSize: 16, color: "#8b8b9e", margin: 0 }}>
-            {"\u4ee5 \"BTC hit $150K\" \u4e3a\u4f8b\uff0c\u5c55\u793a\u5b8c\u6574\u63a8\u7406 \u2192 \u6267\u884c\u94fe"}
+            {"以 \"ETH $2,400-$2,500 on Apr 16\" 为例，展示完整推理 → 执行链"}
           </p>
         </div>
 

@@ -1,7 +1,8 @@
 /**
  * Static data configs for the 4 AVE Skill cards.
  *
- * Based on realistic BTC data around April 2026.
+ * Based on realistic ETH data around April 2026 for the showcase market
+ * "Will the price of Ethereum be between $2,400 and $2,500 on April 16?"
  * Signal values and weights match ave-crypto-signals.ts:
  *   overallScore = trendScore * 0.4 + whalePressure * 0.3 + sentimentScore * 0.3
  */
@@ -75,18 +76,19 @@ export interface SkillCardConfig<T = unknown> {
 }
 
 // ---------------------------------------------------------------------------
-// OHLC candle generation — 30 realistic BTC daily candles
+// OHLC candle generation — 30 realistic ETH daily candles approaching the
+// $2,400-$2,500 range from below
 // ---------------------------------------------------------------------------
 
 function generateKlineCandles(): readonly OhlcCandle[] {
-  const basePrice = 91_000;
+  const basePrice = 2_200;
   const baseDate = new Date("2026-03-15T00:00:00Z");
 
-  // Daily close prices with a gradual uptrend + noise
+  // Daily close prices: gradual uptrend from ~$2,200 to ~$2,320
   const closePrices = [
-    91200, 91800, 90900, 91500, 92100, 92800, 91900, 92400, 93100, 92600,
-    93200, 93800, 93100, 93600, 92900, 93500, 94100, 93400, 93900, 94500,
-    93700, 94200, 94800, 93900, 94300, 93800, 94600, 95100, 94200, 94200,
+    2205, 2218, 2199, 2224, 2241, 2236, 2252, 2248, 2265, 2258,
+    2271, 2283, 2276, 2290, 2285, 2296, 2302, 2295, 2307, 2314,
+    2308, 2296, 2305, 2312, 2308, 2317, 2311, 2320, 2316, 2319,
   ];
 
   return closePrices.map((close, i) => {
@@ -112,19 +114,20 @@ function generateKlineCandles(): readonly OhlcCandle[] {
 // ---------------------------------------------------------------------------
 
 function generateWhaleTransactions(): readonly WhaleTransaction[] {
-  const baseDate = new Date("2026-04-13T08:00:00Z");
+  const baseDate = new Date("2026-04-14T08:00:00Z");
 
+  // ETH whale flows — realistic scale for a single token's 1h net buy +$1.8M
   return [
-    { hash: "0xa1b2c3d4e5f6", side: "buy", amountUsd: 8_200_000, source: "Binance", timestamp: offsetDate(baseDate, 0) },
-    { hash: "0xb2c3d4e5f6a1", side: "buy", amountUsd: 5_400_000, source: "Coinbase", timestamp: offsetDate(baseDate, 1) },
-    { hash: "0xc3d4e5f6a1b2", side: "sell", amountUsd: 3_100_000, source: "Unknown", timestamp: offsetDate(baseDate, 2) },
-    { hash: "0xd4e5f6a1b2c3", side: "buy", amountUsd: 6_800_000, source: "OKX", timestamp: offsetDate(baseDate, 3) },
-    { hash: "0xe5f6a1b2c3d4", side: "buy", amountUsd: 4_200_000, source: "Aave", timestamp: offsetDate(baseDate, 4) },
-    { hash: "0xf6a1b2c3d4e5", side: "sell", amountUsd: 2_900_000, source: "Binance", timestamp: offsetDate(baseDate, 5) },
-    { hash: "0xa7b8c9d0e1f2", side: "buy", amountUsd: 7_500_000, source: "New Wallet", timestamp: offsetDate(baseDate, 6) },
-    { hash: "0xb8c9d0e1f2a7", side: "buy", amountUsd: 3_800_000, source: "Coinbase", timestamp: offsetDate(baseDate, 7) },
-    { hash: "0xc9d0e1f2a7b8", side: "sell", amountUsd: 2_400_000, source: "DeFi", timestamp: offsetDate(baseDate, 8) },
-    { hash: "0xd0e1f2a7b8c9", side: "buy", amountUsd: 3_900_000, source: "Binance", timestamp: offsetDate(baseDate, 9) },
+    { hash: "0xa1b2c3d4e5f6", side: "buy", amountUsd: 820_000, source: "Binance", timestamp: offsetDate(baseDate, 0) },
+    { hash: "0xb2c3d4e5f6a1", side: "buy", amountUsd: 540_000, source: "Coinbase", timestamp: offsetDate(baseDate, 1) },
+    { hash: "0xc3d4e5f6a1b2", side: "sell", amountUsd: 310_000, source: "Unknown", timestamp: offsetDate(baseDate, 2) },
+    { hash: "0xd4e5f6a1b2c3", side: "buy", amountUsd: 680_000, source: "OKX", timestamp: offsetDate(baseDate, 3) },
+    { hash: "0xe5f6a1b2c3d4", side: "buy", amountUsd: 420_000, source: "Aave", timestamp: offsetDate(baseDate, 4) },
+    { hash: "0xf6a1b2c3d4e5", side: "sell", amountUsd: 290_000, source: "Binance", timestamp: offsetDate(baseDate, 5) },
+    { hash: "0xa7b8c9d0e1f2", side: "buy", amountUsd: 750_000, source: "New Wallet", timestamp: offsetDate(baseDate, 6) },
+    { hash: "0xb8c9d0e1f2a7", side: "buy", amountUsd: 380_000, source: "Coinbase", timestamp: offsetDate(baseDate, 7) },
+    { hash: "0xc9d0e1f2a7b8", side: "sell", amountUsd: 240_000, source: "DeFi", timestamp: offsetDate(baseDate, 8) },
+    { hash: "0xd0e1f2a7b8c9", side: "buy", amountUsd: 390_000, source: "Binance", timestamp: offsetDate(baseDate, 9) },
   ] as const;
 }
 
@@ -151,10 +154,10 @@ export const skillCardConfigs: readonly [
     emoji: "\u{1F4CA}",
     apiEndpoint: "POST /v2/tokens/price",
     data: {
-      currentPrice: 94_200,
-      targetPrice: 150_000,
-      changeNeeded: "+59.2%",
-      priceHistory: [91_200, 92_400, 91_800, 93_500, 94_200, 93_800, 94_200],
+      currentPrice: 2_319.43,
+      targetPrice: 2_450,
+      changeNeeded: "+3.5% \u5230\u533A\u95F4\u4E0B\u6CBF",
+      priceHistory: [2_290, 2_305, 2_298, 2_311, 2_320, 2_316, 2_319],
     },
     signalValue: 0.0,
     signalLabel: "\u4E2D\u6027",
@@ -167,13 +170,13 @@ export const skillCardConfigs: readonly [
     emoji: "\u{1F4C8}",
     apiEndpoint: "GET /v2/klines/token/{id}",
     data: {
-      ma20: 93_800,
-      ma50: 91_200,
+      ma20: 2_305,
+      ma50: 2_240,
       macdSignal: "bullish",
-      volatility: 0.032,
+      volatility: 0.028,
       klineData: generateKlineCandles(),
     },
-    signalValue: 0.73,
+    signalValue: 0.55,
     signalLabel: "\u770B\u6DA8",
     weight: 0.4,
   },
@@ -184,13 +187,13 @@ export const skillCardConfigs: readonly [
     emoji: "\u{1F40B}",
     apiEndpoint: "GET /v2/txs/{pair-id}",
     data: {
-      buyVolume: 42_000_000,
-      sellVolume: 18_000_000,
-      netRatio: 0.4,
-      largeTradeCount: 47,
+      buyVolume: 3_200_000,
+      sellVolume: 1_400_000,
+      netRatio: 0.39,
+      largeTradeCount: 18,
       transactions: generateWhaleTransactions(),
     },
-    signalValue: 0.40,
+    signalValue: 0.32,
     signalLabel: "\u770B\u6DA8",
     weight: 0.3,
   },
@@ -202,13 +205,13 @@ export const skillCardConfigs: readonly [
     apiEndpoint: "GET /v2/tokens/{id}",
     data: {
       timeframes: [
-        { label: "5m", buyCount: 182, sellCount: 98, ratio: 1.86 },
-        { label: "1h", buyCount: 890, sellCount: 560, ratio: 1.59 },
-        { label: "6h", buyCount: 3_200, sellCount: 2_800, ratio: 1.14 },
-        { label: "24h", buyCount: 9_800, sellCount: 8_200, ratio: 1.20 },
+        { label: "5m", buyCount: 168, sellCount: 120, ratio: 1.4 },
+        { label: "1h", buyCount: 720, sellCount: 576, ratio: 1.25 },
+        { label: "6h", buyCount: 3_100, sellCount: 2_818, ratio: 1.1 },
+        { label: "24h", buyCount: 9_400, sellCount: 8_500, ratio: 1.11 },
       ],
     },
-    signalValue: 0.31,
+    signalValue: 0.28,
     signalLabel: "\u504F\u591A",
     weight: 0.3,
   },
