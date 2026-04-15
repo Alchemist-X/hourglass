@@ -47,7 +47,7 @@ const baseConfig: OrchestratorConfig = {
   },
   ave: {
     apiKey: "test-key",
-    apiBaseUrl: "https://openapi.avedata.org/api/v1",
+    apiBaseUrl: "https://prod.ave-api.com/v2",
     monitoringChains: ["ethereum", "bsc", "polygon", "base", "solana"],
     pulseTokenLimit: 300,
     pulseTrendingLimit: 50,

@@ -290,7 +290,7 @@ async function fetchTokenSearch(
     config.chains.map(async (chain) => {
       const data = await aveGet<AveRawToken[]>(
         config.baseUrl,
-        `/v2/tokens?keyword=&chain=${chain}&limit=${config.tokenLimit}&orderby=tx_volume_u_24h`,
+        `/tokens?keyword=&chain=${chain}&limit=${config.tokenLimit}&orderby=tx_volume_u_24h`,
         config.apiKey,
         `token-search-${chain}`
       );
@@ -316,7 +316,7 @@ async function fetchTrendingTokens(
     config.chains.map(async (chain) => {
       const data = await aveGet<AveRawToken[]>(
         config.baseUrl,
-        `/v2/tokens/trending?chain=${chain}`,
+        `/tokens/trending?chain=${chain}`,
         config.apiKey,
         `trending-${chain}`
       );
@@ -338,7 +338,7 @@ async function fetchHotRankings(
 ): Promise<AveRawRankToken[]> {
   const data = await aveGet<AveRawRankToken[]>(
     config.baseUrl,
-    `/v2/ranks?topic=Hot&limit=${config.trendingLimit}`,
+    `/ranks?topic=Hot&limit=${config.trendingLimit}`,
     config.apiKey,
     "hot-rankings"
   );
@@ -363,7 +363,7 @@ async function fetchBatchPrices(
     batches.map(async (batch, index) => {
       const data = await avePost<AveRawPriceEntry[]>(
         config.baseUrl,
-        "/v2/tokens/price",
+        "/tokens/price",
         config.apiKey,
         { token_ids: batch, tvl_min: 0, tx_24h_volume_min: 0 },
         `batch-price-${index}`
@@ -391,7 +391,7 @@ async function fetchContractRisk(
 ): Promise<AveRawContractRisk | null> {
   return aveGet<AveRawContractRisk>(
     config.baseUrl,
-    `/v2/contracts/${tokenId}`,
+    `/contracts/${tokenId}`,
     config.apiKey,
     `contract-risk-${tokenId}`
   );
@@ -531,7 +531,7 @@ export async function fetchAveMarkets(config: {
 }): Promise<AvePulseCandidate[]> {
   const resolvedConfig: AveMarketPulseConfig = {
     apiKey: config.apiKey,
-    baseUrl: config.baseUrl ?? "https://openapi.avedata.org/api/v1",
+    baseUrl: config.baseUrl ?? "https://prod.ave-api.com/v2",
     chains: config.chains ?? ["ethereum", "bsc", "polygon", "base", "solana"],
     tokenLimit: config.tokenLimit ?? 300,
     trendingLimit: config.trendingLimit ?? 50,

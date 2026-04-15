@@ -82,8 +82,8 @@ const TOKEN_REGISTRY: ReadonlyMap<string, TokenConfig> = new Map([
     {
       symbol: "BTC",
       // WBTC on Ethereum -- the primary BTC representation tracked by AVE
-      tokenId: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-      pairId: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      tokenId: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599-eth",
+      pairId: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599-eth",
     },
   ],
   [
@@ -91,8 +91,8 @@ const TOKEN_REGISTRY: ReadonlyMap<string, TokenConfig> = new Map([
     {
       symbol: "ETH",
       // WETH on Ethereum
-      tokenId: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-      pairId: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      tokenId: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2-eth",
+      pairId: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2-eth",
     },
   ],
 ]);
@@ -178,7 +178,10 @@ function computeTrendScore(
     };
   }
 
-  const closes = klines.map((k) => k.close);
+  // AVE v2 returns numeric fields as strings; coerce for all downstream math.
+  const toNumber = (v: number | string | undefined): number =>
+    typeof v === "string" ? parseFloat(v) : (v ?? 0);
+  const closes = klines.map((k) => toNumber(k.close)).filter((n) => Number.isFinite(n));
 
   // MA20: average of last 20 closes
   const last20 = closes.slice(-20);
@@ -342,7 +345,15 @@ async function generateSignalForToken(
     const prices = await client.getTokenPrices([config.tokenId]);
     const priceEntry = prices[0];
     if (priceEntry) {
-      price = priceEntry.price;
+      // V2 returns `current_price_usd` as a string; v1 returned `price` as a
+      // number. Accept either and coerce to number.
+      const rawPrice =
+        priceEntry.current_price_usd ?? priceEntry.price ?? 0;
+      const parsed =
+        typeof rawPrice === "string" ? parseFloat(rawPrice) : rawPrice;
+      if (Number.isFinite(parsed) && parsed > 0) {
+        price = parsed;
+      }
     }
   } catch (err) {
     console.warn(
@@ -376,7 +387,10 @@ async function generateSignalForToken(
     const klinesToAnalyze =
       dailyKlines.length >= 20 ? dailyKlines : hourlyKlines;
 
-    const effectivePrice = price > 0 ? price : (klinesToAnalyze[klinesToAnalyze.length - 1]?.close ?? 0);
+    const lastClose = klinesToAnalyze[klinesToAnalyze.length - 1]?.close;
+    const lastCloseNum =
+      typeof lastClose === "string" ? parseFloat(lastClose) : (lastClose ?? 0);
+    const effectivePrice = price > 0 ? price : lastCloseNum;
     trendResult = computeTrendScore(klinesToAnalyze, effectivePrice);
     trendOk = true;
   } catch (err) {

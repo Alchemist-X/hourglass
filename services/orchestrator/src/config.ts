@@ -195,7 +195,7 @@ export function loadConfig(): OrchestratorConfig {
     },
     ave: {
       apiKey: readString("AVE_API_KEY", ""),
-      apiBaseUrl: readString("AVE_API_BASE_URL", "https://openapi.avedata.org/api/v1"),
+      apiBaseUrl: readString("AVE_API_BASE_URL", "https://prod.ave-api.com/v2"),
       monitoringChains: readString("AVE_MONITORING_CHAINS", "ethereum,bsc,polygon,base,solana")
         .split(",")
         .map((chain) => chain.trim())

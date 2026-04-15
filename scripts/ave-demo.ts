@@ -344,7 +344,7 @@ async function createAveClientWithFallback(): Promise<{
   fallbackReason?: string;
 }> {
   const apiKey = process.env.AVE_API_KEY?.trim() ?? "";
-  const baseUrl = process.env.AVE_API_BASE_URL?.trim() ?? "https://openapi.avedata.org/api/v1";
+  const baseUrl = process.env.AVE_API_BASE_URL?.trim() ?? "https://prod.ave-api.com/v2";
 
   if (!apiKey) {
     write(`  ${c(C.yellow, "\u26A0\uFE0F  AVE_API_KEY \u672A\u914D\u7F6E\uFF0C\u56DE\u9000\u6A21\u62DF\u6570\u636E")}`);
@@ -456,16 +456,20 @@ async function probeAveEndpoint(args: {
  */
 async function probeAveForDisplay(apiKey: string, baseUrl: string): Promise<AveRawCall[]> {
   const WBTC = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
+  // v2 token IDs are `{address}-{chain_name}` where chain_name follows
+  // AVE's short naming convention ("eth" not "ethereum", etc.).
+  const WBTC_TOKEN_ID = `${WBTC}-eth`;
   const cleanBase = baseUrl.replace(/\/+$/, "");
 
   const priceCall = probeAveEndpoint({
-    method: "GET",
-    url: `${cleanBase}/token/price?token_addresses=${WBTC}`,
+    method: "POST",
+    url: `${cleanBase}/tokens/price`,
     apiKey,
+    body: { token_ids: [WBTC_TOKEN_ID], tvl_min: 0, tx_24h_volume_min: 0 },
   });
   const klineCall = probeAveEndpoint({
     method: "GET",
-    url: `${cleanBase}/token/kline/${WBTC}?interval=60&limit=5`,
+    url: `${cleanBase}/klines/token/${WBTC_TOKEN_ID}?interval=60&limit=5`,
     apiKey,
   });
 

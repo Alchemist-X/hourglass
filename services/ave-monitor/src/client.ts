@@ -42,7 +42,7 @@ interface ResolvedConfig {
 function resolveConfig(config: AveClientConfig): ResolvedConfig {
   return {
     apiKey: config.apiKey,
-    baseUrl: (config.baseUrl ?? "https://openapi.avedata.org/api/v1").replace(
+    baseUrl: (config.baseUrl ?? "https://prod.ave-api.com/v2").replace(
       /\/+$/,
       ""
     ),
@@ -122,6 +122,19 @@ function safeParse<T>(
     return data as T;
   }
   return result.data;
+}
+
+/**
+ * Normalize both v1 (array) and v2 ({ points: [...] }) kline shapes into
+ * a flat AveKline array. Callers treat this as the canonical shape.
+ */
+function normalizeKlineData(data: unknown): AveKline[] {
+  if (Array.isArray(data)) return data as AveKline[];
+  if (data && typeof data === "object") {
+    const points = (data as { points?: unknown }).points;
+    if (Array.isArray(points)) return points as AveKline[];
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -222,8 +235,18 @@ export class AveClient {
     );
   }
 
+  private async post<T>(
+    path: string,
+    body: unknown,
+    params: Record<string, string | number | boolean | undefined> = {}
+  ): Promise<T> {
+    return withRetry(path, () =>
+      this.request<T>("POST", path, params, body)
+    );
+  }
+
   // -------------------------------------------------------------------------
-  // Monitoring Skills
+  // Monitoring Skills (AVE v2 endpoints)
   // -------------------------------------------------------------------------
 
   async searchTokens(params: {
@@ -232,7 +255,7 @@ export class AveClient {
     limit?: number;
     orderby?: string;
   }): Promise<AveToken[]> {
-    const raw = await this.get<unknown>("token/search", {
+    const raw = await this.get<unknown>("tokens", {
       keyword: params.keyword,
       chain: params.chain,
       limit: params.limit,
@@ -243,7 +266,7 @@ export class AveClient {
   }
 
   async getTokenDetail(tokenId: string): Promise<AveTokenDetail> {
-    const raw = await this.get<unknown>(`token/detail/${tokenId}`);
+    const raw = await this.get<unknown>(`tokens/${tokenId}`);
     const parsed = safeParse(
       aveTokenDetailResponseSchema,
       raw,
@@ -252,20 +275,35 @@ export class AveClient {
     return parsed.data;
   }
 
+  /**
+   * Batch price query. V2 requires POST /tokens/price with a JSON body of
+   * { token_ids: [...] }. Token IDs follow the "{address}-{chain}" format
+   * where chain uses AVE's short naming ("eth", "bsc", "solana", ...).
+   */
   async getTokenPrices(tokenIds: string[]): Promise<AveTokenPrice[]> {
-    const raw = await this.get<unknown>("token/price", {
-      token_addresses: tokenIds.join(","),
+    const raw = await this.post<unknown>("tokens/price", {
+      token_ids: tokenIds,
+      tvl_min: 0,
+      tx_24h_volume_min: 0,
     });
     const parsed = safeParse(
       aveTokenPriceResponseSchema,
       raw,
       "getTokenPrices"
     );
-    return parsed.data;
+    // V2 returns an object keyed by token_id; v1 returned an array. Normalize.
+    const data = parsed.data as unknown;
+    if (Array.isArray(data)) return data as AveTokenPrice[];
+    if (data && typeof data === "object") {
+      return Object.entries(data as Record<string, AveTokenPrice>).map(
+        ([token_id, entry]) => ({ token_id, ...entry })
+      );
+    }
+    return [];
   }
 
   async getTrendingTokens(chain: string): Promise<AveTrendingToken[]> {
-    const raw = await this.get<unknown>("token/trending", { chain });
+    const raw = await this.get<unknown>("tokens/trending", { chain });
     const parsed = safeParse(
       aveTrendingTokenResponseSchema,
       raw,
@@ -278,7 +316,7 @@ export class AveClient {
     pairId: string,
     params?: { limit?: number; from_time?: number; to_time?: number }
   ): Promise<AveTransaction[]> {
-    const raw = await this.get<unknown>(`pair/transactions/${pairId}`, {
+    const raw = await this.get<unknown>(`txs/${pairId}`, {
       limit: params?.limit,
       from_time: params?.from_time,
       to_time: params?.to_time,
@@ -292,7 +330,7 @@ export class AveClient {
   }
 
   async getContractSecurity(tokenId: string): Promise<AveContractRisk> {
-    const raw = await this.get<unknown>(`token/security/${tokenId}`);
+    const raw = await this.get<unknown>(`contracts/${tokenId}`);
     const parsed = safeParse(
       aveContractRiskResponseSchema,
       raw,
@@ -302,7 +340,7 @@ export class AveClient {
   }
 
   async getSupportedChains(): Promise<AveChain[]> {
-    const raw = await this.get<unknown>("chains");
+    const raw = await this.get<unknown>("supported_chains");
     const parsed = safeParse(aveChainsResponseSchema, raw, "getSupportedChains");
     return parsed.data;
   }
@@ -315,28 +353,28 @@ export class AveClient {
     tokenId: string,
     params?: { interval?: number; limit?: number }
   ): Promise<AveKline[]> {
-    const raw = await this.get<unknown>(`token/kline/${tokenId}`, {
+    const raw = await this.get<unknown>(`klines/token/${tokenId}`, {
       interval: params?.interval,
       limit: params?.limit,
     });
     const parsed = safeParse(aveKlineResponseSchema, raw, "getKlines");
-    return parsed.data;
+    return normalizeKlineData(parsed.data);
   }
 
   async getPairKlines(
     pairId: string,
     params?: { interval?: number; limit?: number }
   ): Promise<AveKline[]> {
-    const raw = await this.get<unknown>(`pair/kline/${pairId}`, {
+    const raw = await this.get<unknown>(`klines/pair/${pairId}`, {
       interval: params?.interval,
       limit: params?.limit,
     });
     const parsed = safeParse(aveKlineResponseSchema, raw, "getPairKlines");
-    return parsed.data;
+    return normalizeKlineData(parsed.data);
   }
 
   async getRankTopics(): Promise<string[]> {
-    const raw = await this.get<unknown>("rank/topics");
+    const raw = await this.get<unknown>("ranks/topics");
     const parsed = safeParse(
       aveRankTopicsResponseSchema,
       raw,
@@ -346,7 +384,7 @@ export class AveClient {
   }
 
   async getRankings(topic: string, limit?: number): Promise<AveRankedToken[]> {
-    const raw = await this.get<unknown>("rank/list", { topic, limit });
+    const raw = await this.get<unknown>("ranks", { topic, limit });
     const parsed = safeParse(
       aveRankingsResponseSchema,
       raw,
@@ -356,7 +394,7 @@ export class AveClient {
   }
 
   async getMainTokens(chain: string): Promise<AveToken[]> {
-    const raw = await this.get<unknown>("token/main", { chain });
+    const raw = await this.get<unknown>("tokens/main", { chain });
     const parsed = safeParse(
       aveTokenSearchResponseSchema,
       raw,

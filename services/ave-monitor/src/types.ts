@@ -17,9 +17,18 @@ export type AvePagination = z.infer<typeof avePaginationSchema>;
 
 export const aveChainSchema = z.object({
   chain: z.string(),
-  chain_name: z.string(),
+  // v2 exposes the human-readable name as `name`; keep `chain_name` optional
+  // so legacy v1 payloads still validate.
+  chain_name: z.string().optional(),
+  name: z.string().optional(),
+  chain_id: z.string().optional(),
   chain_logo: z.string().optional(),
   is_supported: z.boolean().optional(),
+  description: z.string().optional(),
+  rpc_url: z.string().optional(),
+  block_explorer_url: z.string().optional(),
+  case_sensitive: z.boolean().optional(),
+  only_native_coin: z.boolean().optional(),
 });
 export type AveChain = z.infer<typeof aveChainSchema>;
 
@@ -120,19 +129,35 @@ export type AveTokenDetailResponse = z.infer<typeof aveTokenDetailResponseSchema
 // Token price (batch)
 // ---------------------------------------------------------------------------
 
+// V2 price entries may return numbers as strings and are keyed by token_id
+// in an object (not array). Keep fields loose so both v1 array-of-entries
+// and v2 record-of-entries validate without warnings.
 export const aveTokenPriceSchema = z.object({
-  token_address: z.string(),
+  token_id: z.string().optional(),
+  token_address: z.string().optional(),
   chain: z.string().optional(),
-  price: z.number(),
-  price_change_24h: z.number().optional(),
+  price: z.union([z.number(), z.string()]).optional(),
+  current_price_usd: z.union([z.number(), z.string()]).optional(),
+  price_change_24h: z.union([z.number(), z.string()]).optional(),
+  price_change_1d: z.union([z.number(), z.string()]).optional(),
   updated_at: z.number().optional(),
+  tvl: z.union([z.number(), z.string()]).optional(),
+  market_cap: z.union([z.number(), z.string()]).optional(),
+  fdv: z.union([z.number(), z.string()]).optional(),
+  tx_volume_u_24h: z.union([z.number(), z.string()]).optional(),
+  holders: z.number().optional(),
 });
 export type AveTokenPrice = z.infer<typeof aveTokenPriceSchema>;
 
+// v2 returns { data: { "<token_id>": {...} } }. v1 returned an array.
+// Accept either shape so both call styles validate.
 export const aveTokenPriceResponseSchema = z.object({
   status: z.number(),
   msg: z.string().optional(),
-  data: z.array(aveTokenPriceSchema),
+  data: z.union([
+    z.array(aveTokenPriceSchema),
+    z.record(z.string(), aveTokenPriceSchema),
+  ]),
 });
 export type AveTokenPriceResponse = z.infer<typeof aveTokenPriceResponseSchema>;
 
@@ -254,21 +279,30 @@ export type AveContractRiskResponse = z.infer<typeof aveContractRiskResponseSche
 // K-line data point
 // ---------------------------------------------------------------------------
 
+// V2 klines return strings for numeric fields and use `time` instead of
+// `timestamp`. Keep the schema permissive so both v1 and v2 payloads pass.
 export const aveKlineSchema = z.object({
-  timestamp: z.number(),
-  open: z.number(),
-  high: z.number(),
-  low: z.number(),
-  close: z.number(),
-  volume: z.number(),
-  volume_usd: z.number().optional(),
+  timestamp: z.number().optional(),
+  time: z.number().optional(),
+  open: z.union([z.number(), z.string()]),
+  high: z.union([z.number(), z.string()]),
+  low: z.union([z.number(), z.string()]),
+  close: z.union([z.number(), z.string()]),
+  volume: z.union([z.number(), z.string()]),
+  amount: z.union([z.number(), z.string()]).optional(),
+  volume_usd: z.union([z.number(), z.string()]).optional(),
 });
 export type AveKline = z.infer<typeof aveKlineSchema>;
 
+// v2 wraps points in { data: { points: [...] } }. v1 returned data as an
+// array directly. Accept either shape.
 export const aveKlineResponseSchema = z.object({
   status: z.number(),
   msg: z.string().optional(),
-  data: z.array(aveKlineSchema),
+  data: z.union([
+    z.array(aveKlineSchema),
+    z.object({ points: z.array(aveKlineSchema) }),
+  ]),
 });
 export type AveKlineResponse = z.infer<typeof aveKlineResponseSchema>;
 

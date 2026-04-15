@@ -273,7 +273,7 @@ async function createAveClientWithFallback(): Promise<{
   isLive: boolean;
 }> {
   const apiKey = process.env.AVE_API_KEY?.trim() ?? "";
-  const baseUrl = process.env.AVE_API_BASE_URL?.trim() ?? "https://openapi.avedata.org/api/v1";
+  const baseUrl = process.env.AVE_API_BASE_URL?.trim() ?? "https://prod.ave-api.com/v2";
 
   if (!apiKey) {
     write(c(C.yellow, "  [INFO] No AVE_API_KEY set, using MockAveClient"));

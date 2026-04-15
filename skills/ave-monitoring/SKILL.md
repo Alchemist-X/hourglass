@@ -16,27 +16,27 @@ Monitors on-chain assets across 130+ blockchains using the Ave.ai API. Discovers
 
 | Capability | Description | AVE Endpoint |
 |---|---|---|
-| **Asset Discovery** | Search, trending, and ranked token discovery across all supported chains | `GET /v2/tokens`, `GET /v2/tokens/trending`, `GET /v2/ranks` |
-| **Real-time Pricing** | Batch price queries for up to 200 tokens per request with 24h change tracking | `POST /v2/tokens/price` |
-| **Token Deep-dive** | Detailed token metadata including holder count, pair info, and multi-timeframe volume | `GET /v2/tokens/{token-id}` |
-| **Transaction Monitoring** | Per-pair swap history with maker addresses, amounts, and liquidity snapshots | `GET /v2/txs/{pair-id}` |
-| **Contract Security** | Smart contract risk scoring: honeypot detection, mint functions, ownership analysis, tax rates, LP lock status | `GET /v2/contracts/{token-id}` |
-| **Chain Coverage** | Query all 130+ supported blockchains | `GET /v2/supported_chains` |
+| **Asset Discovery** | Search, trending, and ranked token discovery across all supported chains | `GET /tokens`, `GET /tokens/trending`, `GET /ranks` |
+| **Real-time Pricing** | Batch price queries for up to 200 tokens per request with 24h change tracking | `POST /tokens/price` |
+| **Token Deep-dive** | Detailed token metadata including holder count, pair info, and multi-timeframe volume | `GET /tokens/{token-id}` |
+| **Transaction Monitoring** | Per-pair swap history with maker addresses, amounts, and liquidity snapshots | `GET /txs/{pair-id}` |
+| **Contract Security** | Smart contract risk scoring: honeypot detection, mint functions, ownership analysis, tax rates, LP lock status | `GET /contracts/{token-id}` |
+| **Chain Coverage** | Query all 130+ supported blockchains | `GET /supported_chains` |
 
 ## API Endpoints Used
 
 ```
-Base URL: https://openapi.avedata.org/api/v1
+Base URL: https://prod.ave-api.com/v2
 Auth:     X-API-KEY header
 
-GET  /v2/tokens?keyword={kw}&chain={chain}&limit={n}&orderby={field}
-GET  /v2/tokens/{token-id}
-POST /v2/tokens/price              body: { token_ids: [...], tvl_min, tx_24h_volume_min }
-GET  /v2/tokens/trending?chain={chain}
-GET  /v2/tokens/main?chain={chain}
-GET  /v2/txs/{pair-id}?limit={n}&from_time={t}&to_time={t}
-GET  /v2/contracts/{token-id}
-GET  /v2/supported_chains
+GET  /tokens?keyword={kw}&chain={chain}&limit={n}&orderby={field}
+GET  /tokens/{token-id}
+POST /tokens/price              body: { token_ids: [...], tvl_min, tx_24h_volume_min }
+GET  /tokens/trending?chain={chain}
+GET  /tokens/main?chain={chain}
+GET  /txs/{pair-id}?limit={n}&from_time={t}&to_time={t}
+GET  /contracts/{token-id}
+GET  /supported_chains
 ```
 
 ## Configuration
@@ -44,7 +44,7 @@ GET  /v2/supported_chains
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `AVE_API_KEY` | Yes | -- | API key from Ave.ai (contact sephana@ave.ai) |
-| `AVE_API_BASE_URL` | No | `https://openapi.avedata.org/api/v1` | API base URL |
+| `AVE_API_BASE_URL` | No | `https://prod.ave-api.com/v2` | API base URL |
 | `AVE_MONITORING_CHAINS` | No | `ethereum,bsc,polygon,base,solana` | Comma-separated chains to monitor |
 | `AVE_PULSE_TOKEN_LIMIT` | No | `300` | Max tokens per chain search |
 | `AVE_PULSE_TRENDING_LIMIT` | No | `50` | Max trending/ranked tokens |
