@@ -213,44 +213,98 @@ Slay the Spire 风格卡牌，展示 4 个 AVE Skill 的独立分析结果：
 
 ## 本地运行
 
+### 第一步 · 克隆代码
+
+把项目拉到本地，进入项目目录。
+
 ```bash
-# 克隆
 git clone https://github.com/Alchemist-X/hourglass.git
 cd hourglass
+```
 
-# 安装
+### 第二步 · 安装依赖
+
+本项目使用 pnpm workspace，请确保已安装 Node 22+ 和 pnpm 10.x。
+
+```bash
 pnpm install
+```
 
-# 构建
+示例输出：
+```
+Scope: all 6 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: +1283
+...
+Done in 45.2s
+```
+
+### 第三步 · 构建全部子包
+
+一次性编译所有 workspace 包（contracts、db、ave-monitor、orchestrator、executor、web）。
+
+```bash
 pnpm build
+```
 
-# Demo（全流程展示，无需实盘）
+构建成功后会看到 6 个 `Build complete` 信息。
+
+### 第四步 · 运行 Demo（推荐先跑这个）
+
+Demo 脚本会实时扫描 Polymarket 市场 + 调用 AVE API，展示完整推理管线，**不会下单**。
+
+```bash
 pnpm ave:demo
+```
 
-# 推荐（扫描真实市场，不下单）
-ENV_FILE=.env.live pnpm ave:recommend
+你会看到 6 步管线输出：扫描市场 → AVE 信号采集 → 信号聚合 → Edge 计算 → 风控检查 → 执行建议。
 
-# 实盘交易
-ENV_FILE=.env.live pnpm ave:live
+### 第五步 · 启动网页 Dashboard
 
-# Dashboard（本地开发）
+本地预览在线展示页面。
+
+```bash
 pnpm --filter @autopoly/web dev
 ```
 
-### 环境变量
+然后浏览器打开 `http://localhost:3000`。
 
-`.env.live` 需配置：
+### 第六步 · 实盘交易（可选，需真金白银）
 
+**⚠️ 这一步会用真钱下单。** 请先按下一节配置 `.env.live`，确认钱包有 USDC，再执行：
+
+```bash
+# 仅扫描并推荐，不下单（安全预演）
+ENV_FILE=.env.live pnpm ave:recommend
+
+# 真实下单
+ENV_FILE=.env.live pnpm ave:live
 ```
+
+---
+
+### 环境变量配置
+
+复制模板然后按注释填入你自己的值。
+
+```bash
+cp .env.example .env.live
+```
+
+编辑 `.env.live`：
+
+```bash
 AUTOPOLY_EXECUTION_MODE=live
-PRIVATE_KEY=0x...              # Polymarket 钱包私钥
-FUNDER_ADDRESS=0x...           # Funder 地址
-SIGNATURE_TYPE=2               # Gnosis Safe（免 Gas）
-CHAIN_ID=137                   # Polygon
-AVE_API_KEY=...                # AVE v2 API Key
+PRIVATE_KEY=0x....             # 你的 Polymarket 钱包私钥（Gnosis Safe 签名者）
+FUNDER_ADDRESS=0x...           # 你的 Funder 地址（持有 USDC 的代理钱包）
+SIGNATURE_TYPE=2               # 2 = Gnosis Safe 免 Gas 模式（推荐）
+CHAIN_ID=137                   # Polygon 主网
+AVE_API_KEY=xxxxx              # 从 sephana@ave.ai 申请的 v2 API Key
 AVE_API_BASE_URL=https://prod.ave-api.com/v2
-FIXED_ORDER_SHARES=5           # 固定每次 5 shares
+FIXED_ORDER_SHARES=5           # 每次固定下单 5 shares（保守测试）
 ```
+
+**Tip**：只想看 Demo 不想碰钱包？跳过 `.env.live` 配置，直接运行 `pnpm ave:demo` 即可——Demo 脚本会在 AVE API 不可用时自动降级到本地 mock 数据。
 
 ---
 
