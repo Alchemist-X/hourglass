@@ -318,6 +318,9 @@ export class AvePolymarketRuntime implements AgentRuntime {
           aveScore: signal.overallScore,
           daysToResolution: matched.daysToResolution,
           marketImpliedProbability: marketImpliedProb,
+          isRangeMarket: matched.isRangeMarket,
+          rangeLower: matched.rangeLower,
+          rangeUpper: matched.rangeUpper,
         });
 
         console.log(

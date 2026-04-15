@@ -560,6 +560,9 @@ async function main(): Promise<void> {
       aveScore: signal.overallScore,
       daysToResolution: matched.daysToResolution,
       marketImpliedProbability: marketImpliedProb,
+      isRangeMarket: matched.isRangeMarket,
+      rangeLower: matched.rangeLower,
+      rangeUpper: matched.rangeUpper,
     });
 
     // Determine the right token ID for the BUY side

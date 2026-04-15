@@ -1195,6 +1195,9 @@ async function main(): Promise<void> {
         aveScore: sig.overallScore,
         daysToResolution: m.daysToResolution,
         marketImpliedProbability: marketImpliedProb,
+        isRangeMarket: m.isRangeMarket,
+        rangeLower: m.rangeLower,
+        rangeUpper: m.rangeUpper,
       })
     );
   }

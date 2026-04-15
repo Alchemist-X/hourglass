@@ -47,6 +47,17 @@ export interface EstimateProbabilityParams {
   volatilityDaily?: number;
   /** Number of AVE signal components that contributed to aveScore */
   signalCount?: number;
+  /**
+   * True when the market is a "between $X and $Y" daily range market — these
+   * resolve based on the spot landing inside a narrow window, NOT on the
+   * directional reach-target logic. The range market branch uses much lower
+   * base probabilities and a smaller AVE adjustment.
+   */
+  isRangeMarket?: boolean;
+  /** Lower bound of the range (required when isRangeMarket is true) */
+  rangeLower?: number;
+  /** Upper bound of the range (required when isRangeMarket is true) */
+  rangeUpper?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +196,46 @@ export function estimateProbability(
     daysToResolution,
     volatilityDaily = 0.03,
     signalCount = 3,
+    isRangeMarket = false,
+    rangeLower,
+    rangeUpper,
   } = params;
+
+  // -------------------------------------------------------------------------
+  // Range-market branch ("between $X and $Y on <date>")
+  //
+  // These daily markets resolve based on whether spot lands INSIDE a narrow
+  // window — they are NOT directional "will price reach X". The base
+  // probability is therefore tied to (a) whether spot is currently inside
+  // the window and (b) the relative distance from the midpoint. The AVE
+  // adjustment is intentionally small (max +/- 0.05) because the directional
+  // signal is much less informative for a window outcome.
+  // -------------------------------------------------------------------------
+  if (isRangeMarket && rangeLower != null && rangeUpper != null && currentPrice > 0) {
+    const mid = (rangeLower + rangeUpper) / 2;
+    const distance = Math.abs(currentPrice - mid) / currentPrice;
+    const inRange = currentPrice >= rangeLower && currentPrice <= rangeUpper;
+
+    let base: number;
+    if (inRange) base = 0.25;
+    else if (distance < 0.02) base = 0.10;
+    else if (distance < 0.05) base = 0.05;
+    else if (distance < 0.10) base = 0.02;
+    else base = 0.01;
+
+    const aveAdjust = aveScore * 0.05;
+    const estimatedProbability = clamp(base + aveAdjust, 0.01, 0.95);
+    const confidence = computeConfidence(aveScore, signalCount);
+
+    return {
+      targetPrice,
+      targetDirection,
+      currentPrice,
+      aveScore,
+      estimatedProbability,
+      confidence,
+    };
+  }
 
   // Step 1: base probability from price distance + time
   const baseProbability = computeBaseProbability(
@@ -220,6 +270,16 @@ export function estimateProbability(
  *
  * This is the high-level entry point used by the trading pipeline.
  */
+/**
+ * Polymarket charges a taker fee of roughly 2% on the notional value of fills.
+ * The on-chain BTC/ETH range markets used in Hourglass have `feesEnabled: true`
+ * even when `negRisk: true`, so any "edge" we display must be NET of that fee
+ * to reflect a tradable opportunity. Subtracting at the estimate layer keeps
+ * the figure consistent across the orchestrator, the demo scripts and the
+ * showcase page.
+ */
+export const POLYMARKET_FEE_RATE = 0.02;
+
 export function buildProbabilityEstimate(params: {
   marketQuestion: string;
   token: string;
@@ -231,6 +291,9 @@ export function buildProbabilityEstimate(params: {
   marketImpliedProbability: number;
   volatilityDaily?: number;
   signalCount?: number;
+  isRangeMarket?: boolean;
+  rangeLower?: number;
+  rangeUpper?: number;
 }): ProbabilityEstimate {
   const partial = estimateProbability({
     currentPrice: params.currentPrice,
@@ -240,10 +303,14 @@ export function buildProbabilityEstimate(params: {
     daysToResolution: params.daysToResolution,
     volatilityDaily: params.volatilityDaily,
     signalCount: params.signalCount,
+    isRangeMarket: params.isRangeMarket,
+    rangeLower: params.rangeLower,
+    rangeUpper: params.rangeUpper,
   });
 
-  // Step 4: edge = our estimate - market implied
-  const edge = partial.estimatedProbability - params.marketImpliedProbability;
+  // Step 4: edge = our estimate - market implied - fees (NET edge)
+  const grossEdge = partial.estimatedProbability - params.marketImpliedProbability;
+  const edge = grossEdge - POLYMARKET_FEE_RATE;
 
   return {
     marketQuestion: params.marketQuestion,

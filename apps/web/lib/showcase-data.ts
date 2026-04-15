@@ -112,6 +112,14 @@ const SHARES_PER_TRADE = 5;
 const EDGE_THRESHOLD = 0.02;
 const MAX_TARGET_RATIO = 1.5;
 const MIN_TARGET_RATIO = 0.6;
+/**
+ * Polymarket charges roughly 2% taker fee on the notional value of a fill.
+ * Even on neg-risk daily BTC/ETH range markets `feesEnabled: true`, so the
+ * "edge" we surface to operators must be NET of that fee. Subtracting the
+ * fee here keeps the showcase honest — most far-OOM brackets correctly
+ * flip to SKIP instead of showing a fake +99% BUY.
+ */
+const POLYMARKET_FEE_RATE = 0.02;
 
 const WBTC_ADDRESS = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
 // AVE v2 token IDs are formatted as `{address}-{chain_name}` where chain_name
@@ -716,9 +724,43 @@ function estimateProbability(args: {
   readonly targetDirection: "above" | "below" | "hit";
   readonly aveScore: number;
   readonly daysToResolution: number;
+  readonly isRangeMarket?: boolean;
+  readonly rangeLower?: number;
+  readonly rangeUpper?: number;
 }): number {
-  const { currentPrice, targetPrice, targetDirection, aveScore, daysToResolution } = args;
+  const {
+    currentPrice,
+    targetPrice,
+    targetDirection,
+    aveScore,
+    daysToResolution,
+    isRangeMarket = false,
+    rangeLower,
+    rangeUpper,
+  } = args;
   if (currentPrice <= 0) return 0.5;
+
+  // Range-market branch ("between $X and $Y on <date>"). These daily markets
+  // resolve based on whether spot lands INSIDE a narrow window — the old
+  // "reach-target" math overshoots dramatically (it treated price > target
+  // as 80%+ probability), producing the bogus "+99% edge" everywhere.
+  // Use a window-probability heuristic anchored on distance to midpoint and
+  // a much smaller AVE adjustment.
+  if (isRangeMarket && rangeLower != null && rangeUpper != null) {
+    const mid = (rangeLower + rangeUpper) / 2;
+    const distance = Math.abs(currentPrice - mid) / currentPrice;
+    const inRange = currentPrice >= rangeLower && currentPrice <= rangeUpper;
+
+    let base: number;
+    if (inRange) base = 0.25;
+    else if (distance < 0.02) base = 0.10;
+    else if (distance < 0.05) base = 0.05;
+    else if (distance < 0.10) base = 0.02;
+    else base = 0.01;
+
+    const aveAdjust = aveScore * 0.05;
+    return Math.max(0.01, Math.min(0.95, base + aveAdjust));
+  }
 
   // Start from a distance-based baseline using a log-normal-ish sigmoid.
   const ratio = targetPrice / currentPrice;
@@ -814,11 +856,11 @@ function buildDetailedAnalysis(market: ShowcaseMarket, signal: CryptoSignalSnaps
       tone: tone(signal.overallScore),
     },
     {
-      title: `\u5E02\u573A\u8D54\u7387 ${(market.yesOdds * 100).toFixed(0)}% \u2192 Edge ${market.edge >= 0 ? "+" : ""}${(market.edge * 100).toFixed(0)}%`,
+      title: `\u5E02\u573A\u8D54\u7387 ${(market.yesOdds * 100).toFixed(0)}% \u2192 \u51C0 Edge ${market.edge >= 0 ? "+" : ""}${(market.edge * 100).toFixed(1)}%`,
       detail:
         market.edge >= EDGE_THRESHOLD
-          ? "\u8DB3\u591F\u7684\u4FE1\u606F\u8FB9\u9645\uFF0C\u8FDB\u5165\u6267\u884C\u961F\u5217"
-          : "\u4FE1\u606F\u8FB9\u9645\u4E0D\u8DB3\uFF0C\u8DF3\u8FC7",
+          ? `\u5DF2\u6263\u9664 Polymarket ${(POLYMARKET_FEE_RATE * 100).toFixed(0)}% \u624B\u7EED\u8D39\uFF0C\u4FE1\u606F\u8FB9\u9645\u8DB3\u591F\uFF0C\u8FDB\u5165\u6267\u884C\u961F\u5217`
+          : `\u5DF2\u6263\u9664 Polymarket ${(POLYMARKET_FEE_RATE * 100).toFixed(0)}% \u624B\u7EED\u8D39\u540E\uFF0C\u4FE1\u606F\u8FB9\u9645\u4E0D\u8DB3\uFF0C\u8DF3\u8FC7`,
       score: market.edge,
       tone: market.edge >= EDGE_THRESHOLD ? "bull" : "neutral",
     },
@@ -892,8 +934,15 @@ export async function loadShowcaseData(): Promise<ShowcaseData> {
       targetDirection: m.targetDirection,
       aveScore,
       daysToResolution: m.daysToResolution,
+      isRangeMarket: m.isRangeMarket,
+      rangeLower: m.rangeLower,
+      rangeUpper: m.rangeUpper,
     });
-    const edge = ourProb - m.yesOdds;
+    // Net edge = (our estimate - market implied) - Polymarket taker fee.
+    // Showing the gross figure here would print "+99%" on far-OOM brackets
+    // even though the trade is unprofitable after fees.
+    const grossEdge = ourProb - m.yesOdds;
+    const edge = grossEdge - POLYMARKET_FEE_RATE;
     const action: "BUY" | "SKIP" = edge >= EDGE_THRESHOLD ? "BUY" : "SKIP";
 
     return {

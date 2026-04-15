@@ -276,7 +276,12 @@ export function MarketList({
                     {m.action === "BUY" ? "\u2705 \u4E70\u5165" : "\u23ED\uFE0F \u8DF3\u8FC7"}
                   </div>
                   <div>
-                    <span style={styles.decisionEdgeLabel}>Edge</span>
+                    <span
+                      style={styles.decisionEdgeLabel}
+                      title={"\u51C0 Edge\uFF1A\u5DF2\u6263\u9664 Polymarket 2% \u624B\u7EED\u8D39"}
+                    >
+                      {"Edge (\u51C0)"}
+                    </span>
                     <div style={styles.decisionEdge(m.action)}>{edgeLabel}</div>
                   </div>
                 </div>
