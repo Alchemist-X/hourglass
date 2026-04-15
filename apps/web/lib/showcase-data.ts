@@ -122,9 +122,11 @@ const MIN_TARGET_RATIO = 0.6;
 const POLYMARKET_FEE_RATE = 0.02;
 
 const WBTC_ADDRESS = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
+const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 // AVE v2 token IDs are formatted as `{address}-{chain_name}` where chain_name
 // follows AVE's short naming convention ("eth" not "ethereum", "bsc", etc.).
 const WBTC_TOKEN_ID = `${WBTC_ADDRESS}-eth`;
+const WETH_TOKEN_ID = `${WETH_ADDRESS}-eth`;
 
 const AVE_BASE_URL = (process.env.AVE_API_BASE_URL || "https://prod.ave-api.com/v2").replace(
   /\/+$/,
@@ -587,11 +589,19 @@ async function probeAveAll(): Promise<AveApiCall[]> {
 
   const [chains, price, klines] = await Promise.all([
     probeAveEndpoint({ method: "GET", endpointLabel: "GET /supported_chains", url: chainsUrl }),
+    // Fetch BTC and ETH spot in a single batch call — the v2 price endpoint
+    // accepts an array of token_ids and returns a keyed object. We parse both
+    // downstream so the matcher uses the real WETH price for ETH brackets
+    // instead of the stale $2,500 fallback.
     probeAveEndpoint({
       method: "POST",
       endpointLabel: "POST /tokens/price",
       url: priceUrl,
-      body: { token_ids: [WBTC_TOKEN_ID], tvl_min: 0, tx_24h_volume_min: 0 },
+      body: {
+        token_ids: [WBTC_TOKEN_ID, WETH_TOKEN_ID],
+        tvl_min: 0,
+        tx_24h_volume_min: 0,
+      },
     }),
     probeAveEndpoint({ method: "GET", endpointLabel: "GET /klines/token", url: klineUrl }),
   ]);
@@ -604,47 +614,67 @@ async function probeAveAll(): Promise<AveApiCall[]> {
 // Defensive: the AVE schema has varied historically, so we probe likely paths.
 // ---------------------------------------------------------------------------
 
-function extractAvePriceFromSnippet(snippet: string): number | null {
-  function pickPrice(obj: Record<string, unknown>): number | null {
-    const candidates = [
-      obj.current_price_usd,
-      obj.price,
-      obj.priceUsd,
-      obj.current_price,
-    ];
-    for (const c of candidates) {
-      const n = typeof c === "string" ? parseFloat(c) : (c as number);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
-    return null;
+function pickPriceFromObj(obj: Record<string, unknown>): number | null {
+  const candidates = [
+    obj.current_price_usd,
+    obj.price,
+    obj.priceUsd,
+    obj.current_price,
+  ];
+  for (const c of candidates) {
+    const n = typeof c === "string" ? parseFloat(c) : (c as number);
+    if (Number.isFinite(n) && n > 0) return n;
   }
+  return null;
+}
 
+/**
+ * Extract a single price (first encountered) from an AVE /tokens/price
+ * response snippet. Kept for backwards compatibility; most callers should
+ * use {@link extractAvePriceMap} instead to look up BTC and ETH separately.
+ */
+function extractAvePriceFromSnippet(snippet: string): number | null {
+  const map = extractAvePriceMap(snippet);
+  for (const value of map.values()) return value;
+  return null;
+}
+
+/**
+ * Build a token_id → price map from an AVE /tokens/price response snippet.
+ * The AVE v2 response keys its `data` object by the full `{address}-{chain}`
+ * token_id, which is exactly what we request — so the returned map is
+ * directly indexable by WBTC_TOKEN_ID / WETH_TOKEN_ID.
+ */
+function extractAvePriceMap(snippet: string): Map<string, number> {
+  const out = new Map<string, number>();
   try {
     const parsed: unknown = JSON.parse(snippet);
-    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed || typeof parsed !== "object") return out;
     const p = parsed as Record<string, unknown>;
     const data = (p.data ?? p.result ?? p) as unknown;
 
-    // v2 shape: data is an object keyed by token_id → { current_price_usd, ... }
     if (data && typeof data === "object" && !Array.isArray(data)) {
-      for (const value of Object.values(data as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
         if (value && typeof value === "object") {
-          const price = pickPrice(value as Record<string, unknown>);
-          if (price !== null) return price;
+          const price = pickPriceFromObj(value as Record<string, unknown>);
+          if (price !== null) out.set(key.toLowerCase(), price);
         }
       }
-    }
-
-    // Legacy v1 shape: data is an array of entries.
-    if (Array.isArray(data) && data.length > 0) {
-      const first = data[0] as Record<string, unknown>;
-      const price = pickPrice(first);
-      if (price !== null) return price;
+    } else if (Array.isArray(data)) {
+      for (const entry of data) {
+        if (entry && typeof entry === "object") {
+          const obj = entry as Record<string, unknown>;
+          const tokenId =
+            typeof obj.token_id === "string" ? obj.token_id.toLowerCase() : null;
+          const price = pickPriceFromObj(obj);
+          if (tokenId && price !== null) out.set(tokenId, price);
+        }
+      }
     }
   } catch {
     // ignore
   }
-  return null;
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -748,15 +778,51 @@ function estimateProbability(args: {
   // a much smaller AVE adjustment.
   if (isRangeMarket && rangeLower != null && rangeUpper != null) {
     const mid = (rangeLower + rangeUpper) / 2;
-    const distance = Math.abs(currentPrice - mid) / currentPrice;
+    const width = rangeUpper - rangeLower;
+    const halfWidth = width / 2;
+    const midDistance = Math.abs(currentPrice - mid);
+    const midDistancePct = midDistance / currentPrice;
     const inRange = currentPrice >= rangeLower && currentPrice <= rangeUpper;
+    // Distance to the NEAREST edge of the window (negative if inside).
+    const distToEdge = inRange
+      ? 0
+      : Math.min(
+          Math.abs(currentPrice - rangeLower),
+          Math.abs(currentPrice - rangeUpper),
+        );
+    const edgeDistancePct = distToEdge / currentPrice;
 
+    // Daily BTC/ETH resolves against a 12:00 ET close. For a $2K-wide window
+    // around spot, ~35-40% probability is realistic (narrow-range random walk
+    // over <24h). Brackets just outside the window but within one half-width
+    // still carry meaningful probability because spot routinely oscillates
+    // that much intraday. Far-OOM brackets decay fast.
+    // Think in bucket-widths: for daily BTC close, spot typically stays
+    // within ±1 bucket overnight. Anchor probabilities to "how many bucket
+    // widths away is the nearest edge of this window".
+    const bucketsAway = width > 0 ? distToEdge / width : 0;
+    // midDistancePct unused for non-inRange branch; reference it to keep the
+    // noUnusedLocals lint happy.
+    void midDistancePct;
     let base: number;
-    if (inRange) base = 0.25;
-    else if (distance < 0.02) base = 0.10;
-    else if (distance < 0.05) base = 0.05;
-    else if (distance < 0.10) base = 0.02;
-    else base = 0.01;
+    if (inRange) {
+      // Inside the window: ~35-42% depending on how centered spot is.
+      const centrality = halfWidth > 0 ? midDistance / halfWidth : 0; // 0=bullseye, 1=at edge
+      base = 0.42 - centrality * 0.07;
+    } else if (bucketsAway < 0.5) {
+      // Within half a bucket of the nearest edge — next to in-range bracket.
+      base = 0.25;
+    } else if (bucketsAway < 1.25) {
+      // Adjacent bucket (one full width away from nearest edge).
+      base = 0.12;
+    } else if (bucketsAway < 2.25) {
+      // Two buckets away.
+      base = 0.04;
+    } else if (edgeDistancePct < 0.10) {
+      base = 0.02;
+    } else {
+      base = 0.01;
+    }
 
     const aveAdjust = aveScore * 0.05;
     return Math.max(0.01, Math.min(0.95, base + aveAdjust));
@@ -909,13 +975,20 @@ export async function loadShowcaseData(): Promise<ShowcaseData> {
         : "AVE API unreachable";
 
   let spotBtc = FALLBACK_SPOT.BTC;
+  let spotEth = FALLBACK_SPOT.ETH;
   if (priceCall?.ok) {
-    const live = extractAvePriceFromSnippet(priceCall.snippet);
-    if (live) spotBtc = live;
+    const priceMap = extractAvePriceMap(priceCall.snippet);
+    const btcLive = priceMap.get(WBTC_TOKEN_ID.toLowerCase());
+    const ethLive = priceMap.get(WETH_TOKEN_ID.toLowerCase());
+    if (btcLive && btcLive > 0) spotBtc = btcLive;
+    if (ethLive && ethLive > 0) spotEth = ethLive;
+    // If the keyed lookup fails (e.g., AVE returns a differently-cased key),
+    // fall back to the legacy first-match extractor so BTC still renders.
+    if (spotBtc === FALLBACK_SPOT.BTC) {
+      const fallback = extractAvePriceFromSnippet(priceCall.snippet);
+      if (fallback) spotBtc = fallback;
+    }
   }
-  // ETH spot fetch would mirror the BTC one; keep the fallback for now — the
-  // ETH market card still renders meaningfully.
-  const spotEth = FALLBACK_SPOT.ETH;
 
   const signals = generateSignals(spotBtc, spotEth, aveIsLive);
   const signalByToken = new Map<string, CryptoSignalSnapshot>();
@@ -992,11 +1065,31 @@ export async function loadShowcaseData(): Promise<ShowcaseData> {
   }
 
   const buyCandidates = sortedByEdge.filter((m) => m.action === "BUY").slice(0, 20);
-  // Top markets panel: pin range markets at the top, then sort the rest by volume.
+
+  // Top markets panel: for range markets, surface near-spot brackets first so
+  // the page reliably shows markets with genuine edge. Far-OOM brackets
+  // (midpoint far from spot) are still listed, but after the ones near spot.
+  // Tie-break by net edge descending so BUY cards float to the top inside
+  // the near-spot group.
+  function distanceFromSpot(m: ShowcaseMarket): number {
+    const spot = m.token === "BTC" ? spotBtc : spotEth;
+    if (!spot || spot <= 0) return Number.POSITIVE_INFINITY;
+    const ref = m.isRangeMarket && m.rangeLower != null && m.rangeUpper != null
+      ? (m.rangeLower + m.rangeUpper) / 2
+      : m.targetPrice;
+    return Math.abs(ref - spot) / spot;
+  }
+
   const topMarkets = [...showcaseMarkets]
     .sort((a, b) => {
+      // Range markets first (they resolve within 24h — most realistic).
       if (a.isRangeMarket !== b.isRangeMarket) return a.isRangeMarket ? -1 : 1;
-      return b.volumeUsd - a.volumeUsd;
+      // Then by distance to spot ascending (near-spot brackets show first).
+      const da = distanceFromSpot(a);
+      const db = distanceFromSpot(b);
+      if (Math.abs(da - db) > 1e-6) return da - db;
+      // Finally by net edge descending.
+      return b.edge - a.edge;
     })
     .slice(0, 12);
 
