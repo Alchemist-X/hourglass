@@ -253,6 +253,10 @@ export function MarketList({
         <h2 style={styles.title}>{"\u76D1\u63A7\u5E02\u573A"}</h2>
         <p style={styles.summary}>
           {`\u626B\u63CF\u4E86 ${totalScanned} \u4E2A\u6D3B\u8DC3\u5E02\u573A\uFF0C\u5339\u914D\u5230 ${matchedCount} \u4E2A\u6BCF\u65E5\u4EF7\u683C\u533A\u95F4\u5E02\u573A\uFF0C\u6392\u9664 ${rejectedCount} \u4E2A\u4E0D\u73B0\u5B9E\u5E02\u573A\u3002\u70B9\u51FB\u5361\u7247\u53EF\u8DF3\u8F6C\u5230 Polymarket \u6838\u5BF9\u539F\u6570\u636E\u3002`}
+          <br />
+          <span style={{ color: "#d4a574", fontSize: 13 }}>
+            {"Edge \u5DF2\u6263\u9664 Polymarket 2% \u624B\u7EED\u8D39"}
+          </span>
         </p>
 
         <div style={styles.grid}>
@@ -276,12 +280,7 @@ export function MarketList({
                     {m.action === "BUY" ? "\u2705 \u4E70\u5165" : "\u23ED\uFE0F \u8DF3\u8FC7"}
                   </div>
                   <div>
-                    <span
-                      style={styles.decisionEdgeLabel}
-                      title={"\u51C0 Edge\uFF1A\u5DF2\u6263\u9664 Polymarket 2% \u624B\u7EED\u8D39"}
-                    >
-                      {"Edge (\u51C0)"}
-                    </span>
+                    <span style={styles.decisionEdgeLabel}>EDGE</span>
                     <div style={styles.decisionEdge(m.action)}>{edgeLabel}</div>
                   </div>
                 </div>
