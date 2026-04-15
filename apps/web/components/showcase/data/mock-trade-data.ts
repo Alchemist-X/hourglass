@@ -102,12 +102,12 @@ export const showcaseMarket = {
 // ---------------------------------------------------------------------------
 
 export const edgeCalculation = {
-  ourProbability: 0.21,
-  ourProbabilityPct: "21%",
-  marketOdds: 0.031,
-  marketOddsPct: "3.1%",
-  edge: 0.179,
-  edgePct: "+17.9%",
+  ourProbability: 0.36,
+  ourProbabilityPct: "36%",
+  marketOdds: 0.17,
+  marketOddsPct: "17%",
+  edge: 0.18,
+  edgePct: "+18%",
   confidence: 0.72,
 } as const;
 
@@ -116,6 +116,6 @@ export const edgeCalculation = {
 // ---------------------------------------------------------------------------
 
 export const aiReasoning = {
-  text: "\u94FE\u4E0A\u4FE1\u53F7\u663E\u793A\u9CB8\u9C7C\u5728\u79EF\u6781\u4E70\u5165 BTC\uFF0CMA \u91D1\u53C9\u786E\u8BA4\u4E0A\u5347\u8D8B\u52BF\u3002\u5E02\u573A\u4E25\u91CD\u4F4E\u4F30 BTC \u8FBE\u5230 $150K \u7684\u53EF\u80FD\u6027\u3002",
+  text: "\u94FE\u4E0A\u4FE1\u53F7\u663E\u793A ETH \u73B0\u4EF7\u6B63\u597D\u5728 $2,400-$2,500 \u533A\u95F4\u5185\uFF0C\u4E70\u5356\u6BD4\u504F\u591A\u914D\u5408 MA \u4E0A\u534B\u89D2\u3002\u5E02\u573A\u8D54\u7387 17% \u660E\u663E\u4F4E\u4F30\u4E86\u6536\u76D8\u5728\u8BE5\u533A\u95F4\u7684\u6982\u7387\uFF0C\u6211\u4EEC\u4F30\u7B97 36%\u3002",
   attribution: "Hourglass AI",
 } as const;
